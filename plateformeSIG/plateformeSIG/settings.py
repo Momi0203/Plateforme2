@@ -12,10 +12,12 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
-# Force PROJ to use OSGeo4W's database — must be set before any GIS import
-# (prevents conflict with PostgreSQL's older PROJ installation)
-os.environ.setdefault('PROJ_LIB',  r'C:\OSGeo4W\share\proj')
-os.environ.setdefault('PROJ_DATA', r'C:\OSGeo4W\share\proj')
+# Force PROJ to use OSGeo4W's database on Windows — must be set before any GIS import
+# (prevents conflict with PostgreSQL's older bundled PROJ).
+# On Linux (Docker / production), GeoDjango auto-discovers the system GDAL/GEOS/PROJ.
+if os.name == 'nt':
+    os.environ.setdefault('PROJ_LIB',  r'C:\OSGeo4W\share\proj')
+    os.environ.setdefault('PROJ_DATA', r'C:\OSGeo4W\share\proj')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,6 +54,18 @@ ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
 
+# Origines de confiance pour le CSRF (ex: https://mon-app.onrender.com)
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
+
+# Réglages de sécurité activés uniquement hors DEBUG (production derrière un proxy HTTPS).
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # Application definition
 
@@ -82,6 +96,7 @@ LOGOUT_REDIRECT_URL = 'connexion'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -114,19 +129,34 @@ WSGI_APPLICATION = 'plateformeSIG.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': os.environ.get('DB_NAME', 'plateformeSIG'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    }
-}
+# En production (Render / Railway), l'hébergeur fournit une variable DATABASE_URL.
+# En local, on utilise les variables DB_* du fichier .env.
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
 
-GDAL_LIBRARY_PATH = r'C:\OSGeo4W\bin\gdal312.dll'
-GEOS_LIBRARY_PATH = r'C:\OSGeo4W\bin\geos_c.dll'
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ['DATABASE_URL'],
+            engine='django.contrib.gis.db.backends.postgis',
+            conn_max_age=600,
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.contrib.gis.db.backends.postgis',
+            'NAME': os.environ.get('DB_NAME', 'plateformeSIG'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
+
+# Chemins natifs épinglés uniquement sous Windows ; sous Linux GeoDjango les trouve seul.
+if os.name == 'nt':
+    GDAL_LIBRARY_PATH = r'C:\OSGeo4W\bin\gdal312.dll'
+    GEOS_LIBRARY_PATH = r'C:\OSGeo4W\bin\geos_c.dll'
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -172,6 +202,12 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'plateformeSIG/static'),
 ]
+
+# WhiteNoise : compresse et sert les fichiers statiques directement par l'app en production.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

@@ -1,0 +1,34 @@
+# Environnements virtuels
+Include/
+Lib/
+Scripts/
+share/
+pyvenv.cfg
+**/venv/
+.venv/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+
+# Données locales (ne pas embarquer dans l'image)
+plateformeSIG/db.sqlite3
+plateformeSIG/media/
+plateformeSIG/static/
+plateformeSIG/.env
+.env
+
+# Git / éditeurs / docs
+.git/
+.gitignore
+.vscode/
+.idea/
+.claude/
+cc-projet/
+*.md
+*.docx
+*.pptx
+generate_*.py
+_geomchk.py
+_ser.py
+mohel.txt

@@ -23,3 +23,6 @@ sqlparse==0.5.5
 typing_extensions==4.15.0
 tzdata==2026.1
 xlsxwriter==3.2.9
+gunicorn==23.0.0
+whitenoise==6.8.2
+dj-database-url==2.3.0

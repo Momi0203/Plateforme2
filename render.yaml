@@ -1,0 +1,33 @@
+# Blueprint Render — déploiement automatique de la plateforme SIG.
+# Doc : https://render.com/docs/blueprint-spec
+#
+# IMPORTANT : après la première création de la base, il faut activer PostGIS
+# une seule fois (voir DEPLOIEMENT_RENDER.md, étape « Activer PostGIS »).
+
+databases:
+  - name: plateformesig-db
+    databaseName: plateformesig
+    user: plateformesig
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: plateformesig
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: plateformesig-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://plateformesig.onrender.com"
