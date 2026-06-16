@@ -1,0 +1,511 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titre }} - HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.form-layout { display: grid; grid-template-columns: 1fr 380px; gap: 22px; align-items: start; }
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 22px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.section-sep { border: none; border-top: 1px solid #f5ece0; margin: 14px 0; }
+.section-label { font-size: 11px; font-weight: 700; color: #f0a500; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.form-group { margin-bottom: 12px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 4px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+.shp-zone { border: 2px dashed #e0d0c0; border-radius: 10px; padding: 18px; text-align: center; cursor: pointer; transition: border-color .2s; margin-bottom: 12px; }
+.shp-zone:hover, .shp-zone.dragover { border-color: #f0a500; background: #fff8ee; }
+.shp-zone i { font-size: 24px; color: #ddd; display: block; margin-bottom: 6px; }
+.shp-zone p { font-size: 12px; color: #aaa; margin: 0; }
+.shp-status { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.shp-status.ok { color: #1e8449; }
+.shp-status.error { color: #c0392b; }
+.shp-status.loading { color: #888; }
+
+.or-sep { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; color: #bbb; font-size: 11.5px; font-weight: 600; }
+.or-sep::before, .or-sep::after { content: ''; flex: 1; height: 1px; background: #f0e8d8; }
+
+.map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; position: sticky; top: 78px; }
+.map-title { background: #1a1a2e; padding: 12px 16px; font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+.map-title span { display: flex; align-items: center; gap: 7px; }
+.map-title i { color: #f0a500; }
+.map-hint { font-size: 11px; background: #f0a50022; color: #c47d00; padding: 7px 14px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #f0e8d8; }
+#map-preview { height: 340px; cursor: crosshair; }
+.map-coords { font-size: 11px; font-weight: 400; color: #f0a500; opacity: .8; }
+
+.dm-info { font-size: 12px; color: #c47d00; background: #fff8ee; border-left: 3px solid #f0a500; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.dm-paste-area { width: 100%; padding: 7px 10px; border: 1.5px dashed #e0d0c0; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 12px; resize: vertical; min-height: 40px; margin-bottom: 10px; }
+.dm-paste-area:focus { outline: none; border-color: #f0a500; background: #fff8ee; }
+.dm-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #f0e8d8; }
+.dm-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 920px; }
+.dm-table thead { background: #1a1a2e; color: #fff; }
+.dm-table th { padding: 10px 12px; text-align: center; font-weight: 700; font-size: 12px; }
+.dm-table th:first-child { text-align: left; }
+.dm-table tbody td { padding: 8px; text-align: center; border-bottom: 1px solid #f5ece0; }
+.dm-table tbody td:first-child { text-align: left; font-weight: 700; color: #1a1a2e; padding-left: 14px; }
+.dm-input { width: 70px; padding: 6px 8px; border: 1.5px solid #e0d0c0; border-radius: 6px; text-align: center; font-size: 12px; font-family: 'Inter', sans-serif; }
+.dm-input:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 2px rgba(240,165,0,.1); }
+.dm-feedback { font-size: 11.5px; margin-top: 6px; min-height: 16px; }
+.dm-feedback.ok { color: #1e8449; }
+.dm-feedback.err { color: #c0392b; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.btn-submit { padding: 10px 26px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 10px 18px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_stations_hydro' %}">Stations hydro.</a> › {{ titre }}
+  </div>
+
+  <form method="post" id="sh-form" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="geometrie" id="id_geometrie" value="{{ form.geometrie.value|default:'' }}">
+
+    <div class="form-layout">
+      <div>
+        <div class="form-card">
+          <h2><i class="fas fa-water"></i> {{ titre }}</h2>
+
+          <div class="section-label">Localisation (point)</div>
+
+          <div class="shp-zone" id="shp-drop-zone" onclick="document.getElementById('shp-file-input').click()">
+            <i class="fas fa-file-archive"></i>
+            <p><b>Cliquer ou glisser</b> un .zip (.shp point)</p>
+          </div>
+          <input type="file" id="shp-file-input" accept=".zip" style="display:none">
+          <div class="shp-status" id="shp-status" style="display:none;"></div>
+
+          <div class="or-sep">OU</div>
+          <p style="font-size:12px;color:#888;margin:0 0 14px;"><i class="fas fa-mouse-pointer" style="color:#f0a500;"></i> Cliquez sur la carte a droite pour positionner la station</p>
+
+          <hr class="section-sep">
+          <div class="section-label">Identification</div>
+          <div class="row2">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>{{ form.nom.label }}</label>{{ form.nom }}{{ form.nom.errors }}
+            </div>
+            <div class="form-group">
+              <label>{{ form.x.label }}</label>{{ form.x }}
+              <div class="form-help">Coordonnee X Nord Maroc (m)</div>
+              {{ form.x.errors }}
+            </div>
+            <div class="form-group">
+              <label>{{ form.y.label }}</label>{{ form.y }}
+              <div class="form-help">Coordonnee Y Nord Maroc (m)</div>
+              {{ form.y.errors }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>{{ form.superficie_bv_jaugee.label }}</label>
+            {{ form.superficie_bv_jaugee }}{{ form.superficie_bv_jaugee.errors }}
+          </div>
+
+          <hr class="section-sep">
+          <div class="section-label">Qjmax par periode de retour (m3/s)</div>
+          <div class="row4">
+            <div class="form-group"><label>T=10</label>{{ form.qjmax_t10 }}{{ form.qjmax_t10.errors }}</div>
+            <div class="form-group"><label>T=20</label>{{ form.qjmax_t20 }}{{ form.qjmax_t20.errors }}</div>
+            <div class="form-group"><label>T=50</label>{{ form.qjmax_t50 }}{{ form.qjmax_t50.errors }}</div>
+            <div class="form-group"><label>T=100</label>{{ form.qjmax_t100 }}{{ form.qjmax_t100.errors }}</div>
+          </div>
+
+          <hr class="section-sep">
+          <div class="section-label"><i class="fas fa-water"></i> Tableau mensuel station hydrometrique</div>
+          <div class="dm-info">
+            <i class="fas fa-info-circle"></i>
+            Collez directement 6 lignes x 12 colonnes (Sep -> Aou). Les frequences sont initialisees avec le nombre de jours du mois.
+          </div>
+          <textarea id="dm-paste-area" class="dm-paste-area" rows="2"
+                    placeholder="Coller ici 6 lignes x 12 colonnes depuis Excel"></textarea>
+
+          <div class="dm-table-wrap">
+            <table class="dm-table" id="dm-table">
+              <thead>
+                <tr>
+                  <th>Parametre</th>
+                  <th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+                  <th>Jan</th><th>Fev</th><th>Mar</th><th>Avr</th>
+                  <th>Mai</th><th>Juin</th><th>Jul</th><th>Aou</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-row="normale_debits">
+                  <td>Debits annee normale (m3/s)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="0.01" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+                <tr data-row="normale_freq">
+                  <td>Frequence annee normale (jours)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="1" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+                <tr data-row="humide_debits">
+                  <td>Debits annee humide (m3/s)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="0.01" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+                <tr data-row="humide_freq">
+                  <td>Frequence annee humide (jours)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="1" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+                <tr data-row="seche_debits">
+                  <td>Debits annee seche (m3/s)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="0.01" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+                <tr data-row="seche_freq">
+                  <td>Frequence annee seche (jours)</td>
+                  {% for i in "xxxxxxxxxxxx" %}<td><input type="number" step="1" class="dm-input" value="0"></td>{% endfor %}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="dm-feedback" id="dm-feedback"></div>
+
+          {{ form.debits_mensuels_annee_normale }}
+          {{ form.debits_mensuels_annee_humide }}
+          {{ form.debits_mensuels_annee_seche }}
+          {{ form.frequences_mensuelles_annee_normale }}
+          {{ form.frequences_mensuelles_annee_humide }}
+          {{ form.frequences_mensuelles_annee_seche }}
+
+          {{ form.debits_mensuels_annee_normale.errors }}
+          {{ form.debits_mensuels_annee_humide.errors }}
+          {{ form.debits_mensuels_annee_seche.errors }}
+          {{ form.frequences_mensuelles_annee_normale.errors }}
+          {{ form.frequences_mensuelles_annee_humide.errors }}
+          {{ form.frequences_mensuelles_annee_seche.errors }}
+
+          {% if form.non_field_errors %}
+          <div style="color:#c0392b;font-size:12px;margin:10px 0;">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="form-actions">
+            <a href="{% url 'liste_stations_hydro' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+            <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="map-card">
+        <div class="map-title">
+          <span><i class="fas fa-map-marker-alt"></i> Localisation</span>
+          <span class="map-coords" id="map-coords"></span>
+        </div>
+        <div class="map-hint">
+          <i class="fas fa-info-circle"></i>
+          Saisie X/Y en Nord Maroc (m) - clic carte possible
+        </div>
+        <div id="map-preview"></div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+<script>
+const UPLOAD_URL = "{% url 'upload_shp' %}";
+const CSRF = "{{ csrf_token }}";
+const existingGeom = {{ form.instance.geometrie.geojson|default:"null"|safe }};
+const JOURS_PAR_MOIS = [30, 31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31];
+
+proj4.defs("EPSG:26191", "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs +type=crs");
+
+function toNordMaroc(lat, lng) {
+    const out = proj4("EPSG:4326", "EPSG:26191", [lng, lat]);
+    return { x: out[0], y: out[1] };
+}
+
+function toWgs84(x, y) {
+    const out = proj4("EPSG:26191", "EPSG:4326", [x, y]);
+    return { lng: out[0], lat: out[1] };
+}
+
+const map = L.map('map-preview').setView([30.0, -6.0], 6);
+const basemaps = {
+    'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+    'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+    'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+    'ESRI Streets':       L.esri.basemapLayer('Streets'),
+};
+basemaps['OpenStreetMap'].addTo(map);
+L.control.layers(basemaps, {}, { collapsed: true }).addTo(map);
+
+let marker = null;
+
+function fillField(id, value) {
+    const el = document.getElementById(id);
+    if (!el || value === null || value === undefined || value === '') return;
+    el.value = value;
+    el.style.borderColor = '#27ae60';
+    setTimeout(() => el.style.borderColor = '', 1500);
+}
+
+function setStatus(msg, type) {
+    const s = document.getElementById('shp-status');
+    s.style.display = 'flex';
+    s.className = 'shp-status ' + type;
+    const icons = { loading: 'fa-spinner fa-spin', ok: 'fa-check-circle', error: 'fa-exclamation-circle' };
+    s.innerHTML = `<i class="fas ${icons[type]}"></i> ${msg}`;
+}
+
+function placeMarkerFromLatLng(latlng, zoomTo = true) {
+    if (marker) map.removeLayer(marker);
+    marker = L.circleMarker(latlng, {
+        radius: 10, color: '#1e8449', fillColor: '#27ae60', fillOpacity: 0.85, weight: 2
+    }).addTo(map);
+    if (zoomTo) map.setView(latlng, Math.max(map.getZoom(), 13));
+
+    const nord = toNordMaroc(latlng.lat, latlng.lng);
+    fillField('id_x', nord.x.toFixed(3));
+    fillField('id_y', nord.y.toFixed(3));
+    document.getElementById('id_geometrie').value = `POINT (${latlng.lng.toFixed(6)} ${latlng.lat.toFixed(6)})`;
+    document.getElementById('map-coords').textContent = `X:${nord.x.toFixed(1)}  Y:${nord.y.toFixed(1)}`;
+}
+
+function placeMarkerFromNord(x, y, zoomTo = true) {
+    const wgs = toWgs84(x, y);
+    if (!isFinite(wgs.lat) || !isFinite(wgs.lng)) return;
+    placeMarkerFromLatLng(L.latLng(wgs.lat, wgs.lng), zoomTo);
+}
+
+map.on('click', e => {
+    placeMarkerFromLatLng(e.latlng);
+    const nord = toNordMaroc(e.latlng.lat, e.latlng.lng);
+    setStatus(`Point place - X:${nord.x.toFixed(3)} Y:${nord.y.toFixed(3)}`, 'ok');
+});
+
+if (existingGeom) {
+    const layer = L.geoJSON(existingGeom, {
+        pointToLayer: (f, ll) => {
+            marker = L.circleMarker(ll, {
+                radius: 10, color: '#1e8449', fillColor: '#27ae60', fillOpacity: 0.85, weight: 2
+            });
+            return marker;
+        }
+    }).addTo(map);
+    map.setView(layer.getBounds().getCenter(), 13);
+
+    if (existingGeom.type === 'Point') {
+        const [lng, lat] = existingGeom.coordinates;
+        const nord = toNordMaroc(lat, lng);
+        if (!document.getElementById('id_x').value) fillField('id_x', nord.x.toFixed(3));
+        if (!document.getElementById('id_y').value) fillField('id_y', nord.y.toFixed(3));
+        document.getElementById('map-coords').textContent = `X:${nord.x.toFixed(1)}  Y:${nord.y.toFixed(1)}`;
+    }
+}
+
+const HYDRO_ATTR_MAP = {
+    superficie_bv_jaugee: 'id_superficie_bv_jaugee',
+};
+
+function handleSHP(file) {
+    if (!file.name.endsWith('.zip')) { setStatus('Fichier .zip requis', 'error'); return; }
+    setStatus('Lecture...', 'loading');
+
+    const fd = new FormData();
+    fd.append('shp_file', file);
+    fd.append('geom_type', 'point');
+
+    fetch(UPLOAD_URL, { method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd })
+        .then(r => {
+            if (!r.ok && r.status !== 400) {
+                return r.text().then(t => { throw new Error(`Erreur serveur ${r.status} - ${t.substring(0, 200)}`); });
+            }
+            return r.json();
+        })
+        .then(data => {
+            if (data.error) { setStatus(data.error, 'error'); return; }
+
+            document.getElementById('id_geometrie').value = data.wkt;
+            fillField('id_x', data.x);
+            fillField('id_y', data.y);
+
+            const attrs = data.attrs || {};
+            let filled = 0;
+            for (const [key, id] of Object.entries(HYDRO_ATTR_MAP)) {
+                if (attrs[key] !== undefined) { fillField(id, attrs[key]); filled++; }
+            }
+
+            if (data.geojson && data.geojson.type === 'Point') {
+                const [lng, lat] = data.geojson.coordinates;
+                placeMarkerFromLatLng(L.latLng(lat, lng));
+            }
+
+            setStatus(`Point charge - X:${data.x}, Y:${data.y}${filled ? ` · ${filled} champ(s)` : ''}`, 'ok');
+        })
+        .catch(err => setStatus(err.message || 'Erreur reseau', 'error'));
+}
+
+document.getElementById('shp-file-input').addEventListener('change', e => {
+    if (e.target.files[0]) handleSHP(e.target.files[0]);
+});
+const dz = document.getElementById('shp-drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleSHP(e.dataTransfer.files[0]);
+});
+
+function syncFromFields() {
+    const x = parseFloat(document.getElementById('id_x').value);
+    const y = parseFloat(document.getElementById('id_y').value);
+    if (!isNaN(x) && !isNaN(y)) {
+        placeMarkerFromNord(x, y, false);
+    }
+}
+['id_x', 'id_y'].forEach(id => document.getElementById(id).addEventListener('change', syncFromFields));
+
+document.querySelectorAll('#sh-form input:not([type=hidden]):not([type=file]), #sh-form select, #sh-form textarea')
+    .forEach(el => el.classList.add('form-control'));
+
+(function () {
+    const rows = [
+        { key: 'normale_debits', hiddenId: 'id_debits_mensuels_annee_normale', parse: 'float', defaults: null },
+        { key: 'normale_freq', hiddenId: 'id_frequences_mensuelles_annee_normale', parse: 'int', defaults: JOURS_PAR_MOIS },
+        { key: 'humide_debits', hiddenId: 'id_debits_mensuels_annee_humide', parse: 'float', defaults: null },
+        { key: 'humide_freq', hiddenId: 'id_frequences_mensuelles_annee_humide', parse: 'int', defaults: JOURS_PAR_MOIS },
+        { key: 'seche_debits', hiddenId: 'id_debits_mensuels_annee_seche', parse: 'float', defaults: null },
+        { key: 'seche_freq', hiddenId: 'id_frequences_mensuelles_annee_seche', parse: 'int', defaults: JOURS_PAR_MOIS },
+    ];
+
+    const pasteEl = document.getElementById('dm-paste-area');
+    const feedback = document.getElementById('dm-feedback');
+
+    function rowInputs(rowKey) {
+        return document.querySelectorAll(`tr[data-row="${rowKey}"] .dm-input`);
+    }
+
+    function setFeedback(msg, type) {
+        feedback.textContent = msg;
+        feedback.className = 'dm-feedback ' + (type || '');
+    }
+
+    function toNumber(text, kind) {
+        const n = parseFloat(String(text || '').replace(',', '.'));
+        if (!isFinite(n)) return kind === 'int' ? 0 : 0;
+        return kind === 'int' ? Math.round(n) : n;
+    }
+
+    function restoreRow(rowCfg) {
+        const hidden = document.getElementById(rowCfg.hiddenId);
+        const inputs = rowInputs(rowCfg.key);
+        if (!hidden || inputs.length !== 12) return;
+
+        let values = (hidden.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (values.length !== 12 && rowCfg.defaults) {
+            values = rowCfg.defaults.map(v => String(v));
+            hidden.value = values.join(',');
+        }
+
+        if (values.length === 12) {
+            inputs.forEach((inp, i) => { inp.value = values[i]; });
+        }
+        inputs.forEach(inp => inp.classList.remove('form-control'));
+    }
+
+    function syncRow(rowCfg) {
+        const hidden = document.getElementById(rowCfg.hiddenId);
+        const inputs = rowInputs(rowCfg.key);
+        if (!hidden || inputs.length !== 12) return;
+
+        const vals = Array.from(inputs).map(inp => toNumber(inp.value, rowCfg.parse));
+        hidden.value = vals.join(',');
+    }
+
+    function syncAll() {
+        rows.forEach(syncRow);
+    }
+
+    rows.forEach(cfg => restoreRow(cfg));
+    rows.forEach(cfg => {
+        rowInputs(cfg.key).forEach(inp => inp.addEventListener('input', syncAll));
+    });
+    pasteEl.classList.remove('form-control');
+    syncAll();
+
+    const NB_ROWS = rows.length;
+
+    function parsePastedTable(text) {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const parsed = [];
+
+        for (const line of lines) {
+            const tokens = line.split(/\t|;|\s{2,}/).map(t => t.trim()).filter(Boolean);
+            const nums = tokens
+                .map(t => parseFloat(t.replace(',', '.')))
+                .filter(n => isFinite(n));
+            if (nums.length >= 12) parsed.push(nums.slice(0, 12));
+            if (parsed.length === NB_ROWS) break;
+        }
+
+        if (parsed.length < NB_ROWS) {
+            const allNums = (text.match(/-?\d+(?:[.,]\d+)?/g) || [])
+                .map(t => parseFloat(t.replace(',', '.')))
+                .filter(n => isFinite(n));
+            if (allNums.length >= NB_ROWS * 12) {
+                const out = [];
+                for (let i = 0; i < NB_ROWS; i++) {
+                    out.push(allNums.slice(i * 12, (i + 1) * 12));
+                }
+                return out;
+            }
+        }
+
+        return parsed;
+    }
+
+    function applyPasted(valuesNx12) {
+        if (!valuesNx12 || valuesNx12.length !== NB_ROWS || valuesNx12.some(row => row.length !== 12)) {
+            setFeedback(`Echec: ${NB_ROWS} lignes x 12 colonnes requises.`, 'err');
+            return;
+        }
+
+        rows.forEach((cfg, rIndex) => {
+            const inputs = rowInputs(cfg.key);
+            inputs.forEach((inp, cIndex) => {
+                inp.value = valuesNx12[rIndex][cIndex];
+            });
+        });
+
+        syncAll();
+        setFeedback(`Tableau ${NB_ROWS} x 12 importe avec succes.`, 'ok');
+    }
+
+    pasteEl.addEventListener('paste', e => {
+        const txt = (e.clipboardData || window.clipboardData).getData('text');
+        if (!txt) return;
+        e.preventDefault();
+        pasteEl.value = txt;
+        applyPasted(parsePastedTable(txt));
+    });
+
+    pasteEl.addEventListener('change', () => {
+        const txt = pasteEl.value || '';
+        if (txt.trim()) applyPasted(parsePastedTable(txt));
+    });
+})();
+</script>
+{% endblock %}

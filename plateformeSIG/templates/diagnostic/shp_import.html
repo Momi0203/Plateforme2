@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-hero { background: #1a1a2e; padding: 24px 32px; }
+.form-hero h1 { font-size: 17px; font-weight: 700; color: #fff; margin: 0; }
+.form-body { max-width: 600px; margin: 32px auto; padding: 0 24px; }
+.shp-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.08); overflow: hidden; }
+.shp-card-body { padding: 28px; }
+.shp-info { background: #fff8ee; border-left: 4px solid #f0a500; border-radius: 0 8px 8px 0;
+    padding: 14px 16px; margin-bottom: 24px; font-size: 13px; color: #7a5500; }
+.shp-info strong { display: block; margin-bottom: 6px; }
+.shp-info ul { margin: 0; padding-left: 18px; }
+.shp-info li { margin-bottom: 3px; }
+.form-group { margin-bottom: 18px; }
+label { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; display: block; }
+.help-text { font-size: 11.5px; color: #999; margin-top: 3px; }
+.form-actions { padding: 18px 28px; background: #f9f3ea; display: flex; gap: 10px; }
+.btn-submit { background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; padding: 11px 24px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { background: #eee; color: #444; border: none; border-radius: 8px; padding: 11px 18px;
+    font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px; }
+.btn-cancel:hover { background: #ddd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1><i class="fas fa-file-import" style="color:#f0a500;margin-right:10px;"></i>{{ titre }}</h1>
+</div>
+
+<div class="form-body">
+    <div class="shp-card">
+        <div class="shp-card-body">
+            <div class="shp-info">
+                <strong><i class="fas fa-info-circle"></i> Comment préparer votre fichier ?</strong>
+                <ul>
+                    <li>Compressez les fichiers <strong>.shp</strong>, <strong>.dbf</strong>, <strong>.shx</strong> (et optionnellement <strong>.prj</strong>) dans un fichier <strong>.zip</strong></li>
+                    <li>Les noms de champs attributaires du shapefile doivent correspondre aux noms attendus (max 10 caractères)</li>
+                    <li>Les géométries seront importées telles quelles (SRID 4326 par défaut si non défini)</li>
+                    <li>Les enregistrements importés auront le statut <strong>Non valide</strong></li>
+                </ul>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    {{ form.perimetre.label_tag }}
+                    {{ form.perimetre }}
+                </div>
+                <div class="form-group">
+                    {{ form.fichier_zip.label_tag }}
+                    {{ form.fichier_zip }}
+                    <div class="help-text">{{ form.fichier_zip.help_text }}</div>
+                    {% if form.fichier_zip.errors %}
+                        <ul class="errorlist">{% for e in form.fichier_zip.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+        </div>
+        <div class="form-actions">
+                <button type="submit" class="btn-submit"><i class="fas fa-upload"></i> Importer</button>
+                <a href="{% url 'diagnostic:perimetre_list' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

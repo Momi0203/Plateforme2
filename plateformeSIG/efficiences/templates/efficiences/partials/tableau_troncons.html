@@ -1,0 +1,49 @@
+{% if troncons %}
+<div style="font-size:12.5px; color:#666; margin-bottom:10px;">
+    <i class="fas fa-link" style="color:#1e8449;"></i>
+    <strong>{{ troncons|length }}</strong> tronçon{{ troncons|length|pluralize }} actuellement lié{{ troncons|length|pluralize }} à cet ouvrage.
+</div>
+
+<table class="child-table">
+    <thead>
+        <tr>
+            <th>Séguia — Tronçon</th>
+            <th>Type</th>
+            <th style="text-align:right;">Longueur (m)</th>
+            <th style="text-align:right;">Largeur miroir (m)</th>
+            <th style="text-align:right;">Hauteur eau (m)</th>
+            <th style="text-align:right;">Débit (m³/s)</th>
+            <th>Écoulement</th>
+            <th>Nature</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tr in troncons %}
+        <tr>
+            <td><b>{{ tr.seguia.nom_de_la_seguia }}</b> <span style="color:#2980b9;font-family:monospace;">{{ tr.troncon }}</span></td>
+            <td>{{ tr.seguia.get_type_deguia_display|default:"—" }}</td>
+            <td style="text-align:right;">{{ tr.longueur|floatformat:1 }}</td>
+            <td style="text-align:right;">{% if tr.largeur_meroire %}{{ tr.largeur_meroire|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td style="text-align:right;">{{ tr.hauteur_eau|floatformat:2 }}</td>
+            <td style="text-align:right;">{{ tr.debit|floatformat:3 }}</td>
+            <td>
+                {% if tr.type_decoulement == 'dalot' %}
+                    <span class="badge badge-dalot">Dalot</span>
+                {% else %}
+                    <span class="badge badge-ciel">Ciel ouvert</span>
+                {% endif %}
+            </td>
+            <td><small>{{ tr.get_nature_display }}</small></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="info-box error" style="margin-bottom:0;">
+    <i class="fas fa-exclamation-triangle"></i>
+    <span>
+        Aucun tronçon n'est encore lié à cet ouvrage de tête.
+        Sélectionnez des séguias dans la liste ci-dessous et cliquez sur <strong>Enregistrer les liaisons</strong>.
+    </span>
+</div>
+{% endif %}

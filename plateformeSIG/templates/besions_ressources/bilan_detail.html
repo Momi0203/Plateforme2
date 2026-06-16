@@ -1,0 +1,595 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bilan — {{ bilan.perimetre }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; }
+.page-layout { display: grid; grid-template-columns: 1fr 560px; gap: 20px; align-items: start; }
+.col-sidebar { position: sticky; top: 20px; }
+@media (max-width: 1100px) {
+    .page-layout { grid-template-columns: 1fr; }
+    .col-sidebar { position: static; }
+}
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* Header */
+.result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; gap: 14px; flex-wrap: wrap; }
+.result-header-left h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.result-header-left h1 i { color: #f0a500; }
+.meta-row { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.meta-item { font-size: 12px; color: #888; display: flex; align-items: center; gap: 5px; }
+.meta-item i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-calc { background: #f0a500; color: #1a1a2e; }
+.btn-calc:hover { background: #d4920a; }
+.btn-edit { background: #1a1a2e; color: #fff; }
+.btn-edit:hover { background: #2a2a4e; }
+.btn-print { background: #0c7a8a; color: #fff; }
+.btn-print:hover { background: #095f6b; }
+.btn-excel { background: #1e7e34; color: #fff; }
+.btn-excel:hover { background: #155724; }
+.btn-del { background: #fde8e8; color: #c0392b; }
+.btn-del:hover { background: #f9cfcf; }
+.btn-validate { background: #e6f9f0; color: #1a7a4a; }
+.btn-validate:hover { background: #c8f0dc; }
+.btn-validated { background: #1a7a4a; color: #fff; cursor: default; }
+
+/* Scenario tabs */
+.scenario-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+.tab-btn { padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1.5px solid #e0d0c0; background: #fff; color: #888; cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+.tab-btn:hover { border-color: #f0a500; color: #1a1a2e; }
+.tab-btn.active { border-color: #f0a500; background: #fff8ee; color: #1a1a2e; }
+.tab-btn i { color: #f0a500; }
+
+/* KPI cards (5d) */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 16px 18px; position: relative; overflow: hidden; }
+.kpi-card .kpi-label { font-size: 11px; color: #aaa; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+.kpi-card .kpi-icon { position: absolute; top: 12px; right: 14px; font-size: 22px; color: #f0e8d8; }
+.kpi-card .kpi-value { font-size: 22px; font-weight: 800; color: #1a1a2e; line-height: 1.2; }
+.kpi-card .kpi-unit { font-size: 11px; color: #888; font-weight: 600; }
+.kpi-card .kpi-extra { font-size: 11px; color: #888; margin-top: 4px; }
+.kpi-card.kpi-besoin   .kpi-value { color: #f0a500; }
+.kpi-card.kpi-ressource .kpi-value { color: #0c7a8a; }
+.kpi-card.kpi-deficit  .kpi-value { color: #c0392b; }
+.kpi-card.kpi-excedent .kpi-value { color: #1e8449; }
+
+/* Chart sections */
+.section { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; margin-bottom: 18px; overflow: hidden; }
+.section-head { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; background: #1a1a2e; }
+.section-head-left { display: flex; align-items: center; gap: 9px; }
+.section-head-left i { color: #f0a500; font-size: 14px; }
+.section-head-left span { font-size: 13px; font-weight: 700; color: #fff; }
+.section-head-left small { font-size: 11px; color: rgba(255,255,255,.5); margin-left: 6px; }
+.section-body { padding: 18px 20px; }
+
+.charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 18px; }
+.charts-row.equal { grid-template-columns: 1fr 1fr; }
+.chart-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 16px 18px; display: flex; flex-direction: column; }
+.chart-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }\n.chart-title i { color: #f0a500; }
+.chart-container { position: relative; height: 260px; }
+.chart-container.tall { height: 320px; }
+.chart-container.donut { height: 260px; }
+.chart-empty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #aaa; font-size: 12.5px; text-align: center; padding: 14px; background: repeating-linear-gradient(45deg, transparent, transparent 8px, #fafafa 8px, #fafafa 14px); border-radius: 8px; }
+.chart-empty.show { display: flex; }
+.chart-empty i { font-size: 26px; color: #ddd; }
+.chart-empty a { color: #f0a500; font-weight: 600; text-decoration: none; }
+.chart-empty a:hover { text-decoration: underline; }
+
+/* Map + Info */
+.map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; margin-bottom: 18px; }
+.map-title { background: #1a1a2e; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 7px; }
+.map-title i { color: #f0a500; }
+#perimetre-map { height: 320px; }
+
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+.info-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 14px 18px; }
+.info-card-title { font-size: 10.5px; color: #aaa; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: .4px; }
+.kv { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid #f9f1e8; }
+.kv:last-child { border-bottom: none; }
+.kv .k { color: #888; }
+.kv .v { font-weight: 700; color: #1a1a2e; }
+
+/* Not calculated banner */
+.not-calc { background: #fff8ee; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
+.not-calc i { font-size: 40px; color: #f0a500; margin-bottom: 12px; display: block; }
+.not-calc p { font-size: 14px; color: #888; margin-bottom: 16px; }
+
+/* Cultures list (référentiel) */
+.cultures-list { display: flex; flex-direction: column; gap: 8px; }
+.culture-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid #f0e8d8; border-radius: 8px; background: #fff; }
+.culture-name { font-weight: 600; font-size: 13px; color: #1a1a2e; display: flex; align-items: center; gap: 7px; }
+.culture-name i { color: #f0a500; }
+.culture-meta { font-size: 11px; color: #aaa; margin-top: 2px; }
+.culture-actions { display: flex; gap: 6px; }
+
+@media print {
+    .hdr-actions, .scenario-tabs, .culture-actions, .breadcrumb { display: none !important; }
+    .page { padding: 10px; }
+    .charts-row, .charts-row.equal { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'besions_ressources:home' %}">Bilan</a> › {{ bilan.perimetre }}
+  </div>
+
+  <!-- Header -->
+  <div class="result-header">
+    <div class="result-header-left">
+      <h1><i class="fas fa-balance-scale"></i> Bilan — {{ bilan.perimetre }}</h1>
+      <div class="meta-row">
+        <span class="meta-item"><i class="fas fa-calendar"></i> Créé le {{ bilan.created_at|date:"d/m/Y" }}</span>
+        {% if bilan.date_calcul %}
+        <span class="meta-item"><i class="fas fa-clock"></i> Calculé le {{ bilan.date_calcul|date:"d/m/Y H:i" }}</span>
+        {% endif %}
+        {% if bilan.station_climatique %}
+        <span class="meta-item"><i class="fas fa-thermometer-half"></i> {{ bilan.station_climatique.nom }}</span>
+        {% endif %}
+        {% if bilan.station_hydrometrique %}
+        <span class="meta-item"><i class="fas fa-water"></i> {{ bilan.station_hydrometrique.nom }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'besions_ressources:bilan_calculer' bilan.pk %}" class="btn-sm btn-calc">
+        <i class="fas fa-play"></i> {% if bilan.est_calcule %}Recalculer{% else %}Calculer{% endif %}
+      </a>
+      <a href="{% url 'besions_ressources:bilan_modifier' bilan.pk %}" class="btn-sm btn-edit">
+        <i class="fas fa-edit"></i> Modifier
+      </a>
+      {% if bilan.est_calcule %}
+      <a href="{% url 'besions_ressources:bilan_exporter_excel' bilan.pk %}" class="btn-sm btn-excel">
+        <i class="fas fa-file-excel"></i> Excel
+      </a>
+      <a href="{% url 'besions_ressources:bilan_exporter_pdf' bilan.pk %}" class="btn-sm btn-print" style="background:#c0392b;">
+        <i class="fas fa-file-pdf"></i> PDF
+      </a>
+      {% endif %}
+      <button class="btn-sm btn-print" onclick="window.print()"><i class="fas fa-print"></i> Imprimer</button>
+      {% if bilan.est_valide %}
+      <span class="btn-sm btn-validated"><i class="fas fa-check-circle"></i> Validé</span>
+      {% elif bilan.est_calcule %}
+      <button class="btn-sm btn-validate" id="btn-valider" data-url="{% url 'besions_ressources:valider_bilan' bilan.pk %}">
+        <i class="fas fa-check-circle"></i> Valider
+      </button>
+      {% endif %}
+      <a href="{% url 'besions_ressources:bilan_supprimer' bilan.pk %}" class="btn-sm btn-del">
+        <i class="fas fa-trash"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="page-layout">
+    <div class="col-main">
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-title">Périmètre</div>
+      <div class="kv"><span class="k">Superficie irriguée</span><span class="v">{{ bilan.perimetre.superficie_irriguee|default:"—" }} ha</span></div>
+      <div class="kv"><span class="k">Type de sol</span><span class="v">{{ bilan.perimetre.get_type_de_sol_display|default:"—" }}</span></div>
+      <div class="kv"><span class="k">Fertilité</span><span class="v">{{ bilan.perimetre.get_niveau_de_fertilite_display|default:"—" }}</span></div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">Station climatique</div>
+      {% if bilan.station_climatique %}
+      <div class="kv"><span class="k">Nom</span><span class="v">{{ bilan.station_climatique.nom }}</span></div>
+      <div class="kv"><span class="k">Latitude</span><span class="v">{{ bilan.station_climatique.latitude }}°N</span></div>
+      {% else %}
+      <div style="color:#aaa;font-size:12px;">Aucune station sélectionnée</div>
+      {% endif %}
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">Ressources associées</div>
+      <div class="kv"><span class="k">Ouvrages</span><span class="v">{{ bilan.ouvrages_associes.count }}</span></div>
+      <div class="kv"><span class="k">Autres ressources</span><span class="v">{{ bilan.autres_ressources_eau.count }}</span></div>
+      <div class="kv"><span class="k">Cultures (assolement)</span><span class="v">{{ bilan.perimetre.assolement.count }}</span></div>
+    </div>
+  </div>
+
+  {% if not bilan.est_calcule %}
+  <div class="not-calc">
+    <i class="fas fa-calculator"></i>
+    <p>Le bilan n'a pas encore été calculé.<br>Vérifiez la présence d'au moins une culture (avec Kc/Kr) et lancez le calcul.</p>
+    <a href="{% url 'besions_ressources:bilan_calculer' bilan.pk %}" class="btn-sm btn-calc" style="display:inline-flex;margin:0 auto;">
+      <i class="fas fa-play"></i> Lancer le calcul
+    </a>
+  </div>
+  {% else %}
+
+  <!-- Onglets type d'année (6a) -->
+  <div class="scenario-tabs">
+    <button class="tab-btn active" data-scenario="normale"><i class="fas fa-sun"></i> Année normale</button>
+    <button class="tab-btn" data-scenario="humide"><i class="fas fa-cloud-rain"></i> Année humide</button>
+    <button class="tab-btn" data-scenario="seche"><i class="fas fa-fire"></i> Année sèche</button>
+  </div>
+
+  <!-- KPI cards (5d) — toujours pour le scenario actif -->
+  <div class="kpi-row">
+    <div class="kpi-card kpi-besoin">
+      <div class="kpi-icon"><i class="fas fa-seedling"></i></div>
+      <div class="kpi-label">Besoins totaux</div>
+      <div class="kpi-value" id="kpi-besoin">—</div>
+      <div class="kpi-unit">m³ / an</div>
+    </div>
+    <div class="kpi-card kpi-ressource">
+      <div class="kpi-icon"><i class="fas fa-tint"></i></div>
+      <div class="kpi-label">Ressources totales</div>
+      <div class="kpi-value" id="kpi-ressource">—</div>
+      <div class="kpi-unit">m³ / an</div>
+    </div>
+    <div class="kpi-card kpi-deficit">
+      <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
+      <div class="kpi-label">Déficit cumulé</div>
+      <div class="kpi-value" id="kpi-deficit">—</div>
+      <div class="kpi-unit">m³ / an</div>
+      <div class="kpi-extra" id="kpi-deficit-pct">—</div>
+    </div>
+    <div class="kpi-card kpi-excedent">
+      <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
+      <div class="kpi-label">Excédent cumulé</div>
+      <div class="kpi-value" id="kpi-excedent">—</div>
+      <div class="kpi-unit">m³ / an</div>
+      <div class="kpi-extra" id="kpi-excedent-pct">—</div>
+    </div>
+  </div>
+
+  <!-- Bilan mensuel (4a) + Solde diverging (4c) -->
+  <div class="charts-row equal">
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-chart-bar"></i> Besoins vs Ressources (m³/mois)</div>
+      <div class="chart-container tall"><canvas id="chart-bilan"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-balance-scale-right"></i> Solde mensuel — déficit (–) / excédent (+)</div>
+      <div class="chart-container tall"><canvas id="chart-solde"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Besoins par culture (2a) + Part culture donut (2d) -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-seedling"></i> Besoins en eau par culture (m³/mois)</div>
+      <div class="chart-container tall">
+        <canvas id="chart-cultures"></canvas>
+        <div class="chart-empty" id="chart-cultures-empty">
+          <i class="fas fa-seedling"></i>
+          <div>Aucun besoin culture à  représenter.<br>
+          Vérifiez l'assolement du périmètre et les coefficients Kc/Kr.</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-chart-pie"></i> Part annuelle par culture</div>
+      <div class="chart-container donut">
+        <canvas id="chart-cultures-donut"></canvas>
+        <div class="chart-empty" id="chart-cultures-donut-empty">
+          <i class="fas fa-chart-pie"></i>
+          <div>Aucune donnée à  représenter.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apports par ouvrage (3a) + Part ouvrage donut (3c) -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-cogs"></i> Apports par ouvrage / ressource (m³/mois)</div>
+      <div class="chart-container tall">
+        <canvas id="chart-apports"></canvas>
+        <div class="chart-empty" id="chart-apports-empty">
+          <i class="fas fa-cogs"></i>
+          <div>Aucun ouvrage ni autre ressource associé à  ce bilan.<br>
+          <a href="{% url 'besions_ressources:bilan_modifier' bilan.pk %}">Modifier le bilan</a> pour ajouter un seuil, une prise locale, un barrage, une khettara, un forage ou une autre ressource.</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><i class="fas fa-chart-pie"></i> Part annuelle par ressource</div>
+      <div class="chart-container donut">
+        <canvas id="chart-apports-donut"></canvas>
+        <div class="chart-empty" id="chart-apports-donut-empty">
+          <i class="fas fa-chart-pie"></i>
+          <div>Aucune donnée à  représenter.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Climat (1a) : ETo + pluie efficace -->
+  <div class="chart-card" style="margin-bottom:18px;">
+    <div class="chart-title"><i class="fas fa-sun"></i> ETo &amp; pluie efficace (mm/mois)</div>
+    <div class="chart-container"><canvas id="chart-climat"></canvas></div>
+  </div>
+
+  {% endif %}{# fin est_calcule #}
+
+    </div><!-- /col-main -->
+    <div class="col-sidebar">
+      {% if geojson_perimetre %}
+      <div class="map-card">
+        <div class="map-title"><i class="fas fa-map"></i> Géométrie du périmètre</div>
+        <div id="perimetre-map"></div>
+      </div>
+      {% endif %}
+    </div><!-- /col-sidebar -->
+  </div><!-- /page-layout -->
+</div>
+
+{{ json_payload|json_script:"bilan-payload" }}
+{% if geojson_perimetre %}{{ geojson_perimetre|json_script:"perimetre-geojson" }}{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const geojsonNode = document.getElementById('perimetre-geojson');
+    if (geojsonNode) {
+        const gj = JSON.parse(geojsonNode.textContent);
+        const map = L.map('perimetre-map');
+        const basemaps = {
+            'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+            'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+            'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+            'ESRI Streets':       L.esri.basemapLayer('Streets'),
+        };
+        basemaps['OpenStreetMap'].addTo(map);
+        const layer = L.geoJSON(gj, {
+            style: { color: '#f0a500', weight: 2.5, fillOpacity: 0.18, fillColor: '#f0a500' }
+        }).addTo(map);
+        layer.bindTooltip('{{ bilan.perimetre|escapejs }}');
+        map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        L.control.layers(basemaps, { 'Périmètre irrigué': layer }, { collapsed: true }).addTo(map);
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = () => {
+            const div = L.DomUtil.create('div');
+            div.style.cssText = 'background:rgba(255,255,255,0.92);padding:8px 10px;border-radius:6px;font-size:11px;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.15);';
+            div.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">Légende</div>'
+                + '<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:16px;height:4px;background:#f0a500;border-radius:2px;"></span> Périmètre irrigué</div>';
+            return div;
+        };
+        legend.addTo(map);
+    }
+
+    const payloadNode = document.getElementById('bilan-payload');
+    if (!payloadNode) return;
+    const PAYLOAD = JSON.parse(payloadNode.textContent);
+    if (!PAYLOAD.normale && !PAYLOAD.humide && !PAYLOAD.seche) return;
+
+    const MOIS = PAYLOAD.mois || ['Sep', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jul', 'Aoû'];
+    const ETO = PAYLOAD.eto || null;
+
+    const PALETTE = [
+        '#f0a500','#1e8449','#0c7a8a','#9b59b6','#e74c3c',
+        '#16a085','#f39c12','#34495e','#c0392b','#27ae60',
+        '#2980b9','#8e44ad','#d35400','#7f8c8d','#16a085',
+    ];
+    const colorAt = i => PALETTE[i % PALETTE.length];
+
+    const charts = {};
+    function destroy(name) { if (charts[name]) { charts[name].destroy(); delete charts[name]; } }
+    function destroyAll() { Object.keys(charts).forEach(destroy); }
+
+    const fmt = n => (n === null || n === undefined) ? '—' : Math.round(n).toLocaleString('fr-FR');
+    const pct = (num, den) => (den && den > 0) ? Math.round(100 * num / den) + ' %' : '—';
+
+    function setEmpty(emptyElId, canvasId, isEmpty) {
+        const emptyEl = document.getElementById(emptyElId);
+        const canvas  = document.getElementById(canvasId);
+        if (!emptyEl || !canvas) return;
+        if (isEmpty) {
+            emptyEl.classList.add('show');
+            canvas.style.display = 'none';
+        } else {
+            emptyEl.classList.remove('show');
+            canvas.style.display = '';
+        }
+    }
+
+    function render(scenario) {
+        const data = PAYLOAD[scenario];
+        if (!data) return;
+        destroyAll();
+
+        document.getElementById('kpi-besoin').textContent    = fmt(data.total_besoins);
+        document.getElementById('kpi-ressource').textContent = fmt(data.total_ressources);
+        document.getElementById('kpi-deficit').textContent   = fmt(data.total_deficit);
+        document.getElementById('kpi-excedent').textContent  = fmt(data.total_excedent);
+        document.getElementById('kpi-deficit-pct').textContent = 'soit ' + pct(data.total_deficit, data.total_besoins) + ' du besoin';
+        document.getElementById('kpi-excedent-pct').textContent = 'soit ' + pct(data.total_excedent, data.total_besoins) + ' du besoin';
+
+        charts.bilan = new Chart(document.getElementById('chart-bilan'), {
+            type: 'bar',
+            data: {
+                labels: MOIS,
+                datasets: [
+                    { label: 'Besoins (m³)', data: data.besoins_m3, backgroundColor: 'rgba(240,165,0,0.78)', borderColor: '#f0a500', borderWidth: 1 },
+                    { label: 'Ressources (m³)', data: data.ressources_m3, backgroundColor: 'rgba(12,122,138,0.72)', borderColor: '#0c7a8a', borderWidth: 1 },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' } } } },
+                scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v.toLocaleString('fr-FR') } }, x: { ticks: { font: { size: 10 } } } }
+            }
+        });
+
+        const solde = data.bilan_m3;
+        const soldeColors = solde.map(v => v < 0 ? 'rgba(192,57,43,0.78)' : 'rgba(30,132,73,0.78)');
+        const soldeBorders = solde.map(v => v < 0 ? '#c0392b' : '#1e8449');
+        charts.solde = new Chart(document.getElementById('chart-solde'), {
+            type: 'bar',
+            data: {
+                labels: MOIS,
+                datasets: [{ label: 'Solde (m³)', data: solde, backgroundColor: soldeColors, borderColor: soldeBorders, borderWidth: 1 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { ticks: { font: { size: 10 }, callback: v => v.toLocaleString('fr-FR') } }, x: { ticks: { font: { size: 10 } } } }
+            }
+        });
+
+        const cultures = data.cultures || [];
+        const cultureTotals = cultures.map(c => (c.besoins_reel_m3_mois || []).reduce((a, b) => a + (b || 0), 0));
+        const hasCultures = cultures.length > 0 && cultureTotals.some(t => t > 0);
+
+        setEmpty('chart-cultures-empty', 'chart-cultures', !hasCultures);
+        setEmpty('chart-cultures-donut-empty', 'chart-cultures-donut', !hasCultures);
+
+        if (hasCultures) {
+            const cultureDatasets = cultures.map((c, i) => ({
+                label: c.nom,
+                data: c.besoins_reel_m3_mois,
+                backgroundColor: colorAt(i),
+                borderColor: colorAt(i),
+                borderWidth: 0.5,
+            }));
+            charts.cultures = new Chart(document.getElementById('chart-cultures'), {
+                type: 'bar',
+                data: { labels: MOIS, datasets: cultureDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } },
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v.toLocaleString('fr-FR') } } }
+                }
+            });
+
+            charts.culturesDonut = new Chart(document.getElementById('chart-cultures-donut'), {
+                type: 'doughnut',
+                data: { labels: cultures.map(c => c.nom), datasets: [{ data: cultureTotals, backgroundColor: cultures.map((_, i) => colorAt(i)) }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: { callbacks: {
+                            label: (ctx) => {
+                                const v = ctx.parsed; const tot = cultureTotals.reduce((a, b) => a + b, 0);
+                                const p = tot > 0 ? Math.round(100 * v / tot) : 0;
+                                return `${ctx.label} : ${Math.round(v).toLocaleString('fr-FR')} m³ (${p} %)`;
+                            }
+                        } }
+                    },
+                    cutout: '55%'
+                }
+            });
+        }
+
+        const ouvrages = (data.apports && data.apports.par_ouvrage) || [];
+        const autres   = (data.apports && data.apports.par_autre_ressource) || [];
+        const ressources = []
+            .concat(ouvrages.map(o => ({ label: `${o.nom} (${o.type})`, data: o.apports_m3 || [] })))
+            .concat(autres.map(a => ({ label: `${a.nom} (autre)`, data: a.apports_m3 || [] })));
+        const apportsTotals = ressources.map(r => (r.data || []).reduce((a, b) => a + (b || 0), 0));
+        const hasApports = ressources.length > 0 && apportsTotals.some(t => t > 0);
+
+        setEmpty('chart-apports-empty', 'chart-apports', !hasApports);
+        setEmpty('chart-apports-donut-empty', 'chart-apports-donut', !hasApports);
+
+        if (hasApports) {
+            const apportsDatasets = ressources.map((r, i) => ({
+                label: r.label,
+                data: r.data,
+                backgroundColor: colorAt(i),
+                borderColor: colorAt(i),
+                borderWidth: 0.5,
+            }));
+            charts.apports = new Chart(document.getElementById('chart-apports'), {
+                type: 'bar',
+                data: { labels: MOIS, datasets: apportsDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } } },
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v.toLocaleString('fr-FR') } } }
+                }
+            });
+
+            charts.apportsDonut = new Chart(document.getElementById('chart-apports-donut'), {
+                type: 'doughnut',
+                data: { labels: ressources.map(r => r.label), datasets: [{ data: apportsTotals, backgroundColor: ressources.map((_, i) => colorAt(i)) }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+                        tooltip: { callbacks: {
+                            label: (ctx) => {
+                                const v = ctx.parsed; const tot = apportsTotals.reduce((a, b) => a + b, 0);
+                                const p = tot > 0 ? Math.round(100 * v / tot) : 0;
+                                return `${ctx.label} : ${Math.round(v).toLocaleString('fr-FR')} m³ (${p} %)`;
+                            }
+                        } }
+                    },
+                    cutout: '55%'
+                }
+            });
+        }
+
+        const pluieEff = data.pluie_efficace || [];
+        const etoMois = (ETO && ETO.eto_mm_mois) || [];
+        charts.climat = new Chart(document.getElementById('chart-climat'), {
+            type: 'bar',
+            data: {
+                labels: MOIS,
+                datasets: [
+                    { type: 'bar',  label: 'Pluie efficace (mm)', data: pluieEff, backgroundColor: 'rgba(12,122,138,0.7)', borderColor: '#0c7a8a', borderWidth: 1, order: 2 },
+                    { type: 'line', label: 'ETo (mm/mois)',       data: etoMois,  borderColor: '#f0a500', backgroundColor: 'rgba(240,165,0,0.18)', tension: 0.3, fill: true, pointRadius: 3, order: 1 },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' } } } },
+                scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => v + ' mm' } }, x: { ticks: { font: { size: 10 } } } }
+            }
+        });
+    }
+
+    let currentScenario = 'normale';
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentScenario = btn.dataset.scenario;
+            render(currentScenario);
+        });
+    });
+
+    if (PAYLOAD.normale) render('normale');
+    else if (PAYLOAD.humide) { currentScenario = 'humide'; render('humide'); }
+    else if (PAYLOAD.seche)  { currentScenario = 'seche';  render('seche'); }
+})();
+
+// ── Valider le bilan ──────────────────────────────────────────────────────
+const btnValider = document.getElementById('btn-valider');
+if (btnValider) {
+    btnValider.addEventListener('click', function() {
+        if (!confirm('Valider définitivement ce bilan ? Le statut passera à « Validé ».')) return;
+        this.disabled = true;
+        fetch(this.dataset.url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                this.outerHTML = '<span class="btn-sm btn-validated"><i class="fas fa-check-circle"></i> Validé</span>';
+            }
+        })
+        .catch(() => { this.disabled = false; });
+    });
+}
+</script>
+{% endblock %}
+
+
+

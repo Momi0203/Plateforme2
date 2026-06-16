@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ bv.nom }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.page-header h1 { font-size: 19px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 8px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+.btn-dark   { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-del    { background: #fde8e8; color: #c0392b; }
+.btn-del:hover { background: #f9cfcf; }
+
+/* Split layout */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+
+/* Data panels */
+.panel { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 20px; }
+.panel-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; }
+.panel-title i { color: #f0a500; }
+.data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.data-item { }
+.data-item .lbl { font-size: 11px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.data-item .val { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
+.data-item .unit { font-size: 11px; color: #888; }
+
+.morpho-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.morpho-item { background: #fffbf4; border: 1px solid #f0e8d8; border-radius: 8px; padding: 10px 13px; }
+.morpho-item .lbl { font-size: 11px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+.morpho-item .val { font-size: 15px; font-weight: 700; color: #f0a500; }
+.morpho-item .unit { font-size: 11px; color: #888; }
+
+/* Map */
+.map-panel { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; overflow: hidden; position: sticky; top: 78px; }
+.map-toolbar { background: #1a1a2e; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.map-toolbar span { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+.map-toolbar span i { color: #f0a500; }
+.map-toolbar a { font-size: 11.5px; color: rgba(255,255,255,.6); text-decoration: none; }
+.map-toolbar a:hover { color: #f0a500; }
+#bv-map { height: 440px; }
+
+/* Réseau & analyses tables */
+.mt16 { margin-top: 16px; }
+.table-sm { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.table-sm th { background: #f8f4ee; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 7px 10px; color: #888; text-align: left; }
+.table-sm td { padding: 8px 10px; border-bottom: 1px solid #f5ece0; color: #1a1a2e; }
+.table-sm tr:last-child td { border-bottom: none; }
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 600; }
+.badge-gradex { background: #fff3cd; color: #856404; }
+.empty-msg { font-size: 12px; color: #bbb; padding: 16px 0; text-align: center; }
+.analyse-btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 16px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; margin-top: 14px; transition: background .2s; }
+.analyse-btn:hover { background: #d4920a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_bv' %}">Bassins versants</a> › {{ bv.nom }}
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-mountain"></i> {{ bv.nom }}</h1>
+    <div class="hdr-actions">
+      <a href="{% url 'lancer_analyse' bv.pk %}" class="btn-sm btn-accent"><i class="fas fa-chart-line"></i> Lancer une analyse</a>
+      <a href="{% url 'modifier_bv' bv.pk %}" class="btn-sm btn-dark"><i class="fas fa-pencil-alt"></i> Modifier</a>
+      <a href="{% url 'supprimer_bv' bv.pk %}" class="btn-sm btn-del"><i class="fas fa-trash"></i> Supprimer</a>
+    </div>
+  </div>
+
+  <div class="split">
+    <!-- LEFT column: data -->
+    <div>
+      <!-- Paramètres de base -->
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-info-circle"></i> Paramètres de base</div>
+        <div class="data-grid">
+          <div class="data-item">
+            <div class="lbl">Surface</div>
+            <div class="val">{{ bv.surface }} <span class="unit">km²</span></div>
+          </div>
+          <div class="data-item">
+            <div class="lbl">Périmètre</div>
+            <div class="val">{{ bv.perimetre }} <span class="unit">km</span></div>
+          </div>
+          <div class="data-item">
+            <div class="lbl">Longueur thalweg</div>
+            <div class="val">{{ bv.thalweg }} <span class="unit">km</span></div>
+          </div>
+          <div class="data-item">
+            <div class="lbl">Z min / Z max</div>
+            <div class="val">{{ bv.z_min }} / {{ bv.z_max }} <span class="unit">m</span></div>
+          </div>
+          <div class="data-item">
+            <div class="lbl">X exutoire</div>
+            <div class="val">{{ bv.x_exutoire }}</div>
+          </div>
+          <div class="data-item">
+            <div class="lbl">Y exutoire</div>
+            <div class="val">{{ bv.y_exutoire }}</div>
+          </div>
+          {% if bv.ouvrage_en_tete %}
+          <div class="data-item" style="grid-column:1/-1;">
+            <div class="lbl">Ouvrage en tête</div>
+            <div class="val" style="font-size:13px;">{{ bv.ouvrage_en_tete }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Paramètres morphologiques calculés -->
+      <div class="panel mt16">
+        <div class="panel-title"><i class="fas fa-calculator"></i> Paramètres morphologiques calculés</div>
+        <div class="morpho-grid">
+          <div class="morpho-item">
+            <div class="lbl">Dénivelé</div>
+            <div class="val">{{ morpho.denivele }} <span class="unit">m</span></div>
+          </div>
+          <div class="morpho-item">
+            <div class="lbl">Pente</div>
+            <div class="val">{{ morpho.pente_pct }} <span class="unit">%</span></div>
+          </div>
+          <div class="morpho-item">
+            <div class="lbl">Indice de Gravelius</div>
+            <div class="val">{{ morpho.indice_gravelius }}</div>
+          </div>
+          <div class="morpho-item">
+            <div class="lbl">Rapport de forme</div>
+            <div class="val">{{ morpho.rapport_forme }}</div>
+          </div>
+          <div class="morpho-item">
+            <div class="lbl">Rectangle équivalent L</div>
+            <div class="val">{{ morpho.L_rectangle }} <span class="unit">km</span></div>
+          </div>
+          <div class="morpho-item">
+            <div class="lbl">Rectangle équivalent l</div>
+            <div class="val">{{ morpho.l_rectangle }} <span class="unit">km</span></div>
+          </div>
+          <div class="morpho-item" style="grid-column:1/-1;">
+            <div class="lbl">Pente rectangle équivalent</div>
+            <div class="val">{{ morpho.pente_rect_pct }} <span class="unit">%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Réseau hydrographique (intersection avec le BV) -->
+      <div class="panel mt16">
+        <div class="panel-title"><i class="fas fa-stream"></i> Réseau hydrographique</div>
+        {% if reseau_count %}
+        <table class="table-sm">
+          <tbody>
+            <tr><td>Nombre de tronçons</td><td><b>{{ reseau_count }}</b></td></tr>
+            <tr><td>Longueur cumulée</td><td><b>{{ reseau_longueur_km }} km</b></td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:11px;color:#888;margin-top:6px;">
+          Tronçons calculés par intersection spatiale avec le bassin versant.
+        </div>
+        {% else %}
+        <div class="empty-msg"><i class="fas fa-stream"></i> Aucun tronçon n'intersecte ce bassin versant</div>
+        {% endif %}
+      </div>
+
+      <!-- Dernières analyses -->
+      <div class="panel mt16">
+        <div class="panel-title"><i class="fas fa-history"></i> Dernières analyses</div>
+        {% if resultats %}
+        <table class="table-sm">
+          <thead><tr><th>Date</th><th>Q T10</th><th>Q T100</th><th></th></tr></thead>
+          <tbody>
+            {% for r in resultats %}
+            <tr>
+              <td>{{ r.date_analyse|date:"d/m/Y" }}</td>
+              <td>{% if r.qcrue_t10 %}{{ r.qcrue_t10|floatformat:2 }} m³/s{% else %}—{% endif %}</td>
+              <td>{% if r.qcrue_t100 %}{{ r.qcrue_t100|floatformat:2 }} m³/s{% else %}—{% endif %}</td>
+              <td><a href="{% url 'resultat_analyse' r.pk %}" style="color:#f0a500;font-size:12px;text-decoration:none;"><i class="fas fa-eye"></i> Voir</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-msg">Aucune analyse pour ce bassin</div>
+        {% endif %}
+        <a href="{% url 'lancer_analyse' bv.pk %}" class="analyse-btn">
+          <i class="fas fa-play"></i> Lancer une nouvelle analyse
+        </a>
+      </div>
+    </div>
+
+    <!-- RIGHT column: map -->
+    <div class="map-panel">
+      <div class="map-toolbar">
+        <span><i class="fas fa-map"></i> Carte du bassin versant + réseau hydrographique</span>
+        <a href="{% url 'modifier_bv' bv.pk %}"><i class="fas fa-edit"></i> Modifier la géométrie</a>
+      </div>
+      <div id="bv-map"></div>
+      <div style="padding:8px 14px;background:#fffbf4;border-top:1px solid #f0e8d8;display:flex;gap:16px;align-items:center;font-size:11.5px;color:#555;flex-wrap:wrap;">
+        <span><span style="display:inline-block;width:14px;height:8px;background:#f0a500;opacity:.5;border:1.5px solid #f0a500;vertical-align:middle;"></span> Bassin versant</span>
+        <span><span style="display:inline-block;width:14px;height:2px;background:#1a6fa8;vertical-align:middle;"></span> Réseau hydrographique</span>
+        <span style="color:#999;"><i class="fas fa-sliders-h"></i> Personnalisation sur la carte ↗</span>
+        <span id="reseau-status" style="margin-left:auto;color:#888;">Chargement du réseau…</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="{% static 'analyse_hydrologique/js/reseau_personnalisable.js' %}"></script>
+<script>
+const map = L.map('bv-map');
+const basemaps = {
+    'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+    'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+    'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+    'ESRI Streets':       L.esri.basemapLayer('Streets'),
+};
+basemaps['OpenStreetMap'].addTo(map);
+
+let bvLayer = null;
+{% if bv.geometrie %}
+bvLayer = L.geoJSON({{ bv.geometrie.geojson|safe }}, {
+    style: { color: '#d4920a', weight: 2.5, fillOpacity: 0.18, fillColor: '#d4920a' }
+}).addTo(map);
+bvLayer.bindTooltip('{{ bv.nom }}', { permanent: false });
+map.fitBounds(bvLayer.getBounds(), { padding: [24, 24] });
+{% else %}
+map.setView([{{ bv.y_exutoire }}, {{ bv.x_exutoire }}], 10);
+L.circleMarker([{{ bv.y_exutoire }}, {{ bv.x_exutoire }}], { radius: 10, color: '#f0a500', fillOpacity: 0.8 })
+    .bindTooltip('{{ bv.nom }} (exutoire)').addTo(map);
+{% endif %}
+
+// Réseau hydrographique « ouvrage de tête » — module partagé personnalisable
+ReseauPersonnalisable.init(map, {
+    url:      "{% url 'bv_reseau_geojson' bv.pk %}",
+    gridMax:  {{ reseau_grid_max|default:0 }},
+    basemaps: basemaps,
+    bvLayer:  bvLayer,
+    statusEl: document.getElementById('reseau-status'),
+});
+</script>
+{% endblock %}

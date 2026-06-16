@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Analyses hydrologiques — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.analyses-table { background: #fff; border-radius: 12px; border: 1px solid #f0e8d8; overflow: hidden; }
+.analyses-table table { width: 100%; border-collapse: collapse; }
+.analyses-table th { background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; padding: 12px 16px; text-align: left; }
+.analyses-table td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #f5ece0; }
+.analyses-table tr:last-child td { border-bottom: none; }
+.analyses-table tr:hover td { background: #fffbf5; }
+.q-pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #fff3cd; color: #856404; }
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-view   { background: #1a1a2e; color: #fff; }
+.btn-view:hover { background: #2a2a4e; }
+.btn-del    { background: #fde8e8; color: #c0392b; }
+.btn-del:hover { background: #f9cfcf; }
+.empty-state { text-align: center; padding: 60px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> › Analyses
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-chart-bar"></i> Analyses hydrologiques</h1>
+    <a href="{% url 'liste_bv' %}" style="display:inline-flex;align-items:center;gap:5px;padding:9px 16px;background:#f0a500;color:#1a1a2e;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;">
+      <i class="fas fa-plus"></i> Nouvelle analyse
+    </a>
+  </div>
+
+  <div class="analyses-table">
+    {% if analyses %}
+    <table>
+      <thead>
+        <tr>
+          <th>Bassin versant</th>
+          <th>Date</th>
+          <th>Opérateur</th>
+          <th>Q T10 (m³/s)</th>
+          <th>Q T20 (m³/s)</th>
+          <th>Q T50 (m³/s)</th>
+          <th>Q T100 (m³/s)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in analyses %}
+        <tr>
+          <td><b>{{ a.bassin_versant }}</b></td>
+          <td>{{ a.date_analyse|date:"d/m/Y H:i" }}</td>
+          <td>{{ a.operateur }}</td>
+          <td>{% if a.qcrue_t10  %}<span class="q-pill">{{ a.qcrue_t10|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td>{% if a.qcrue_t20  %}<span class="q-pill">{{ a.qcrue_t20|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td>{% if a.qcrue_t50  %}<span class="q-pill">{{ a.qcrue_t50|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td>{% if a.qcrue_t100 %}<span class="q-pill">{{ a.qcrue_t100|floatformat:2 }}</span>{% else %}—{% endif %}</td>
+          <td style="display:flex;gap:6px;">
+            <a href="{% url 'resultat_analyse' a.pk %}" class="btn-xs btn-view"><i class="fas fa-eye"></i> Voir</a>
+            <a href="{% url 'supprimer_analyse' a.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <i class="fas fa-chart-bar"></i>
+      Aucune analyse enregistrée.<br>
+      <a href="{% url 'liste_bv' %}" style="color:#f0a500;font-weight:600;text-decoration:none;">Sélectionner un bassin versant pour commencer →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

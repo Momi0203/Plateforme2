@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lancer une analyse — {{ bv.nom }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; max-width: 960px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.page-header .bv-badge { display: inline-flex; align-items: center; gap: 6px; background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 6px; }
+
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 22px; margin-bottom: 18px; }
+.card-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 7px; }
+.card-title i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+/* Checkbox grid */
+.check-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.check-grid label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; color: #333; cursor: pointer; padding: 8px 10px; border: 1.5px solid #e0d0c0; border-radius: 8px; transition: border-color .15s, background .15s; }
+.check-grid input[type=checkbox] { width: 15px; height: 15px; accent-color: #f0a500; cursor: pointer; flex-shrink: 0; }
+.check-grid label:has(input:checked) { border-color: #f0a500; background: #fff8ee; }
+.check-all-btn { font-size: 11px; color: #f0a500; font-weight: 600; cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 8px; text-decoration: underline; font-family: 'Inter', sans-serif; }
+
+/* Station selection mode */
+.station-mode { display: flex; gap: 10px; margin-bottom: 14px; }
+.mode-btn { padding: 8px 16px; border-radius: 8px; font-size: 12.5px; font-weight: 600; border: 1.5px solid #e0d0c0; background: #fff; color: #888; cursor: pointer; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 6px; transition: all .15s; }
+.mode-btn.active { border-color: #f0a500; background: #fff8ee; color: #1a1a2e; }
+.mode-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Params grid */
+.params-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+/* BV map */
+.bv-map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; margin-bottom: 18px; }
+.bv-map-title { background: #1a1a2e; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 7px; }
+.bv-map-title i { color: #f0a500; }
+#bv-map { height: 360px; }
+
+/* Submit */
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-submit { padding: 12px 32px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 12px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_bv' %}">Bassins versants</a> ›
+    <a href="{% url 'detail_bv' bv.pk %}">{{ bv.nom }}</a> › Analyse
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-chart-line"></i> Lancer une analyse hydrologique</h1>
+    <div class="bv-badge"><i class="fas fa-mountain"></i> {{ bv.nom }} — {{ bv.surface }} km²</div>
+  </div>
+
+  {% if bv.geometrie %}
+  <div class="bv-map-card">
+    <div class="bv-map-title"><i class="fas fa-map"></i> Carte du bassin versant — {{ bv.nom }}</div>
+    <div id="bv-map"></div>
+    <div style="padding:8px 14px;background:#fffbf4;border-top:1px solid #f0e8d8;display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:#555;">
+      <span><span style="display:inline-block;width:14px;height:8px;background:#f0a500;opacity:.5;border:1.5px solid #f0a500;vertical-align:middle;"></span> Bassin versant</span>
+      <span><span style="display:inline-block;width:14px;height:2px;background:#1a6fa8;vertical-align:middle;"></span> Réseau hydrographique</span>
+      <span id="reseau-status" style="margin-left:auto;color:#888;">Chargement du réseau…</span>
+    </div>
+  </div>
+  {% endif %}
+  <form method="post" id="analyse-form" novalidate>
+    {% csrf_token %}
+
+    <!-- STATIONS -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-map-marker-alt"></i> Sélection des stations</div>
+
+      <div class="station-mode">
+        <button type="button" class="mode-btn active" id="btn-mode-manual" onclick="setMode('manual')">
+          <i class="fas fa-hand-pointer"></i> Sélection manuelle
+        </button>
+        <button type="button" class="mode-btn" id="btn-mode-proche" onclick="setMode('proche')" disabled title="Disponible prochainement">
+          <i class="fas fa-crosshairs"></i> La plus proche <small style="font-size:10px;opacity:.6;">(bientôt)</small>
+        </button>
+      </div>
+
+      <div class="row2">
+        <div class="form-group">
+          <label>{{ form.station_pluvio.label }} <span style="color:#c0392b">*</span></label>
+          {{ form.station_pluvio }}
+          <div class="form-help">{{ form.station_pluvio.help_text }}</div>
+          {{ form.station_pluvio.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.station_hydro.label }}</label>
+          {{ form.station_hydro }}
+          <div class="form-help">{{ form.station_hydro.help_text }}</div>
+          {{ form.station_hydro.errors }}
+        </div>
+      </div>
+    </div>
+
+    <!-- FORMULES Tc -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-clock"></i> Formules de temps de concentration</div>
+      <div class="form-help" style="margin-bottom:10px;">{{ form.formules_tc.help_text }}</div>
+      <button type="button" class="check-all-btn" onclick="toggleAll('tc')">Tout sélectionner / désélectionner</button>
+      <div class="check-grid" id="tc-grid">
+        {% for choice in form.formules_tc %}
+        <label>{{ choice.tag }} {{ choice.choice_label }}</label>
+        {% endfor %}
+      </div>
+      {{ form.formules_tc.errors }}
+    </div>
+
+    <!-- FORMULES Q -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-water"></i> Formules incluses dans la moyenne finale Q</div>
+      <div class="form-help" style="margin-bottom:10px;">{{ form.formules_q_incluses.help_text }}</div>
+      <button type="button" class="check-all-btn" onclick="toggleAll('q')">Tout sélectionner / désélectionner</button>
+      <div class="check-grid" id="q-grid">
+        {% for choice in form.formules_q_incluses %}
+        <label>{{ choice.tag }} {{ choice.choice_label }}</label>
+        {% endfor %}
+      </div>
+      {{ form.formules_q_incluses.errors }}
+    </div>
+
+    <!-- PARAMETRES -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-sliders-h"></i> Paramètres des formules</div>
+      <div class="params-grid">
+        <div class="form-group">
+          <label>{{ form.C_rationnel.label }}</label>{{ form.C_rationnel }}{{ form.C_rationnel.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.K_macmath.label }}</label>{{ form.K_macmath }}{{ form.K_macmath.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.A_fuller.label }}</label>{{ form.A_fuller }}{{ form.A_fuller.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.N_fuller.label }}</label>{{ form.N_fuller }}{{ form.N_fuller.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.k_mallet.label }}</label>{{ form.k_mallet }}{{ form.k_mallet.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.a_mallet.label }}</label>{{ form.a_mallet }}{{ form.a_mallet.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.K1_hl.label }}</label>{{ form.K1_hl }}{{ form.K1_hl.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.K2_hl.label }}</label>{{ form.K2_hl }}{{ form.K2_hl.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.a_hl.label }}</label>{{ form.a_hl }}{{ form.a_hl.errors }}
+        </div>
+      </div>
+    </div>
+
+    {% if form.non_field_errors %}
+    <div style="color:#c0392b;font-size:13px;margin-bottom:14px;background:#fff0f0;padding:12px;border-radius:8px;">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <a href="{% url 'detail_bv' bv.pk %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Retour</a>
+      <button type="submit" class="btn-submit"><i class="fas fa-play"></i> Lancer le calcul</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="{% static 'analyse_hydrologique/js/reseau_personnalisable.js' %}"></script>
+<script>
+{% if bv.geometrie %}
+(function() {
+    const map = L.map('bv-map');
+    const basemaps = {
+        'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+        'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+        'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+        'ESRI Streets':       L.esri.basemapLayer('Streets'),
+    };
+    basemaps['OpenStreetMap'].addTo(map);
+
+    const bvLayer = L.geoJSON({{ bv.geometrie.geojson|safe }}, {
+        style: { color: '#d4920a', weight: 2.5, fillOpacity: 0.18, fillColor: '#d4920a' }
+    }).addTo(map);
+    bvLayer.bindTooltip('{{ bv.nom }}', { permanent: false });
+    map.fitBounds(bvLayer.getBounds(), { padding: [24, 24] });
+
+    ReseauPersonnalisable.init(map, {
+        url:      "{% url 'bv_reseau_geojson' bv.pk %}",
+        gridMax:  {{ reseau_grid_max|default:0 }},
+        basemaps: basemaps,
+        bvLayer:  bvLayer,
+        statusEl: document.getElementById('reseau-status'),
+    });
+})();
+{% endif %}
+
+function setMode(mode) {
+    document.getElementById('btn-mode-manual').classList.toggle('active', mode === 'manual');
+    document.getElementById('btn-mode-proche').classList.toggle('active', mode === 'proche');
+}
+
+function toggleAll(type) {
+    const gridId = type === 'tc' ? 'tc-grid' : 'q-grid';
+    const boxes = document.querySelectorAll(`#${gridId} input[type=checkbox]`);
+    const allChecked = [...boxes].every(b => b.checked);
+    boxes.forEach(b => b.checked = !allChecked);
+}
+
+document.querySelectorAll('#analyse-form input:not([type=hidden]):not([type=checkbox]), #analyse-form select, #analyse-form textarea')
+    .forEach(el => el.classList.add('form-control'));
+</script>
+{% endblock %}

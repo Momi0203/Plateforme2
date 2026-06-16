@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Analyse Hydrologique — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.ah-page { padding: 28px 32px; }
+.ah-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+.ah-header h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.ah-header h1 i { color: #f0a500; }
+.ah-search { display: flex; align-items: center; gap: 8px; }
+.ah-search input { padding: 9px 14px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; width: 240px; }
+.ah-search input:focus { outline: none; border-color: #f0a500; }
+.ah-search button { padding: 9px 14px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; }
+
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid #f0e8d8; }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.stat-icon.bv    { background: #fff3cd; color: #f0a500; }
+.stat-icon.pluvio{ background: #d1ecf1; color: #0c7a8a; }
+.stat-icon.hydro { background: #d4edda; color: #1e8449; }
+.stat-icon.analyse{ background: #f8d7da; color: #c0392b; }
+.stat-val  { font-size: 26px; font-weight: 700; color: #1a1a2e; line-height: 1; }
+.stat-lbl  { font-size: 12px; color: #888; margin-top: 3px; }
+
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+
+.modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+.module-card { background: #fff; border-radius: 12px; padding: 20px; border: 1.5px solid #f0e8d8; transition: border-color .2s, box-shadow .2s; text-decoration: none; color: #1a1a2e; }
+.module-card:hover { border-color: #f0a500; box-shadow: 0 4px 16px rgba(240,165,0,.12); }
+.module-card-icon { font-size: 24px; color: #f0a500; margin-bottom: 10px; }
+.module-card-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+.module-card-desc  { font-size: 12px; color: #888; line-height: 1.5; }
+.module-card-count { font-size: 11px; color: #f0a500; font-weight: 600; margin-top: 10px; }
+
+.recent-table { background: #fff; border-radius: 12px; border: 1px solid #f0e8d8; overflow: hidden; }
+.recent-table table { width: 100%; border-collapse: collapse; }
+.recent-table th { background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; padding: 11px 14px; text-align: left; }
+.recent-table td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid #f5ece0; }
+.recent-table tr:last-child td { border-bottom: none; }
+.recent-table tr:hover td { background: #fffbf5; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-gradex { background: #fff3cd; color: #856404; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-primary-sm { background: #f0a500; color: #1a1a2e; }
+.btn-primary-sm:hover { background: #d4920a; }
+.btn-dark-sm { background: #1a1a2e; color: #fff; }
+.btn-dark-sm:hover { background: #2a2a4e; }
+.empty-state { text-align: center; padding: 40px; color: #aaa; font-size: 13px; }
+.empty-state i { font-size: 32px; margin-bottom: 10px; display: block; color: #ddd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ah-page">
+
+  <div class="ah-header">
+    <h1><i class="fas fa-tint"></i> Analyse Hydrologique</h1>
+    <div class="ah-search">
+      <input type="text" id="bv-search" placeholder="Rechercher un bassin versant…" autocomplete="off">
+      <button onclick="rechercherBV()"><i class="fas fa-search"></i></button>
+      <a href="{% url 'creer_bv' %}" class="btn-sm btn-primary-sm"><i class="fas fa-plus"></i> Nouveau BV</a>
+    </div>
+  </div>
+
+  <!-- Résultats de recherche dynamique -->
+  <div id="search-results" style="display:none; background:#fff; border:1.5px solid #f0a500; border-radius:10px; padding:10px; margin-bottom:20px;"></div>
+
+  <!-- Statistiques -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon bv"><i class="fas fa-mountain"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_bv }}</div>
+        <div class="stat-lbl">Bassins versants</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon pluvio"><i class="fas fa-cloud-rain"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_pluvio }}</div>
+        <div class="stat-lbl">Stations pluvio.</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon hydro"><i class="fas fa-water"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_hydro }}</div>
+        <div class="stat-lbl">Stations hydro.</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon analyse"><i class="fas fa-chart-line"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_analyses }}</div>
+        <div class="stat-lbl">Analyses réalisées</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modules -->
+  <div class="section-title"><i class="fas fa-th"></i> Modules</div>
+  <div class="modules-grid">
+    <a href="{% url 'liste_bv' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-mountain"></i></div>
+      <div class="module-card-title">Bassins versants</div>
+      <div class="module-card-desc">Gérer les bassins versants, paramètres morphologiques et géométries.</div>
+      <div class="module-card-count">{{ nb_bv }} enregistré{{ nb_bv|pluralize }}</div>
+    </a>
+    <a href="{% url 'liste_stations_pluvio' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-cloud-rain"></i></div>
+      <div class="module-card-title">Stations pluviométriques</div>
+      <div class="module-card-desc">Séries pluviométriques, Pjmax et coefficients Montana.</div>
+      <div class="module-card-count">{{ nb_pluvio }} enregistrée{{ nb_pluvio|pluralize }}</div>
+    </a>
+    <a href="{% url 'liste_stations_hydro' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-water"></i></div>
+      <div class="module-card-title">Stations hydrométriques</div>
+      <div class="module-card-desc">Séries de débits, Qjmax et surfaces jaugées.</div>
+      <div class="module-card-count">{{ nb_hydro }} enregistrée{{ nb_hydro|pluralize }}</div>
+    </a>
+    <a href="{% url 'liste_coefficients' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-calculator"></i></div>
+      <div class="module-card-title">Coefficients Montana</div>
+      <div class="module-card-desc">Paramètres a et b pour chaque période de retour (T=10…100 ans).</div>
+    </a>
+    <a href="{% url 'liste_analyses' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-chart-bar"></i></div>
+      <div class="module-card-title">Analyses hydrologiques</div>
+      <div class="module-card-desc">Résultats de calcul Tc, débits de crue et méthode du Gradex.</div>
+      <div class="module-card-count">{{ nb_analyses }} analyse{{ nb_analyses|pluralize }}</div>
+    </a>
+  </div>
+
+  <!-- Dernières analyses -->
+  <div class="section-title"><i class="fas fa-history"></i> Dernières analyses</div>
+  <div class="recent-table">
+    {% if dernieres_analyses %}
+    <table>
+      <thead>
+        <tr>
+          <th>Bassin versant</th>
+          <th>Date</th>
+          <th>Opérateur</th>
+          <th>Q T50</th>
+          <th>Q T100</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in dernieres_analyses %}
+        <tr>
+          <td><b>{{ a.bassin_versant }}</b></td>
+          <td>{{ a.date_analyse|date:"d/m/Y H:i" }}</td>
+          <td>{{ a.operateur }}</td>
+          <td>{% if a.qcrue_t50 %}{{ a.qcrue_t50|floatformat:2 }} m³/s{% else %}—{% endif %}</td>
+          <td>{% if a.qcrue_t100 %}{{ a.qcrue_t100|floatformat:2 }} m³/s{% else %}—{% endif %}</td>
+          <td><a href="{% url 'resultat_analyse' a.pk %}" class="btn-sm btn-dark-sm"><i class="fas fa-eye"></i> Voir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <i class="fas fa-chart-bar"></i>
+      Aucune analyse réalisée pour l'instant.<br>
+      <a href="{% url 'liste_bv' %}" style="color:#f0a500; font-weight:600;">Commencer par sélectionner un bassin versant →</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+const BV_LIST_URL = "{% url 'liste_bv' %}";
+
+function rechercherBV() {
+    const q = document.getElementById('bv-search').value.trim();
+    if (!q) { document.getElementById('search-results').style.display = 'none'; return; }
+    fetch(`{% url 'liste_bv' %}?q=${encodeURIComponent(q)}&json=1`)
+        .then(r => r.json())
+        .then(data => {
+            const box = document.getElementById('search-results');
+            if (!data.length) {
+                box.innerHTML = '<span style="color:#aaa;font-size:13px;">Aucun résultat.</span>';
+            } else {
+                box.innerHTML = data.map(bv =>
+                    `<a href="/hydrologie/bassins/${bv.pk}/" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;text-decoration:none;color:#1a1a2e;transition:background .15s;" onmouseover="this.style.background='#fff8ee'" onmouseout="this.style.background=''">
+                        <i class="fas fa-mountain" style="color:#f0a500;"></i>
+                        <span style="font-weight:600;">${bv.nom}</span>
+                        <span style="font-size:11px;color:#aaa;">${bv.surface} km²</span>
+                    </a>`
+                ).join('');
+            }
+            box.style.display = 'block';
+        });
+}
+
+document.getElementById('bv-search').addEventListener('keyup', e => {
+    if (e.key === 'Enter') rechercherBV();
+    if (!e.target.value) document.getElementById('search-results').style.display = 'none';
+});
+document.addEventListener('click', e => {
+    if (!e.target.closest('#bv-search') && !e.target.closest('#search-results'))
+        document.getElementById('search-results').style.display = 'none';
+});
+</script>
+{% endblock %}

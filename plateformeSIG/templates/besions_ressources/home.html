@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bilan Besoins-Ressources — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.br-page { padding: 28px 32px; }
+.br-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+.br-header h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.br-header h1 i { color: #f0a500; }
+
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); border: 1px solid #f0e8d8; }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.stat-icon.perim   { background: #fff3cd; color: #f0a500; }
+.stat-icon.clim    { background: #d1ecf1; color: #0c7a8a; }
+.stat-icon.hydro   { background: #d4edda; color: #1e8449; }
+.stat-icon.bilan   { background: #f8d7da; color: #c0392b; }
+.stat-val  { font-size: 26px; font-weight: 700; color: #1a1a2e; line-height: 1; }
+.stat-lbl  { font-size: 12px; color: #888; margin-top: 3px; }
+
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+
+.modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+.module-card { background: #fff; border-radius: 12px; padding: 20px; border: 1.5px solid #f0e8d8; transition: border-color .2s, box-shadow .2s; text-decoration: none; color: #1a1a2e; display: block; }
+.module-card:hover { border-color: #f0a500; box-shadow: 0 4px 16px rgba(240,165,0,.12); }
+.module-card-icon { font-size: 24px; color: #f0a500; margin-bottom: 10px; }
+.module-card-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+.module-card-desc  { font-size: 12px; color: #888; line-height: 1.5; }
+.module-card-count { font-size: 11px; color: #f0a500; font-weight: 600; margin-top: 10px; }
+
+.recent-table { background: #fff; border-radius: 12px; border: 1px solid #f0e8d8; overflow: hidden; }
+.recent-table table { width: 100%; border-collapse: collapse; }
+.recent-table th { background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; padding: 11px 14px; text-align: left; }
+.recent-table td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid #f5ece0; vertical-align: middle; }
+.recent-table tr:last-child td { border-bottom: none; }
+.recent-table tr:hover td { background: #fffbf5; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-ok  { background: #d4edda; color: #1e8449; }
+.badge-pnd { background: #fff3cd; color: #856404; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-primary-sm { background: #f0a500; color: #1a1a2e; }
+.btn-primary-sm:hover { background: #d4920a; }
+.btn-dark-sm { background: #1a1a2e; color: #fff; }
+.btn-dark-sm:hover { background: #2a2a4e; }
+.empty-state { text-align: center; padding: 40px; color: #aaa; font-size: 13px; }
+.empty-state i { font-size: 32px; margin-bottom: 10px; display: block; color: #ddd; }
+
+/* Accordion périmètres */
+.search-wrap { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #e0d0c0; border-radius: 8px; padding: 0 12px; }
+.search-wrap i { color: #bbb; font-size: 13px; }
+.search-wrap input { flex: 1; padding: 10px 6px; border: none; outline: none; font-size: 13px; font-family: 'Inter', sans-serif; background: transparent; }
+.acc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+.acc-row { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; overflow: hidden; transition: box-shadow .2s; }
+.acc-row:hover { box-shadow: 0 4px 16px rgba(240,165,0,.1); }
+.acc-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; cursor: pointer; gap: 10px; user-select: none; }
+.acc-head:hover { background: #fffbf5; }
+.acc-head-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.acc-head-left > i { color: #f0a500; font-size: 15px; flex-shrink: 0; }
+.acc-head-title { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.acc-head-meta { font-size: 11.5px; color: #888; margin-top: 1px; }
+.acc-head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.acc-pill { background: #fff3cd; color: #856404; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.acc-pill.zero { background: #f5f5f5; color: #aaa; }
+.acc-last-date { font-size: 11px; color: #bbb; }
+.acc-chevron { background: none; border: 1.5px solid #e0d0c0; border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #888; font-size: 11px; transition: all .15s; flex-shrink: 0; }
+.acc-chevron.open { border-color: #f0a500; color: #f0a500; }
+.acc-chevron.open i { transform: rotate(180deg); }
+.acc-chevron i { transition: transform .2s; }
+.acc-body { display: none; border-top: 1px solid #f5ece0; padding: 0 18px 14px; }
+.acc-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 12px; }
+.acc-table th { background: #1a1a2e; color: #fff; padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; }
+.acc-table td { padding: 9px 12px; border-bottom: 1px solid #f5ece0; vertical-align: middle; }
+.acc-table tr:last-child td { border-bottom: none; }
+.acc-table tr:hover td { background: #fffbf5; }
+.acc-no-data { text-align: center; padding: 18px; color: #aaa; font-size: 12.5px; }
+.acc-no-data a { color: #f0a500; font-weight: 600; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="br-page">
+
+  <div class="br-header">
+    <h1><i class="fas fa-balance-scale"></i> Bilan Besoins-Ressources en Eau</h1>
+    <a href="{% url 'besions_ressources:bilan_creer' %}" class="btn-sm btn-primary-sm">
+      <i class="fas fa-plus"></i> Nouveau bilan
+    </a>
+  </div>
+
+  <!-- Statistiques -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon perim"><i class="fas fa-map-marked-alt"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_perimetres }}</div>
+        <div class="stat-lbl">Périmètres irrigués</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon clim"><i class="fas fa-thermometer-half"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_stations_clim }}</div>
+        <div class="stat-lbl">Stations climatiques</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon hydro"><i class="fas fa-water"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_stations_hydro }}</div>
+        <div class="stat-lbl">Stations hydrométriques</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon bilan"><i class="fas fa-chart-pie"></i></div>
+      <div>
+        <div class="stat-val">{{ nb_bilans }}</div>
+        <div class="stat-lbl">Bilans réalisés</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modules -->
+  <div class="section-title"><i class="fas fa-th"></i> Modules</div>
+  <div class="modules-grid">
+
+    <a href="{% url 'diagnostic:perimetre_list' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-map-marked-alt"></i></div>
+      <div class="module-card-title">Périmètres irrigués</div>
+      <div class="module-card-desc">Consulter et gérer les périmètres — géométrie, efficiance du réseau, cultures.</div>
+      <div class="module-card-count">{{ nb_perimetres }} périmètre{{ nb_perimetres|pluralize }}</div>
+    </a>
+
+    <a href="{% url 'besions_ressources:station_list' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-thermometer-half"></i></div>
+      <div class="module-card-title">Stations climatiques</div>
+      <div class="module-card-desc">Températures, taux d'insolation et précipitations mensuelles (années normale et humide).</div>
+      <div class="module-card-count">{{ nb_stations_clim }} station{{ nb_stations_clim|pluralize }}</div>
+    </a>
+
+    <a href="{% url 'liste_stations_hydro' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-water"></i></div>
+      <div class="module-card-title">Stations hydrométriques</div>
+      <div class="module-card-desc">Débits mensuels jaugés utilisés pour le calcul des ressources de crue.</div>
+      <div class="module-card-count">{{ nb_stations_hydro }} station{{ nb_stations_hydro|pluralize }}</div>
+    </a>
+
+    {% for perimetre in perimetres|slice:":3" %}
+    <a href="{% url 'besions_ressources:culture_creer' %}?next={{ request.path }}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-seedling"></i></div>
+      <div class="module-card-title">Coefficients culturaux — {{ perimetre.nom|truncatechars:20 }}</div>
+      <div class="module-card-desc">Ajouter / modifier les cultures avec coefficients Kc et Kr mensuels.</div>
+      <div class="module-card-count">{{ perimetre.cultures_bilan.count }} culture{{ perimetre.cultures_bilan.count|pluralize }}</div>
+    </a>
+    {% empty %}
+    <a href="{% url 'besions_ressources:coeff_culture_home' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-seedling"></i></div>
+      <div class="module-card-title">Coefficients culturaux</div>
+      <div class="module-card-desc">Coefficients Kc et Kr mensuels par culture. Accessible depuis la page bilan.</div>
+    </a>
+    {% endfor %}
+
+    <a href="{% url 'besions_ressources:bilan_creer' %}" class="module-card">
+      <div class="module-card-icon"><i class="fas fa-balance-scale"></i></div>
+      <div class="module-card-title">Bilan besoins-ressources</div>
+      <div class="module-card-desc">Calculer le bilan mensuel entre besoins en eau des cultures et ressources disponibles.</div>
+      <div class="module-card-count">{{ nb_bilans }} bilan{{ nb_bilans|pluralize }}</div>
+    </a>
+
+  </div>
+
+  <!-- Bilans par périmètre -->
+  <div class="section-title" style="margin-bottom:10px;"><i class="fas fa-map-marked-alt"></i> Bilans par périmètre</div>
+
+  <div class="search-wrap">
+    <i class="fas fa-search"></i>
+    <input type="text" id="search-perimetre" placeholder="Rechercher un périmètre…" oninput="filtrerAccordion()" autocomplete="off">
+  </div>
+
+  {% if perimetres %}
+  <div class="acc-list" id="acc-list">
+    {% for p in perimetres %}
+    <div class="acc-row" data-nom="{{ p.ksar_village|lower|default:'' }} {{ p.commune_territoriale|lower|default:'' }}">
+      <div class="acc-head" onclick="toggleAcc(this)">
+        <div class="acc-head-left">
+          <i class="fas fa-map-marked-alt"></i>
+          <div>
+            <div class="acc-head-title">{{ p.ksar_village|default:"(sans nom)" }}</div>
+            <div class="acc-head-meta">{{ p.commune_territoriale|default:"—" }} · {{ p.province }}</div>
+          </div>
+        </div>
+        <div class="acc-head-right">
+          {% with nb=p.bilans_ressources.count %}
+          <span class="acc-pill {% if nb == 0 %}zero{% endif %}">{{ nb }} bilan{{ nb|pluralize }}</span>
+          {% endwith %}
+          {% with last=p.bilans_ressources.all.0 %}
+          {% if last %}<span class="acc-last-date">dernier : {{ last.created_at|date:"d/m/Y" }}</span>{% endif %}
+          {% endwith %}
+          <a href="{% url 'besions_ressources:bilan_creer' %}" class="btn-sm btn-primary-sm" onclick="event.stopPropagation()">
+            <i class="fas fa-plus"></i> Nouveau bilan
+          </a>
+          <button class="acc-chevron" onclick="event.stopPropagation(); toggleAcc(this.closest('.acc-row').querySelector('.acc-head'))">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+      </div>
+      <div class="acc-body">
+        {% with bilans_p=p.bilans_ressources.all %}
+        {% if bilans_p %}
+        <table class="acc-table">
+          <thead>
+            <tr>
+              <th>Date création</th>
+              <th>Station climatique</th>
+              <th>Statut</th>
+              <th>Date calcul</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in bilans_p %}
+            <tr>
+              <td>{{ b.created_at|date:"d/m/Y" }}</td>
+              <td>{{ b.station_climatique|default:"—" }}</td>
+              <td>
+                {% if b.est_calcule %}
+                <span class="badge badge-ok"><i class="fas fa-check" style="font-size:9px;"></i> Calculé</span>
+                {% else %}
+                <span class="badge badge-pnd"><i class="fas fa-clock" style="font-size:9px;"></i> En attente</span>
+                {% endif %}
+              </td>
+              <td>{{ b.date_calcul|date:"d/m/Y H:i"|default:"—" }}</td>
+              <td>
+                <a href="{% url 'besions_ressources:bilan_detail' b.pk %}" class="btn-sm btn-dark-sm">
+                  <i class="fas fa-eye"></i> Voir
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="acc-no-data">
+          <i class="fas fa-balance-scale" style="font-size:22px;display:block;margin-bottom:6px;color:#ddd;"></i>
+          Aucun bilan pour ce périmètre.
+          <a href="{% url 'besions_ressources:bilan_creer' %}"> Créer le premier bilan →</a>
+        </div>
+        {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="recent-table" style="margin-bottom:28px;">
+    <div class="empty-state">
+      <i class="fas fa-map-marked-alt"></i>
+      Aucun périmètre enregistré.<br>
+      <a href="{% url 'diagnostic:perimetre_list' %}" style="color:#f0a500; font-weight:600;">Créer un périmètre dans le module Diagnostic →</a>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function toggleAcc(head) {
+    const row = head.closest('.acc-row');
+    const body = row.querySelector('.acc-body');
+    const chevron = row.querySelector('.acc-chevron');
+    const open = body.style.display === 'block';
+    body.style.display = open ? 'none' : 'block';
+    chevron.classList.toggle('open', !open);
+}
+
+function filtrerAccordion() {
+    const q = (document.getElementById('search-perimetre').value || '').toLowerCase().trim();
+    document.querySelectorAll('.acc-row').forEach(row => {
+        row.style.display = (!q || (row.dataset.nom || '').includes(q)) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

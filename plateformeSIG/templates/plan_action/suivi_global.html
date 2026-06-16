@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Suivi global PMH — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.page-header h1 { font-size: 19px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.page-header h1 i { color: #f0a500; }
+.page-header .page-meta { font-size: 13px; color: #666; margin-top: 5px; }
+.hdr-actions { display: flex; gap: 8px; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+
+/* KPI strip */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 26px; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 16px 18px; }
+.kpi-card .kpi-icon { font-size: 20px; color: #f0a500; margin-bottom: 8px; }
+.kpi-card .kpi-val { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+.kpi-card .kpi-lbl { font-size: 11px; color: #999; margin-top: 2px; }
+
+/* Barre avancement globale */
+.global-prog-wrap { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 18px 22px; margin-bottom: 26px; }
+.global-prog-wrap h3 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.global-prog-wrap h3 i { color: #f0a500; }
+.prog-bar-bg { background: #f0e8d8; border-radius: 10px; height: 14px; overflow: hidden; }
+.prog-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #f0a500, #ffd989); transition: width .7s; }
+.prog-labels { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 8px; }
+
+/* Plan sections */
+.plan-section { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 14px; margin-bottom: 20px; overflow: hidden; }
+.plan-section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; cursor: pointer; user-select: none; transition: background .2s; }
+.plan-section-header:hover { background: #fdf8f0; }
+.plan-section-header-left { display: flex; align-items: center; gap: 12px; }
+.plan-annee { font-size: 18px; font-weight: 800; color: #f0a500; }
+.plan-titre { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.plan-meta-small { font-size: 11.5px; color: #888; margin-top: 2px; }
+.plan-prog-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.plan-prog-bar-bg { background: #f0e8d8; border-radius: 8px; height: 10px; width: 120px; overflow: hidden; }
+.plan-prog-bar-fill { height: 100%; border-radius: 8px; }
+.plan-pct { font-size: 14px; font-weight: 800; }
+.plan-chevron { color: #aaa; transition: transform .25s; }
+.plan-section-header.open .plan-chevron { transform: rotate(180deg); }
+
+/* Retard badges */
+.retard-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+.rb-ok    { background: #d1f7e0; color: #156b3c; }
+.rb-warn  { background: #fff3cd; color: #856404; }
+.rb-alert { background: #fde8e8; color: #c0392b; }
+
+/* Table actions par plan */
+.plan-body { display: none; padding: 0 20px 18px; }
+.plan-body.open { display: block; }
+table.actions-sub { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.actions-sub th { background: #f5f0e8; color: #555; padding: 9px 12px; text-align: left; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+table.actions-sub td { padding: 10px 12px; border-bottom: 1px solid #f0e8d8; vertical-align: middle; }
+table.actions-sub tr:hover td { background: #fdf8f0; }
+
+/* Barres avancement dans tableau */
+.mini-prog-bg { background: #f0e8d8; border-radius: 5px; height: 7px; overflow: hidden; width: 100px; }
+.mini-prog-fill { height: 100%; border-radius: 5px; }
+
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-suivi { background: #e8fdf0; color: #1e6b4a; }
+.btn-suivi:hover { background: #d0f5e4; }
+.btn-gantt { background: #f0e8ff; color: #7b2fbe; }
+.btn-gantt:hover { background: #e4d5ff; }
+
+/* Empty state */
+.empty-global { text-align: center; padding: 80px; color: #aaa; }
+.empty-global i { font-size: 40px; color: #ddd; display: block; margin-bottom: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    Suivi global
+  </div>
+
+  <div class="page-header">
+    <div>
+      <h1><i class="fas fa-globe"></i> Suivi global d'avancement PMH</h1>
+      <div class="page-meta">Au {{ today|date:"d MMMM Y" }} &nbsp;·&nbsp; Avancement pondéré par nombre de tâches</div>
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'plan_action:plan_list' %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Plans
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI globaux -->
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-clipboard-list"></i></div>
+      <div class="kpi-val">{{ plans_data|length }}</div>
+      <div class="kpi-lbl">Plans avec suivi</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
+      <div class="kpi-val">{{ total_actions }}</div>
+      <div class="kpi-lbl">Actions planifiées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-layer-group"></i></div>
+      <div class="kpi-val">{{ total_taches }}</div>
+      <div class="kpi-lbl">Tâches totales</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+      <div class="kpi-val" style="color:{% if av_global >= 80 %}#27ae60{% elif av_global >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ av_global }}%</div>
+      <div class="kpi-lbl">Avancement moyen pondéré</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i></div>
+      <div class="kpi-val" style="color:#e74c3c;">{{ total_retards }}</div>
+      <div class="kpi-lbl">Tâches en retard</div>
+    </div>
+  </div>
+
+  <!-- Barre de progression globale -->
+  <div class="global-prog-wrap">
+    <h3><i class="fas fa-chart-bar"></i> Avancement global — tous plans confondus</h3>
+    <div class="prog-bar-bg">
+      <div class="prog-bar-fill" style="width:{{ av_global }}%;"></div>
+    </div>
+    <div class="prog-labels">
+      <span>{{ total_taches }} tâches · {{ total_actions }} actions · {{ plans_data|length }} plans</span>
+      <span style="font-weight:700;color:{% if av_global >= 80 %}#27ae60{% elif av_global >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ av_global }}%</span>
+    </div>
+  </div>
+
+  {% if plans_data %}
+  <!-- Plans accordion -->
+  {% for pd in plans_data %}
+  <div class="plan-section">
+    <div class="plan-section-header" onclick="togglePlan({{ forloop.counter }})">
+      <div class="plan-section-header-left">
+        <div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="plan-annee">{{ pd.plan.annee }}</span>
+            <span class="plan-titre">{{ pd.plan.titre }}</span>
+            {% if pd.nb_retard_plan > 0 %}
+            <span class="retard-badge rb-alert"><i class="fas fa-exclamation-triangle"></i> {{ pd.nb_retard_plan }} retard(s)</span>
+            {% else %}
+            <span class="retard-badge rb-ok"><i class="fas fa-check"></i> Aucun retard</span>
+            {% endif %}
+          </div>
+          <div class="plan-meta-small">
+            {{ pd.actions_data|length }} action(s) &nbsp;·&nbsp;
+            {{ pd.plan.get_statut_display }} &nbsp;·&nbsp;
+            {{ pd.plan.get_source_financement_display }}
+          </div>
+        </div>
+      </div>
+      <div class="plan-prog-wrap">
+        <div class="plan-prog-bar-bg">
+          <div class="plan-prog-bar-fill" style="width:{{ pd.av_plan }}%;background:{% if pd.av_plan >= 80 %}#27ae60{% elif pd.av_plan >= 40 %}#f0a500{% else %}#e74c3c{% endif %};"></div>
+        </div>
+        <span class="plan-pct" style="color:{% if pd.av_plan >= 80 %}#27ae60{% elif pd.av_plan >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ pd.av_plan }}%</span>
+        <i class="fas fa-chevron-down plan-chevron" id="chevron-{{ forloop.counter }}"></i>
+      </div>
+    </div>
+
+    <div class="plan-body" id="plan-body-{{ forloop.counter }}">
+      <table class="actions-sub">
+        <thead>
+          <tr>
+            <th>Type d'action</th>
+            <th>Commune</th>
+            <th>Tâches</th>
+            <th style="min-width:120px;">Avancement</th>
+            <th>Retards</th>
+            <th>Calendrier</th>
+            <th>Liens</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ad in pd.actions_data %}
+          <tr>
+            <td>
+              <div style="font-weight:600;color:#1a1a2e;font-size:12.5px;">{{ ad.action.get_type_action_display }}</div>
+            </td>
+            <td>{{ ad.action.commune.nom_fr }}</td>
+            <td style="text-align:center;font-weight:700;">{{ ad.nb_taches }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="mini-prog-bg">
+                  <div class="mini-prog-fill" style="width:{{ ad.av_moyen }}%;background:{% if ad.av_moyen >= 80 %}#27ae60{% elif ad.av_moyen >= 40 %}#f0a500{% else %}#e74c3c{% endif %};"></div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:{% if ad.av_moyen >= 80 %}#27ae60{% elif ad.av_moyen >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ ad.av_moyen }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if ad.nb_retard > 0 %}
+              <span class="retard-badge rb-alert"><i class="fas fa-exclamation-triangle"></i> {{ ad.nb_retard }}</span>
+              {% else %}
+              <span class="retard-badge rb-ok"><i class="fas fa-check"></i> OK</span>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;color:#888;">
+              {{ ad.cal.date_debut_prevue|date:"d/m/Y" }} →<br>{{ ad.cal.date_fin_prevue|date:"d/m/Y" }}
+            </td>
+            <td>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                <a href="{% url 'plan_action:suivi_dashboard' ad.action.pk %}" class="btn-xs btn-suivi" title="Dashboard suivi">
+                  <i class="fas fa-chart-line"></i>
+                </a>
+                <a href="{% url 'plan_action:calendrier_gantt' ad.action.pk %}" class="btn-xs btn-gantt" title="Gantt">
+                  <i class="fas fa-chart-gantt"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <div class="empty-global">
+    <i class="fas fa-globe"></i>
+    Aucun plan avec calendrier et tâches n'a été trouvé.<br>
+    <small><a href="{% url 'plan_action:plan_list' %}" style="color:#f0a500;text-decoration:none;font-weight:600;">Créer ou compléter un plan</a></small>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePlan(n) {
+  const body    = document.getElementById(`plan-body-${n}`);
+  const header  = body.previousElementSibling;
+  const chevron = document.getElementById(`chevron-${n}`);
+  const isOpen  = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+// Ouvrir le premier plan par défaut
+document.addEventListener('DOMContentLoaded', () => {
+  const first = document.getElementById('plan-body-1');
+  if (first) {
+    first.classList.add('open');
+    first.previousElementSibling.classList.add('open');
+  }
+});
+</script>
+{% endblock %}

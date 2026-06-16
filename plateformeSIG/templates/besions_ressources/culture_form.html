@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titre }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 1100px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 22px; margin-bottom: 16px; }
+.card-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 7px; }
+.card-title i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+.paste-bar { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 10px; }
+.paste-box { width: 100%; min-height: 42px; border: 1.5px dashed #e0d0c0; border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: 'Inter', sans-serif; resize: vertical; }
+.paste-box:focus { outline: none; border-color: #f0a500; background: #fff8ee; }
+.btn-paste { padding: 8px 12px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-paste:hover { background: #2a2a4e; }
+.paste-feedback { min-height: 16px; font-size: 11.5px; margin-top: 4px; }
+.paste-feedback.ok { color: #1e8449; }
+.paste-feedback.err { color: #c0392b; }
+
+.monthly-table-wrap { overflow-x: auto; }
+.monthly-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 830px; }
+.monthly-table th { background: #1a1a2e; color: #fff; padding: 9px 8px; text-align: center; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.monthly-table th:first-child { text-align: left; min-width: 180px; }
+.monthly-table td { padding: 7px 5px; border-bottom: 1px solid #f5ece0; text-align: center; }
+.monthly-table td:first-child { text-align: left; font-weight: 700; color: #555; }
+.monthly-table input { width: 70px; padding: 6px 6px; border: 1.5px solid #e0d0c0; border-radius: 6px; font-size: 12px; text-align: center; }
+.monthly-table input:focus { outline: none; border-color: #f0a500; }
+.monthly-table .kc-row td { background: #fffdf5; }
+.monthly-table .kr-row td { background: #f5f9f5; }
+
+.info-box { background: #fff8ee; border: 1px solid #f0e8d8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #856404; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+.btn-submit { padding: 12px 32px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 12px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'besions_ressources:coeff_culture_home' %}">Coefficients culturaux</a> › {{ titre }}
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-seedling"></i> {{ titre }}</h1>
+  </div>
+
+  <form method="post" novalidate id="culture-form">
+    {% csrf_token %}
+
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-info-circle"></i> Informations générales</div>
+      <div class="row2">
+        <div class="form-group">
+          <label>{{ form.nom.label }} <span style="color:#c0392b">*</span></label>
+          {{ form.nom }}
+          {{ form.nom.errors }}
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-table"></i> Coefficients mensuels (Sep → Aoû)</div>
+      <div class="info-box">
+        <i class="fas fa-info-circle"></i>
+        <div>
+          <b>Kc</b> : coefficient cultural (0–3, dépend du stade de la culture).
+          <b>Kr</b> : coefficient de stress (0–1, lié au couvert végétal et au taux d'humidité).
+          Le produit Kc × Kr × ETo donne l'ETc de la culture.
+        </div>
+      </div>
+
+      <div class="paste-bar">
+        <textarea id="paste-area" class="paste-box" rows="2"
+          placeholder="Collez ici 2 lignes x 12 colonnes (Kc puis Kr) depuis Excel"></textarea>
+        <button type="button" id="btn-paste" class="btn-paste">Coller</button>
+      </div>
+      <div id="paste-feedback" class="paste-feedback"></div>
+
+      <div class="monthly-table-wrap">
+        <table class="monthly-table" id="kckr-table">
+          <thead>
+            <tr>
+              <th>Coefficient</th>
+              <th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+              <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th>
+              <th>Mai</th><th>Jui</th><th>Jul</th><th>Aoû</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="kc-row" data-prefix="kc">
+              <td>Kc (0–3) *</td>
+              <td>{{ form.kc_0 }}</td><td>{{ form.kc_1 }}</td><td>{{ form.kc_2 }}</td>
+              <td>{{ form.kc_3 }}</td><td>{{ form.kc_4 }}</td><td>{{ form.kc_5 }}</td>
+              <td>{{ form.kc_6 }}</td><td>{{ form.kc_7 }}</td><td>{{ form.kc_8 }}</td>
+              <td>{{ form.kc_9 }}</td><td>{{ form.kc_10 }}</td><td>{{ form.kc_11 }}</td>
+            </tr>
+            <tr class="kr-row" data-prefix="kr">
+              <td>Kr (0–1) *</td>
+              <td>{{ form.kr_0 }}</td><td>{{ form.kr_1 }}</td><td>{{ form.kr_2 }}</td>
+              <td>{{ form.kr_3 }}</td><td>{{ form.kr_4 }}</td><td>{{ form.kr_5 }}</td>
+              <td>{{ form.kr_6 }}</td><td>{{ form.kr_7 }}</td><td>{{ form.kr_8 }}</td>
+              <td>{{ form.kr_9 }}</td><td>{{ form.kr_10 }}</td><td>{{ form.kr_11 }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {% for fname, ferrors in form.errors.items %}
+        {% if fname != '__all__' and fname != 'nom' %}
+        <div style="color:#c0392b;font-size:11.5px;margin-top:6px;">⚠ {{ fname }} : {{ ferrors|join:", " }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if form.non_field_errors %}
+    <div style="color:#c0392b;font-size:13px;margin-bottom:14px;background:#fff0f0;padding:12px;border-radius:8px;">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <a href="{% url 'besions_ressources:coeff_culture_home' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Retour</a>
+      <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const pasteArea = document.getElementById('paste-area');
+    const pasteBtn = document.getElementById('btn-paste');
+    const pasteFb = document.getElementById('paste-feedback');
+
+    document.querySelectorAll('#culture-form input:not([type=hidden]), #culture-form select')
+        .forEach(el => el.classList.add('form-control'));
+    document.querySelectorAll('#kckr-table input').forEach(el => el.classList.remove('form-control'));
+
+    function setFeedback(msg, type) {
+        pasteFb.textContent = msg;
+        pasteFb.className = 'paste-feedback ' + (type || '');
+    }
+
+    function parse2x12(text) {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const parsed = [];
+        for (const line of lines) {
+            const tokens = line.split(/\t|;|\s{2,}/).map(t => t.trim()).filter(Boolean);
+            const nums = tokens.map(t => parseFloat(t.replace(',', '.'))).filter(n => isFinite(n));
+            if (nums.length >= 12) parsed.push(nums.slice(0, 12));
+            if (parsed.length === 2) break;
+        }
+        if (parsed.length < 2) {
+            const allNums = (text.match(/-?\d+(?:[.,]\d+)?/g) || [])
+                .map(t => parseFloat(t.replace(',', '.')))
+                .filter(n => isFinite(n));
+            if (allNums.length >= 24) {
+                return [allNums.slice(0, 12), allNums.slice(12, 24)];
+            }
+        }
+        return parsed;
+    }
+
+    function apply2x12(values) {
+        if (values.length !== 2 || values.some(r => r.length !== 12)) {
+            setFeedback('Collage invalide : 2 lignes x 12 colonnes requises (Kc puis Kr).', 'err');
+            return;
+        }
+        const prefixes = ['kc', 'kr'];
+        prefixes.forEach((prefix, r) => {
+            for (let i = 0; i < 12; i++) {
+                const el = document.getElementById(`id_${prefix}_${i}`);
+                if (el) el.value = values[r][i];
+            }
+        });
+        setFeedback('2 lignes x 12 colonnes collées avec succès.', 'ok');
+    }
+
+    pasteBtn.addEventListener('click', () => {
+        const txt = pasteArea.value || '';
+        if (!txt.trim()) {
+            setFeedback("Collez d'abord les données dans la zone.", 'err');
+            return;
+        }
+        apply2x12(parse2x12(txt));
+    });
+
+    pasteArea.addEventListener('paste', e => {
+        const txt = (e.clipboardData || window.clipboardData).getData('text');
+        if (!txt) return;
+        e.preventDefault();
+        pasteArea.value = txt;
+        apply2x12(parse2x12(txt));
+    });
+})();
+</script>
+{% endblock %}

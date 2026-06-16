@@ -1,0 +1,1094 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ titre }} — HydroPlan SIG{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; max-width: 1180px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 22px; margin-bottom: 18px; }
+.card-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 7px; }
+.card-title i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.row4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-control[readonly] { background: #f8f5ee; color: #777; }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+/* Tables enfants (cultures, tour d'eau) */
+.child-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+.child-table th { background:#1a1a2e; color:#fff; padding:8px 10px; text-align:left; font-size:11.5px; font-weight:600; }
+.child-table td { padding:7px 10px; border-bottom:1px solid #f5ece0; }
+.badge-ok { background:#d4edda; color:#155724; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+.badge-warn { background:#fff3cd; color:#856404; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+
+/* Ouvrages buttons */
+.ouvrage-types { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.btn-add-ouvrage { padding:9px 14px; background:#fff8ee; color:#1a1a2e; border:1.5px solid #f0e8d8; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition: all .15s; }
+.btn-add-ouvrage:hover { background:#f0a500; color:#fff; border-color:#f0a500; }
+.btn-add-ouvrage i { color:#f0a500; }
+.btn-add-ouvrage:hover i { color:#fff; }
+
+.ouvrage-card { background:#fff; border:1.5px solid #f0e8d8; border-radius:12px; padding:0; margin-bottom:12px; position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+.ouvrage-card .ouvrage-head { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:linear-gradient(to right, #fff8ee, #fff); border-bottom:1px solid #f5ece0; }
+.ouvrage-card .ouvrage-title { font-size:13.5px; font-weight:700; color:#1a1a2e; display:flex; align-items:center; gap:9px; }
+.ouvrage-card .ouvrage-title i { color:#f0a500; font-size:14px; }
+.btn-remove-ouvrage { background:transparent; border:1px solid transparent; color:#c0392b; cursor:pointer; font-size:12px; font-weight:600; padding:5px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px; transition: all .15s; }
+.btn-remove-ouvrage:hover { background:#fff0f0; border-color:#fadbd8; }
+
+.ouvrage-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
+.ouvrage-info { display:grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap:14px 18px; }
+.ouv-section-title { font-size:11px; font-weight:700; color:#f0a500; text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+.ouv-field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.ouv-field-label { font-size:10.5px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px; display:flex; align-items:center; gap:6px; }
+.ouv-field-label i { color:#f0a500; font-size:11px; }
+.ouv-field .form-control { font-size:12.5px; padding:7px 10px; }
+.ouv-hint { font-size:10.5px; color:#999; display:flex; align-items:center; gap:5px; }
+.ouv-hint i { font-size:10px; color:#f0a500; }
+
+.ouv-metric { background:#fafafa; border:1px solid #f0e8d8; border-radius:8px; padding:8px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.ouv-metric .val { font-size:14px; font-weight:700; color:#1a1a2e; font-family:'Inter', sans-serif; }
+.ouv-metric .val .unit { font-size:11px; font-weight:600; color:#888; margin-left:3px; }
+.ouv-metric .src { font-size:10px; color:#999; text-transform:uppercase; letter-spacing:.3px; }
+
+.bv-source-badge { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:.3px; }
+.bv-source-fk    { background:#d4edda; color:#155724; }
+.bv-source-nom   { background:#fff3cd; color:#856404; }
+.bv-source-none  { background:#f8d7da; color:#721c24; }
+
+/* Grilles paramètres par ouvrage */
+.ouv-params-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+.ouv-params-grid .ouv-field .form-control { width:100%; }
+.toggle-pair { display:flex; gap:14px; align-items:center; font-size:12px; }
+.toggle-pair label { display:inline-flex; gap:5px; align-items:center; font-size:12px; font-weight:600; margin:0; cursor:pointer; }
+
+/* Tableau apports mensuels (barrage / autres ressources) */
+.apports-paste { display:grid; grid-template-columns: 1fr auto; gap:8px; margin-bottom:8px; }
+.apports-paste textarea { width:100%; min-height:42px; border:1.5px dashed #e0d0c0; border-radius:8px; padding:8px 10px; font-size:12px; font-family:'Inter', sans-serif; resize:vertical; }
+.apports-paste textarea:focus { outline:none; border-color:#f0a500; background:#fff8ee; }
+.btn-paste { padding:8px 12px; border:none; border-radius:8px; background:#1a1a2e; color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
+.btn-paste:hover { background:#2a2a4e; }
+.apports-feedback { font-size:11.5px; min-height:14px; margin-bottom:6px; }
+.apports-feedback.ok { color:#1e8449; }
+.apports-feedback.err { color:#c0392b; }
+.apports-table { width:100%; border-collapse:collapse; font-size:12px; }
+.apports-table th { background:#1a1a2e; color:#fff; padding:6px 4px; text-align:center; font-size:10.5px; font-weight:600; }
+.apports-table th:first-child { text-align:left; min-width:130px; padding-left:10px; }
+.apports-table td { padding:5px 3px; text-align:center; border-bottom:1px solid #f5ece0; }
+.apports-table td:first-child { text-align:left; font-weight:700; color:#555; padding-left:10px; }
+.apports-table input { width:55px; padding:4px 4px; border:1.5px solid #e0d0c0; border-radius:6px; font-size:11.5px; text-align:center; }
+.apports-table input:focus { outline:none; border-color:#f0a500; }
+
+/* Modal de sélection d'ouvrage */
+.modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+.modal-bg.active { display:flex; }
+.modal { background:#fff; border-radius:12px; padding:22px; min-width:380px; max-width:480px; max-height:80vh; overflow-y:auto; }
+.modal h3 { font-size:14px; font-weight:700; color:#1a1a2e; margin-bottom:12px; }
+.modal-list { list-style:none; padding:0; margin:0 0 12px; }
+.modal-list li { padding:8px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; border:1px solid transparent; }
+.modal-list li:hover { background:#fff8ee; border-color:#f0a500; }
+.modal-empty { color:#aaa; font-style:italic; font-size:12px; padding:10px; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+/* Map */
+.map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; margin-bottom: 18px; }
+.map-title { background: #1a1a2e; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 7px; }
+.map-title i { color: #f0a500; }
+#perimetre-map { height: 260px; }
+
+/* Actions */
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+.btn-submit { padding: 12px 32px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 12px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+
+.info-box { background: #fff8ee; border: 1px solid #f0e8d8; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #856404; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+.info-box i { flex-shrink: 0; margin-top: 2px; }
+
+/* Autre ressource (parallèle à ouvrages) */
+.autre-card { background:#fff; border:1.5px solid #f0e8d8; border-radius:12px; margin-bottom:12px; overflow:hidden; }
+.autre-head { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; background:linear-gradient(to right,#fff8ee,#fff); border-bottom:1px solid #f5ece0; }
+.autre-head .autre-title { font-size:13.5px; font-weight:700; color:#1a1a2e; display:flex; align-items:center; gap:9px; }
+.autre-head .autre-title i { color:#f0a500; }
+.autre-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
+.autre-meta { display:grid; grid-template-columns: 2fr 1fr; gap:14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'besions_ressources:home' %}">Bilan</a> › {{ titre }}
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-balance-scale"></i> {{ titre }}</h1>
+  </div>
+
+  {% if bilan and bilan.perimetre.geometrie %}
+  <div class="map-card">
+    <div class="map-title"><i class="fas fa-map"></i> Géométrie — {{ bilan.perimetre }}</div>
+    <div id="perimetre-map"></div>
+  </div>
+  {% endif %}
+
+  <form method="post" id="bilan-form" novalidate>
+    {% csrf_token %}
+
+    <!-- ─────────────────────────────────────── Div 1 : Stations de référence -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-broadcast-tower"></i> Stations de référence</div>
+      <div class="row2">
+        <div class="form-group">
+          <label>{{ form.station_climatique.label }} <span style="color:#c0392b">*</span></label>
+          {{ form.station_climatique }}
+          {{ form.station_climatique.errors }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.station_hydrometrique.label }}</label>
+          {{ form.station_hydrometrique }}
+          <div class="form-help">Source des débits mensuels utilisés pour le calcul de crue</div>
+          {{ form.station_hydrometrique.errors }}
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────── Div 2 : Périmètre -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-map-marked-alt"></i> Périmètre</div>
+      <div class="row2">
+        <div class="form-group">
+          <label>{{ form.perimetre.label }} <span style="color:#c0392b">*</span></label>
+          {{ form.perimetre }}
+          {{ form.perimetre.errors }}
+        </div>
+        <div class="form-group">
+          <label>Surface utile irriguée (ha)</label>
+          <input type="text" id="perimetre-surface" class="form-control" readonly placeholder="—">
+          <div class="form-help">Auto-rempli depuis le périmètre</div>
+        </div>
+      </div>
+
+      <!-- Cultures et assolement -->
+      <div style="margin-top:6px;">
+        <label style="margin-bottom:8px;">Cultures et assolement</label>
+        <table class="child-table" id="cultures-table">
+          <thead>
+            <tr>
+              <th>Culture</th><th>%</th><th>Surface (ha)</th><th>Kc/Kr</th>
+            </tr>
+          </thead>
+          <tbody id="cultures-body">
+            <tr><td colspan="4" style="text-align:center;color:#aaa;padding:14px;">Sélectionnez un périmètre pour voir les cultures.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tour d'eau (table enfant) -->
+      <div style="margin-top:14px;">
+        <label style="margin-bottom:8px;">Tour d'eau (ayants droit)</label>
+        <table class="child-table" id="tours-eau-table">
+          <thead>
+            <tr>
+              <th>Ayant droit</th><th>Cycle (jours)</th><th>Durée (heures)</th>
+            </tr>
+          </thead>
+          <tbody id="tours-eau-body">
+            <tr><td colspan="3" style="text-align:center;color:#aaa;padding:14px;">Sélectionnez un périmètre pour voir les tours d'eau.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────── Div 3 : Ouvrages associés -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-cogs"></i> Ouvrages associés (ressources liées au périmètre)</div>
+      <div class="info-box">
+        <i class="fas fa-info-circle"></i>
+        Pour chaque ouvrage : efficience auto-remplie depuis le module Diagnostic (défaut 0.75). Les autres paramètres sont à compléter selon le type.
+      </div>
+
+      <div class="ouvrage-types">
+        <button type="button" class="btn-add-ouvrage" data-type="seuil"><i class="fas fa-water"></i> + Seuil</button>
+        <button type="button" class="btn-add-ouvrage" data-type="prise_locale"><i class="fas fa-faucet"></i> + Prise locale</button>
+        <button type="button" class="btn-add-ouvrage" data-type="barrage"><i class="fas fa-mountain"></i> + Barrage collinaire</button>
+        <button type="button" class="btn-add-ouvrage" data-type="khettara"><i class="fas fa-stream"></i> + Khettara</button>
+        <button type="button" class="btn-add-ouvrage" data-type="forage"><i class="fas fa-bullseye"></i> + Forage / Puits</button>
+      </div>
+
+      <div id="ouvrages-container"></div>
+
+      {{ formset.management_form }}
+      <div id="formset-host" style="display:none;">
+        {% for f in formset.forms %}
+          <div class="formset-form" data-form-index="{{ forloop.counter0 }}">
+            {{ f.id }}
+            {{ f.type_ouvrage }}
+            {{ f.seuil }} {{ f.prise_locale }} {{ f.barrage }} {{ f.khettara }} {{ f.forage }}
+            {{ f.troncon_amenee }} {{ f.troncon_amenee_2 }} {{ f.bassin_versant }} {{ f.ordre }}
+            {{ f.efficience_reseau }} {{ f.debit_amont_m3s }} {{ f.capacite_deversement_pct }}
+            {{ f.debit_khettarat_m3s }} {{ f.transfert_amont }} {{ f.debit_transfert_m3s }}
+            {{ f.tour_eau_jours }} {{ f.duree_jours }}
+            {{ f.coeff_humide }} {{ f.coeff_seche }}
+            {{ f.apports_mensuels_normale }} {{ f.apports_mensuels_humide }} {{ f.apports_mensuels_seche }}
+            {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if formset.non_form_errors %}
+      <div style="color:#c0392b;font-size:12px;margin-top:8px;">{{ formset.non_form_errors }}</div>
+      {% endif %}
+    </div>
+
+    <!-- ─────────────────────────────────────── Div 4 : Autres ressources (indépendantes du périmètre) -->
+    <div class="form-card">
+      <div class="card-title"><i class="fas fa-tint"></i> Autres ressources (indépendantes du périmètre)</div>
+      <div class="info-box">
+        <i class="fas fa-info-circle"></i>
+        Ressources en eau ne provenant pas d'un ouvrage du périmètre. Structure identique à un barrage : apports mensuels sur 3 années (normale/humide/sèche) + efficience (défaut 0.80).
+      </div>
+
+      <div class="ouvrage-types">
+        <button type="button" class="btn-add-ouvrage" id="btn-add-autre"><i class="fas fa-tint"></i> + Autre ressource</button>
+      </div>
+
+      <div id="autres-container"></div>
+
+      {{ autres_formset.management_form }}
+      <div id="autres-host" style="display:none;">
+        {% for f in autres_formset.forms %}
+          <div class="formset-form" data-autre-index="{{ forloop.counter0 }}">
+            {{ f.id }} {{ f.nom }} {{ f.efficience }} {{ f.ordre }}
+            {{ f.apports_mensuels_normale }} {{ f.apports_mensuels_humide }} {{ f.apports_mensuels_seche }}
+            {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'besions_ressources:home' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Retour</a>
+      <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+    </div>
+  </form>
+
+  <!-- Modal de sélection d'ouvrage existant -->
+  <div class="modal-bg" id="modal-ouvrage">
+    <div class="modal">
+      <h3 id="modal-title">Choisir un ouvrage</h3>
+      <ul class="modal-list" id="modal-list"></ul>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="modal-close">Annuler</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script>
+(function () {
+  const URL_TEMPLATES = {
+    perimetre:        "{% url 'besions_ressources:api_perimetre_info' 0 %}",
+    ouvrages:         "{% url 'besions_ressources:api_ouvrages_perimetre' 0 %}",
+    seuil:            "{% url 'besions_ressources:api_seuil_info' 0 %}",
+    prise:            "{% url 'besions_ressources:api_prise_info' 0 %}",
+    bvTc:             "{% url 'besions_ressources:api_bv_tc' 0 %}",
+    ouvrageDetails:   "{% url 'besions_ressources:api_ouvrage_details' 'TYPE' 0 %}",
+  };
+  const API = {
+    perimetre: id => URL_TEMPLATES.perimetre.replace('/0/', `/${id}/`),
+    ouvrages:  id => URL_TEMPLATES.ouvrages.replace('/0/', `/${id}/`),
+    seuil:     id => URL_TEMPLATES.seuil.replace('/0/', `/${id}/`),
+    prise:     id => URL_TEMPLATES.prise.replace('/0/', `/${id}/`),
+    bvTc:      id => URL_TEMPLATES.bvTc.replace('/0/', `/${id}/`),
+    ouvrageDetails: (type, id) =>
+      URL_TEMPLATES.ouvrageDetails.replace('TYPE', type).replace('/0/', `/${id}/`),
+  };
+
+  const TYPE_META = {
+    seuil:        { label: 'Seuil',              icon: 'fa-water'    },
+    prise_locale: { label: 'Prise locale',       icon: 'fa-faucet'   },
+    barrage:      { label: 'Barrage collinaire', icon: 'fa-mountain' },
+    khettara:     { label: 'Khettara',           icon: 'fa-stream'   },
+    forage:       { label: 'Forage / Puits',     icon: 'fa-bullseye' },
+  };
+  const MOIS = ['Sep','Oct','Nov','Déc','Jan','Fév','Mar','Avr','Mai','Jui','Jul','Aoû'];
+
+  // ── Map ─────────────────────────────────────────────────
+  {% if bilan and bilan.perimetre.geometrie %}
+  const map = L.map('perimetre-map');
+  const basemaps = {
+      'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+      'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+      'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+      'ESRI Streets':       L.esri.basemapLayer('Streets'),
+  };
+  basemaps['OpenStreetMap'].addTo(map);
+  const layer = L.geoJSON({{ bilan.perimetre.geometrie.geojson|safe }}, {
+    style: { color: '#f0a500', weight: 2.5, fillOpacity: 0.18, fillColor: '#f0a500' }
+  }).addTo(map);
+  map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+  L.control.layers(basemaps, { 'Périmètre irrigué': layer }, { collapsed: true }).addTo(map);
+  {% endif %}
+
+  // ── Classes form-control sur inputs natifs ────────────────
+  document.querySelectorAll('#bilan-form select, #bilan-form input[type=number], #bilan-form input[type=text]')
+    .forEach(el => {
+      if (!el.classList.contains('form-control') && !el.classList.contains('monthly-input'))
+        el.classList.add('form-control');
+    });
+
+  // ── Div 2 : auto-fill périmètre ───────────────────────────
+  const selPerim = document.querySelector('select[name="perimetre"]');
+  const surfaceInput = document.getElementById('perimetre-surface');
+  const cultBody = document.getElementById('cultures-body');
+  const toursBody = document.getElementById('tours-eau-body');
+
+  let ouvragesByType = { seuil: [], prise_locale: [], barrage: [], khettara: [], forage: [] };
+
+  async function chargerPerimetre(pid) {
+    if (!pid) {
+      surfaceInput.value = '';
+      cultBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:14px;">Sélectionnez un périmètre pour voir les cultures.</td></tr>';
+      toursBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:14px;">Sélectionnez un périmètre pour voir les tours d\'eau.</td></tr>';
+      ouvragesByType = { seuil: [], prise_locale: [], barrage: [], khettara: [], forage: [] };
+      return;
+    }
+    try {
+      const [infoR, ouvR] = await Promise.all([
+        fetch(API.perimetre(pid)).then(r => r.json()),
+        fetch(API.ouvrages(pid)).then(r => r.json()),
+      ]);
+      surfaceInput.value = infoR.superficie_irriguee || 0;
+      // Cultures
+      if (!infoR.cultures.length) {
+        cultBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:14px;">Aucun assolement défini pour ce périmètre.</td></tr>';
+      } else {
+        cultBody.innerHTML = infoR.cultures.map(c => `
+          <tr>
+            <td>${c.culture_label}</td>
+            <td>${c.pourcentage != null ? c.pourcentage + ' %' : '—'}</td>
+            <td>${c.surface_ha}</td>
+            <td>${c.kc_kr_defini
+              ? '<span class="badge-ok"><i class="fas fa-check"></i> défini</span>'
+              : '<span class="badge-warn"><i class="fas fa-exclamation-triangle"></i> non défini</span>'}</td>
+          </tr>
+        `).join('');
+      }
+      // Tour d'eau
+      const tours = infoR.tours_eau || [];
+      if (!tours.length) {
+        toursBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:14px;">Aucun tour d\'eau défini pour ce périmètre.</td></tr>';
+      } else {
+        toursBody.innerHTML = tours.map(t => `
+          <tr>
+            <td>${t.ayant_droit || '—'}</td>
+            <td>${t.cycle_jours != null ? t.cycle_jours : '—'}</td>
+            <td>${t.duree_heures != null ? t.duree_heures : '—'}</td>
+          </tr>
+        `).join('');
+      }
+      ouvragesByType = ouvR;
+    } catch (e) {
+      console.error('Auto-fill périmètre :', e);
+    }
+  }
+  selPerim.addEventListener('change', () => chargerPerimetre(selPerim.value));
+  if (selPerim.value) chargerPerimetre(selPerim.value);
+
+  // ── Helpers ───────────────────────────────────────────────
+  function findTotalFormsInput(prefix) {
+    return document.querySelector(`input[name="${prefix}-TOTAL_FORMS"]`);
+  }
+  // Le préfixe Django par défaut est <related_name>
+  const OUV_PREFIX = (function () {
+    const i = document.querySelector('input[name$="-TOTAL_FORMS"][name^="ouvrages_associes"]');
+    if (i) return 'ouvrages_associes';
+    // fallback : premier input -TOTAL_FORMS
+    const any = document.querySelector('input[name$="-TOTAL_FORMS"]');
+    if (any) return any.name.replace('-TOTAL_FORMS', '');
+    return 'ouvrages_associes';
+  })();
+  const AUTRES_PREFIX = (function () {
+    const i = document.querySelector('input[name="autres_ressources_eau-TOTAL_FORMS"]');
+    return i ? 'autres_ressources_eau' : 'autres_ressources_eau';
+  })();
+
+  function _sourceLabel(src) {
+    return { analyse: 'analyse hydrologique', moyenne: 'moyenne des méthodes' }[src] || '—';
+  }
+  function _bvSourceBadge(src) {
+    const map = {
+      fk:   ['bv-source-fk',   'fa-link',      'lien direct'],
+      nom:  ['bv-source-nom',  'fa-magic',     'liaison par nom'],
+      none: ['bv-source-none', 'fa-exclamation','non défini'],
+    };
+    const [cls, icon, label] = map[src] || ['', '', ''];
+    return cls ? `<span class="bv-source-badge ${cls}"><i class="fas ${icon}"></i> ${label}</span>` : '';
+  }
+
+  // ── Génération HTML hidden fields pour un OUVRAGE ─────────
+  function ouvrageHiddenFieldsHtml(idx, type, ouvrageId) {
+    const p = OUV_PREFIX;
+    return `
+      <input type="hidden" name="${p}-${idx}-id">
+      <input type="hidden" name="${p}-${idx}-type_ouvrage" value="${type}">
+      <input type="hidden" name="${p}-${idx}-seuil"        value="${type==='seuil'?ouvrageId:''}">
+      <input type="hidden" name="${p}-${idx}-prise_locale" value="${type==='prise_locale'?ouvrageId:''}">
+      <input type="hidden" name="${p}-${idx}-barrage"      value="${type==='barrage'?ouvrageId:''}">
+      <input type="hidden" name="${p}-${idx}-khettara"     value="${type==='khettara'?ouvrageId:''}">
+      <input type="hidden" name="${p}-${idx}-forage"       value="${type==='forage'?ouvrageId:''}">
+      <input type="hidden" name="${p}-${idx}-troncon_amenee" value="">
+      <input type="hidden" name="${p}-${idx}-troncon_amenee_2" value="">
+      <input type="hidden" name="${p}-${idx}-bassin_versant" value="">
+      <input type="hidden" name="${p}-${idx}-ordre"          value="${idx}">
+      <input type="hidden" name="${p}-${idx}-efficience_reseau" value="">
+      <input type="hidden" name="${p}-${idx}-debit_amont_m3s" value="">
+      <input type="hidden" name="${p}-${idx}-capacite_deversement_pct" value="">
+      <input type="hidden" name="${p}-${idx}-debit_khettarat_m3s" value="">
+      <input type="hidden" name="${p}-${idx}-transfert_amont" value="">
+      <input type="hidden" name="${p}-${idx}-debit_transfert_m3s" value="">
+      <input type="hidden" name="${p}-${idx}-tour_eau_jours" value="">
+      <input type="hidden" name="${p}-${idx}-duree_jours" value="">
+      <input type="hidden" name="${p}-${idx}-coeff_humide" value="">
+      <input type="hidden" name="${p}-${idx}-coeff_seche" value="">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_normale" value="">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_humide" value="">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_seche" value="">
+      <input type="hidden" name="${p}-${idx}-DELETE" value="">
+    `;
+  }
+
+  // ── Construction de la carte d'ouvrage ────────────────────
+  const container = document.getElementById('ouvrages-container');
+
+  function renderOuvrageCard(idx, type, ouvrage) {
+    const meta = TYPE_META[type];
+    const card = document.createElement('div');
+    card.className = 'ouvrage-card';
+    card.dataset.index = idx;
+    card.dataset.type = type;
+    card.innerHTML = `
+      <div class="ouvrage-head">
+        <div class="ouvrage-title"><i class="fas ${meta.icon}"></i> ${meta.label} — ${ouvrage.nom}</div>
+        <button type="button" class="btn-remove-ouvrage"><i class="fas fa-times"></i> Retirer</button>
+      </div>
+      <div class="ouvrage-body">
+        <div class="ouvrage-info" data-info></div>
+        <div class="ouv-params" data-params></div>
+      </div>
+      <div class="hidden-fields">${ouvrageHiddenFieldsHtml(idx, type, ouvrage.id)}</div>
+    `;
+    container.appendChild(card);
+    card.querySelector('.btn-remove-ouvrage').addEventListener('click', () => {
+      const delInput = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-DELETE"]`);
+      if (delInput) delInput.value = 'on';
+      card.style.display = 'none';
+    });
+    return card;
+  }
+
+  // ── Section info (BV/Tc/Tronçon) pour seuil / prise locale ─
+  // Seuil : 1 ou 2 tronçons d'amenée. Prise locale : 1 seul tronçon.
+  async function rendreInfoSeuilOuPrise(card, type, ouvrageId) {
+    const infoBox = card.querySelector('[data-info]');
+    infoBox.innerHTML = '<span style="color:#aaa;">Chargement…</span>';
+    try {
+      const data = await fetch(type === 'seuil' ? API.seuil(ouvrageId) : API.prise(ouvrageId)).then(r => r.json());
+      const idx = card.dataset.index;
+      const hiddenBV = card.querySelector(`input[name$="-${idx}-bassin_versant"]`);
+      const hiddenT  = card.querySelector(`input[name$="-${idx}-troncon_amenee"]`);
+      const hiddenT2 = card.querySelector(`input[name$="-${idx}-troncon_amenee_2"]`);
+
+      const currentBV = (hiddenBV && hiddenBV.value) || (data.bv ? data.bv.id : '');
+      const bvBadge = _bvSourceBadge(data.bv_source);
+      const bvOptions = (data.bvs_disponibles || []).map(b =>
+        `<option value="${b.id}" ${String(b.id)===String(currentBV)?'selected':''}>${b.nom} (${b.surface_km2} km²)</option>`
+      ).join('');
+
+      const tcVal = data.tc ? data.tc.tc_h.toFixed(3) : '—';
+      const tcSrc = data.tc ? _sourceLabel(data.tc.source) : '—';
+
+      const troncons = (data.troncons && data.troncons.length) ? data.troncons : (data.troncons_perimetre || []);
+      const troncFallback = !(data.troncons && data.troncons.length) && (data.troncons_perimetre || []).length;
+      const currentT  = (hiddenT  && hiddenT.value)  || '';
+      const currentT2 = (hiddenT2 && hiddenT2.value) || '';
+
+      const buildOptions = (selectedId) => troncons.map(t =>
+        `<option value="${t.id}" data-debit="${t.debit_m3s}" ${String(t.id)===String(selectedId)?'selected':''}>${t.nom} (${t.debit_m3s} m³/s)</option>`
+      ).join('');
+
+      const initialDebit  = troncons.find(t => String(t.id) === String(currentT));
+      const initialDebit2 = troncons.find(t => String(t.id) === String(currentT2));
+      const initialDebitVal  = initialDebit  ? initialDebit.debit_m3s  : '—';
+      const initialDebit2Val = initialDebit2 ? initialDebit2.debit_m3s : '—';
+
+      // Bloc tronçon 1 (toujours présent)
+      const tronc1Html = `
+        <div class="ouv-field">
+          <div class="ouv-field-label"><i class="fas fa-route"></i> Tronçon d'amenée${type === 'seuil' ? ' (1)' : ''}</div>
+          ${troncons.length
+            ? `<select class="form-control" data-troncon-select>
+                 <option value="">— Choisir un tronçon —</option>
+                 ${buildOptions(currentT)}
+               </select>
+               ${troncFallback ? '<div class="ouv-hint"><i class="fas fa-info-circle"></i> Aucune séguia explicitement liée — choix parmi toutes les séguias du périmètre.</div>' : ''}`
+            : '<div class="ouv-hint"><i class="fas fa-ban"></i> Aucune séguia disponible pour ce périmètre.</div>'}
+        </div>
+        <div class="ouv-metric">
+          <div class="ouv-field-label"><i class="fas fa-tint"></i> Débit tronçon${type === 'seuil' ? ' 1' : ''}</div>
+          <div class="val"><span data-debit-display>${initialDebitVal}</span><span class="unit">m³/s</span></div>
+        </div>
+      `;
+
+      // Bloc tronçon 2 (seuil uniquement)
+      const tronc2Html = (type === 'seuil') ? `
+        <div class="ouv-field">
+          <div class="ouv-field-label"><i class="fas fa-route"></i> Tronçon d'amenée (2) — optionnel</div>
+          ${troncons.length
+            ? `<select class="form-control" data-troncon2-select>
+                 <option value="">— Aucun 2e tronçon —</option>
+                 ${buildOptions(currentT2)}
+               </select>`
+            : '<div class="ouv-hint"><i class="fas fa-ban"></i> —</div>'}
+        </div>
+        <div class="ouv-metric">
+          <div class="ouv-field-label"><i class="fas fa-tint"></i> Débit tronçon 2</div>
+          <div class="val"><span data-debit2-display>${initialDebit2Val}</span><span class="unit">m³/s</span></div>
+        </div>
+      ` : '';
+
+      infoBox.innerHTML = `
+        <div class="ouv-field">
+          <div class="ouv-field-label"><i class="fas fa-mountain"></i> Bassin versant ${bvBadge}</div>
+          <select class="form-control" data-bv-select>
+            <option value="">— Choisir un bassin versant —</option>
+            ${bvOptions}
+          </select>
+        </div>
+        <div class="ouv-metric">
+          <div class="ouv-field-label"><i class="fas fa-clock"></i> Tc</div>
+          <div class="val"><span data-tc-display>${tcVal}</span><span class="unit">h</span></div>
+          <div class="src" data-tc-src>${tcSrc}</div>
+        </div>
+        ${tronc1Html}
+        ${tronc2Html}
+      `;
+
+      const bvSel = infoBox.querySelector('[data-bv-select]');
+      if (bvSel) {
+        if (hiddenBV && !hiddenBV.value && bvSel.value) hiddenBV.value = bvSel.value;
+        bvSel.addEventListener('change', async () => {
+          if (hiddenBV) hiddenBV.value = bvSel.value;
+          const tcDisp = infoBox.querySelector('[data-tc-display]');
+          const tcSrcDisp = infoBox.querySelector('[data-tc-src]');
+          if (!bvSel.value) {
+            tcDisp.textContent = '—'; tcSrcDisp.textContent = '—'; return;
+          }
+          tcDisp.textContent = '…'; tcSrcDisp.textContent = 'calcul en cours';
+          try {
+            const r = await fetch(API.bvTc(bvSel.value)).then(x => x.json());
+            tcDisp.textContent = r.tc ? r.tc.tc_h.toFixed(3) : '—';
+            tcSrcDisp.textContent = r.tc ? _sourceLabel(r.tc.source) : '—';
+          } catch (e) {
+            tcDisp.textContent = '—'; tcSrcDisp.textContent = 'erreur';
+          }
+        });
+      }
+      const sel = infoBox.querySelector('[data-troncon-select]');
+      if (sel) {
+        sel.addEventListener('change', () => {
+          const opt = sel.options[sel.selectedIndex];
+          const debit = opt.dataset.debit || '';
+          infoBox.querySelector('[data-debit-display]').textContent = debit || '—';
+          if (hiddenT) hiddenT.value = sel.value;
+        });
+      }
+      const sel2 = infoBox.querySelector('[data-troncon2-select]');
+      if (sel2) {
+        sel2.addEventListener('change', () => {
+          const opt = sel2.options[sel2.selectedIndex];
+          const debit = opt && opt.dataset ? (opt.dataset.debit || '') : '';
+          const disp = infoBox.querySelector('[data-debit2-display]');
+          if (disp) disp.textContent = debit || '—';
+          if (hiddenT2) hiddenT2.value = sel2.value;
+        });
+      } else if (hiddenT2) {
+        // Pas de 2e tronçon (prise locale) → s'assurer que le hidden est vide
+        hiddenT2.value = '';
+      }
+    } catch (e) {
+      infoBox.innerHTML = '<span style="color:#c0392b;">Erreur de chargement.</span>';
+    }
+  }
+
+  // ── Helpers de paramètres : binder un input visible à un hidden ─
+  function bindInputToHidden(card, idx, inputEl, fieldName, type, opts) {
+    opts = opts || {};
+    const hidden = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-${fieldName}"]`);
+    if (!hidden) return;
+    if (opts.initial != null && hidden.value === '') {
+      hidden.value = String(opts.initial);
+      if (type !== 'checkbox') inputEl.value = String(opts.initial);
+      else inputEl.checked = String(opts.initial) === 'true' || opts.initial === true;
+    } else if (hidden.value !== '') {
+      if (type === 'checkbox') inputEl.checked = (hidden.value === 'on' || hidden.value === 'true');
+      else inputEl.value = hidden.value;
+    }
+    inputEl.addEventListener('input', () => {
+      if (type === 'checkbox') hidden.value = inputEl.checked ? 'true' : 'false';
+      else hidden.value = inputEl.value;
+    });
+    inputEl.addEventListener('change', () => {
+      if (type === 'checkbox') hidden.value = inputEl.checked ? 'true' : 'false';
+      else hidden.value = inputEl.value;
+    });
+  }
+
+  // ── Tableau apports mensuels (barrage / autres ressources) ─
+  function renderApportsTable(prefix, hiddenNames, initialValues) {
+    // hiddenNames = {normale, humide, seche}, initialValues={normale:[...],humide:[...],seche:[...]}
+    const make12Inputs = (rowKey, vals) => Array.from({length: 12}, (_, i) =>
+      `<td><input type="number" step="0.001" data-row="${rowKey}" data-col="${i}" value="${vals && vals[i] != null ? vals[i] : ''}"></td>`
+    ).join('');
+    return `
+      <div class="ouv-section-title">Apports mensuels (m³, Sep → Aoû) — 3 années</div>
+      <div class="apports-paste">
+        <textarea data-apports-paste rows="2" placeholder="Coller 3 lignes × 12 colonnes (Normale, Humide, Sèche)"></textarea>
+        <button type="button" class="btn-paste" data-apports-paste-btn>Coller</button>
+      </div>
+      <div class="apports-feedback" data-apports-feedback></div>
+      <div style="overflow-x:auto;">
+        <table class="apports-table" data-apports-table>
+          <thead>
+            <tr>
+              <th>Année</th>
+              ${MOIS.map(m => `<th>${m}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Normale</td>${make12Inputs('normale', initialValues.normale)}</tr>
+            <tr><td>Humide</td>${make12Inputs('humide', initialValues.humide)}</tr>
+            <tr><td>Sèche</td>${make12Inputs('seche', initialValues.seche)}</tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function wireApportsTable(rootEl, hiddenInputs) {
+    // hiddenInputs = {normale, humide, seche} -> HTMLInputElement
+    function collect(row) {
+      const inputs = rootEl.querySelectorAll(`input[data-row="${row}"]`);
+      const vals = [];
+      let any = false;
+      inputs.forEach(inp => {
+        const v = inp.value.trim();
+        if (v === '') { vals.push(0); }
+        else {
+          const n = parseFloat(v.replace(',', '.'));
+          if (isFinite(n)) { vals.push(n); any = true; }
+          else vals.push(0);
+        }
+      });
+      return any ? vals.join(',') : '';
+    }
+    function syncAll() {
+      hiddenInputs.normale.value = collect('normale');
+      hiddenInputs.humide.value  = collect('humide');
+      hiddenInputs.seche.value   = collect('seche');
+    }
+    rootEl.querySelectorAll('input[data-row]').forEach(inp =>
+      inp.addEventListener('input', syncAll)
+    );
+    // Paste
+    const paste = rootEl.querySelector('[data-apports-paste]');
+    const btn   = rootEl.querySelector('[data-apports-paste-btn]');
+    const fb    = rootEl.querySelector('[data-apports-feedback]');
+    function setFb(msg, type) { fb.textContent = msg; fb.className = 'apports-feedback ' + (type || ''); }
+    function parse3x12(text) {
+      const lines = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+      const out = [];
+      for (const line of lines) {
+        const tokens = line.split(/\t|;|\s{2,}/).map(t => t.trim()).filter(Boolean);
+        const nums = tokens.map(t => parseFloat(t.replace(',', '.'))).filter(v => isFinite(v));
+        if (nums.length >= 12) out.push(nums.slice(0, 12));
+        if (out.length === 3) break;
+      }
+      if (out.length < 3) {
+        const allNums = (text.match(/-?\d+(?:[.,]\d+)?/g) || []).map(t => parseFloat(t.replace(',', '.'))).filter(v => isFinite(v));
+        if (allNums.length >= 36) {
+          return [allNums.slice(0,12), allNums.slice(12,24), allNums.slice(24,36)];
+        }
+      }
+      return out;
+    }
+    function applyPasted(values) {
+      if (!values || values.length !== 3 || values.some(r => r.length !== 12)) {
+        setFb('Collage invalide : 3 lignes × 12 colonnes attendues.', 'err'); return;
+      }
+      const rows = ['normale', 'humide', 'seche'];
+      rows.forEach((row, r) => {
+        for (let c = 0; c < 12; c++) {
+          const inp = rootEl.querySelector(`input[data-row="${row}"][data-col="${c}"]`);
+          if (inp) inp.value = values[r][c];
+        }
+      });
+      syncAll();
+      setFb('Tableau 3 × 12 importé avec succès.', 'ok');
+    }
+    paste.addEventListener('paste', e => {
+      const txt = (e.clipboardData || window.clipboardData).getData('text');
+      if (!txt) return;
+      e.preventDefault();
+      paste.value = txt;
+      applyPasted(parse3x12(txt));
+    });
+    btn.addEventListener('click', () => {
+      const txt = paste.value || '';
+      if (!txt.trim()) { setFb("Collez d'abord les données.", 'err'); return; }
+      applyPasted(parse3x12(txt));
+    });
+    syncAll();
+  }
+
+  function parseCsv12(raw) {
+    if (!raw) return null;
+    const vals = String(raw).split(',').map(s => parseFloat(s.replace(',', '.'))).filter(v => isFinite(v));
+    return vals.length === 12 ? vals : null;
+  }
+
+  // ── Rendu des paramètres spécifiques à un type d'ouvrage ──
+  async function rendreParamsOuvrage(card, type, ouvrageId) {
+    const params = card.querySelector('[data-params]');
+    const idx = card.dataset.index;
+
+    // 1) Récup défaut efficience depuis l'API
+    let defaults = { efficience_reseau: 0.75 };
+    try {
+      const r = await fetch(API.ouvrageDetails(type, ouvrageId)).then(x => x.json());
+      if (r && typeof r.efficience_reseau === 'number') {
+        defaults.efficience_reseau = r.efficience_reseau;
+      }
+    } catch (e) { /* silencieux */ }
+
+    if (type === 'seuil') {
+      params.innerHTML = `
+        <div class="ouv-section-title">Paramètres du seuil</div>
+        <div class="ouv-params-grid">
+          <div class="ouv-field"><div class="ouv-field-label">Efficience réseau (0–1)</div>
+            <input type="number" step="0.01" min="0" max="1" class="form-control" data-bind="efficience_reseau"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Débit prélevé en amont (m³/s)</div>
+            <input type="number" step="0.001" class="form-control" data-bind="debit_amont_m3s"></div>
+        </div>
+      `;
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="efficience_reseau"]'), 'efficience_reseau', 'number',
+        { initial: defaults.efficience_reseau });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="debit_amont_m3s"]'), 'debit_amont_m3s', 'number',
+        { initial: 0 });
+
+    } else if (type === 'prise_locale') {
+      params.innerHTML = `
+        <div class="ouv-section-title">Paramètres de la prise locale</div>
+        <div class="ouv-params-grid">
+          <div class="ouv-field"><div class="ouv-field-label">Efficience réseau (0–1)</div>
+            <input type="number" step="0.01" min="0" max="1" class="form-control" data-bind="efficience_reseau"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Débit prélevé en amont (m³/s)</div>
+            <input type="number" step="0.001" class="form-control" data-bind="debit_amont_m3s"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Capacité de déversement (%)</div>
+            <input type="number" step="0.1" min="0" max="100" class="form-control" data-bind="capacite_deversement_pct"></div>
+        </div>
+      `;
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="efficience_reseau"]'), 'efficience_reseau', 'number',
+        { initial: defaults.efficience_reseau });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="debit_amont_m3s"]'), 'debit_amont_m3s', 'number',
+        { initial: 0 });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="capacite_deversement_pct"]'), 'capacite_deversement_pct', 'number',
+        { initial: 100 });
+
+    } else if (type === 'khettara' || type === 'forage') {
+      // Cache info (pas de BV/Tc/Tronçon pour ces types)
+      card.querySelector('[data-info]').style.display = 'none';
+      params.innerHTML = `
+        <div class="ouv-section-title">Paramètres ${type === 'khettara' ? 'de la khettara' : 'du forage / puits'}</div>
+        <div class="toggle-pair" style="margin-bottom:8px;">
+          <label><input type="radio" name="mode-${idx}" value="khettarat" data-mode="khettarat"> Calcul via débit khettara</label>
+          <label><input type="radio" name="mode-${idx}" value="transfert" data-mode="transfert"> Calcul via transfert amont</label>
+        </div>
+        <div class="ouv-params-grid">
+          <div class="ouv-field"><div class="ouv-field-label">Débit khettara (m³/s)</div>
+            <input type="number" step="0.001" class="form-control" data-bind="debit_khettarat_m3s"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Débit de transfert (m³/s)</div>
+            <input type="number" step="0.001" class="form-control" data-bind="debit_transfert_m3s"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Tour d'eau (jours)</div>
+            <input type="number" step="0.1" class="form-control" data-bind="tour_eau_jours"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Durée (jours)</div>
+            <input type="number" step="0.01" class="form-control" data-bind="duree_jours"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Efficience réseau (0–1)</div>
+            <input type="number" step="0.01" min="0" max="1" class="form-control" data-bind="efficience_reseau"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Coefficient d'humidité</div>
+            <input type="number" step="0.01" class="form-control" data-bind="coeff_humide"></div>
+          <div class="ouv-field"><div class="ouv-field-label">Coefficient de sécheresse</div>
+            <input type="number" step="0.01" class="form-control" data-bind="coeff_seche"></div>
+        </div>
+      `;
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="debit_khettarat_m3s"]'), 'debit_khettarat_m3s', 'number');
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="debit_transfert_m3s"]'), 'debit_transfert_m3s', 'number');
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="tour_eau_jours"]'), 'tour_eau_jours', 'number',
+        { initial: 1 });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="duree_jours"]'), 'duree_jours', 'number',
+        { initial: 30.5 });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="efficience_reseau"]'), 'efficience_reseau', 'number',
+        { initial: defaults.efficience_reseau });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="coeff_humide"]'), 'coeff_humide', 'number',
+        { initial: 1.30 });
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="coeff_seche"]'), 'coeff_seche', 'number',
+        { initial: 0.80 });
+
+      // Toggle khettarat / transfert
+      const hiddenTransfert = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-transfert_amont"]`);
+      const radioK = params.querySelector('[data-mode="khettarat"]');
+      const radioT = params.querySelector('[data-mode="transfert"]');
+      if (hiddenTransfert.value === 'true') radioT.checked = true;
+      else radioK.checked = true;
+      function syncMode() {
+        const isTransfert = radioT.checked;
+        hiddenTransfert.value = isTransfert ? 'true' : 'false';
+      }
+      radioK.addEventListener('change', syncMode);
+      radioT.addEventListener('change', syncMode);
+      syncMode();
+
+    } else if (type === 'barrage') {
+      // Cache info (pas de BV/Tc/Tronçon pour barrage)
+      card.querySelector('[data-info]').style.display = 'none';
+      const hNormale = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-apports_mensuels_normale"]`);
+      const hHumide  = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-apports_mensuels_humide"]`);
+      const hSeche   = card.querySelector(`input[name="${OUV_PREFIX}-${idx}-apports_mensuels_seche"]`);
+      const initialValues = {
+        normale: parseCsv12(hNormale.value),
+        humide:  parseCsv12(hHumide.value),
+        seche:   parseCsv12(hSeche.value),
+      };
+      params.innerHTML = `
+        <div class="ouv-params-grid">
+          <div class="ouv-field"><div class="ouv-field-label">Efficience (0–1)</div>
+            <input type="number" step="0.01" min="0" max="1" class="form-control" data-bind="efficience_reseau"></div>
+        </div>
+        <div data-apports-root>${renderApportsTable(`bar-${idx}`, {normale:hNormale.name,humide:hHumide.name,seche:hSeche.name}, initialValues)}</div>
+      `;
+      bindInputToHidden(card, idx, params.querySelector('[data-bind="efficience_reseau"]'), 'efficience_reseau', 'number',
+        { initial: 0.80 });
+      wireApportsTable(params.querySelector('[data-apports-root]'), { normale: hNormale, humide: hHumide, seche: hSeche });
+    }
+  }
+
+  // ── Modal de sélection ────────────────────────────────────
+  const modal     = document.getElementById('modal-ouvrage');
+  const modalList = document.getElementById('modal-list');
+  const modalTitle = document.getElementById('modal-title');
+  document.getElementById('modal-close').addEventListener('click', () => modal.classList.remove('active'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('active'); });
+
+  function ouvrirModal(type) {
+    if (!selPerim.value) { alert("Sélectionnez d'abord un périmètre."); return; }
+    const meta = TYPE_META[type];
+    modalTitle.textContent = `Choisir un(e) ${meta.label.toLowerCase()}`;
+    const items = ouvragesByType[type] || [];
+    if (!items.length) {
+      modalList.innerHTML = `<div class="modal-empty">Aucun(e) ${meta.label.toLowerCase()} défini(e) pour ce périmètre.</div>`;
+    } else {
+      modalList.innerHTML = items.map(o => `<li data-id="${o.id}" data-nom="${o.nom}"><i class="fas ${meta.icon}"></i> ${o.nom}</li>`).join('');
+      modalList.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          ajouterOuvrage(type, { id: parseInt(li.dataset.id, 10), nom: li.dataset.nom });
+          modal.classList.remove('active');
+        });
+      });
+    }
+    modal.classList.add('active');
+  }
+
+  function ajouterOuvrage(type, ouvrage) {
+    const totalForms = findTotalFormsInput(OUV_PREFIX);
+    const idx = parseInt(totalForms.value, 10);
+    const card = renderOuvrageCard(idx, type, ouvrage);
+    totalForms.value = String(idx + 1);
+    if (type === 'seuil' || type === 'prise_locale') {
+      rendreInfoSeuilOuPrise(card, type, ouvrage.id);
+    } else {
+      card.querySelector('[data-info]').style.display = 'none';
+    }
+    rendreParamsOuvrage(card, type, ouvrage.id);
+  }
+
+  document.querySelectorAll('.btn-add-ouvrage[data-type]').forEach(b =>
+    b.addEventListener('click', () => ouvrirModal(b.dataset.type))
+  );
+
+  // ── Hydratation des forms existants (édition) ─────────────
+  {% if formset.forms %}
+  (function hydrater() {
+    const formHosts = Array.from(document.querySelectorAll('#formset-host .formset-form'));
+    formHosts.forEach(host => {
+      const typeIn = host.querySelector('input[name$="-type_ouvrage"]');
+      if (!typeIn || !typeIn.value) return;
+      const type = typeIn.value;
+      const fkIn = host.querySelector(`input[name$="-${type}"]`);
+      const ouvId = fkIn ? parseInt(fkIn.value, 10) : null;
+      if (!ouvId) return;
+      const idxMatch = typeIn.name.match(/-(\d+)-/);
+      const idx = idxMatch ? parseInt(idxMatch[1], 10) : 0;
+      const meta = TYPE_META[type];
+      const card = document.createElement('div');
+      card.className = 'ouvrage-card';
+      card.dataset.index = idx;
+      card.dataset.type = type;
+      card.innerHTML = `
+        <div class="ouvrage-head">
+          <div class="ouvrage-title"><i class="fas ${meta.icon}"></i> ${meta.label} — Ouvrage #${ouvId}</div>
+          <button type="button" class="btn-remove-ouvrage"><i class="fas fa-times"></i> Retirer</button>
+        </div>
+        <div class="ouvrage-body">
+          <div class="ouvrage-info" data-info></div>
+          <div class="ouv-params" data-params></div>
+        </div>
+        <div class="hidden-fields"></div>
+      `;
+      container.appendChild(card);
+      const hidden = card.querySelector('.hidden-fields');
+      Array.from(host.querySelectorAll('input, select')).forEach(i => hidden.appendChild(i));
+      host.remove();
+      card.querySelector('.btn-remove-ouvrage').addEventListener('click', () => {
+        const delInput = card.querySelector('input[name$="-DELETE"]');
+        if (delInput) delInput.value = 'on';
+        card.style.display = 'none';
+      });
+      if (type === 'seuil' || type === 'prise_locale') {
+        rendreInfoSeuilOuPrise(card, type, ouvId);
+      } else {
+        card.querySelector('[data-info]').style.display = 'none';
+      }
+      rendreParamsOuvrage(card, type, ouvId);
+    });
+  })();
+  {% endif %}
+
+  // ─────────────────────────────────────────────────────────
+  // ── Section "Autres ressources" (indépendantes)
+  // ─────────────────────────────────────────────────────────
+  const autresContainer = document.getElementById('autres-container');
+  const autresTotalForms = findTotalFormsInput(AUTRES_PREFIX);
+
+  function autreHiddenFieldsHtml(idx) {
+    const p = AUTRES_PREFIX;
+    return `
+      <input type="hidden" name="${p}-${idx}-id">
+      <input type="hidden" name="${p}-${idx}-ordre" value="${idx}">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_normale" value="">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_humide" value="">
+      <input type="hidden" name="${p}-${idx}-apports_mensuels_seche" value="">
+      <input type="hidden" name="${p}-${idx}-DELETE" value="">
+    `;
+  }
+
+  function renderAutreCard(idx, initial) {
+    initial = initial || {};
+    const card = document.createElement('div');
+    card.className = 'autre-card';
+    card.dataset.autreIndex = idx;
+    card.innerHTML = `
+      <div class="autre-head">
+        <div class="autre-title"><i class="fas fa-tint"></i> Autre ressource</div>
+        <button type="button" class="btn-remove-ouvrage" data-remove><i class="fas fa-times"></i> Retirer</button>
+      </div>
+      <div class="autre-body">
+        <div class="autre-meta">
+          <div class="form-group" style="margin:0;">
+            <label>Nom de la ressource</label>
+            <input type="text" class="form-control" name="${AUTRES_PREFIX}-${idx}-nom" value="${initial.nom || ''}" placeholder="Ex : Source X, Recyclage Y…">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Efficience (0–1)</label>
+            <input type="number" step="0.01" min="0" max="1" class="form-control" name="${AUTRES_PREFIX}-${idx}-efficience" value="${initial.efficience != null ? initial.efficience : 0.80}">
+          </div>
+        </div>
+        <div data-apports-root></div>
+      </div>
+      <div class="hidden-fields">${autreHiddenFieldsHtml(idx)}</div>
+    `;
+    autresContainer.appendChild(card);
+
+    const hNormale = card.querySelector(`input[name="${AUTRES_PREFIX}-${idx}-apports_mensuels_normale"]`);
+    const hHumide  = card.querySelector(`input[name="${AUTRES_PREFIX}-${idx}-apports_mensuels_humide"]`);
+    const hSeche   = card.querySelector(`input[name="${AUTRES_PREFIX}-${idx}-apports_mensuels_seche"]`);
+    if (initial.apports_normale) hNormale.value = initial.apports_normale;
+    if (initial.apports_humide)  hHumide.value  = initial.apports_humide;
+    if (initial.apports_seche)   hSeche.value   = initial.apports_seche;
+
+    const initialValues = {
+      normale: parseCsv12(hNormale.value),
+      humide:  parseCsv12(hHumide.value),
+      seche:   parseCsv12(hSeche.value),
+    };
+    card.querySelector('[data-apports-root]').innerHTML =
+      renderApportsTable(`autre-${idx}`, {normale:hNormale.name,humide:hHumide.name,seche:hSeche.name}, initialValues);
+    wireApportsTable(card.querySelector('[data-apports-root]'), { normale: hNormale, humide: hHumide, seche: hSeche });
+
+    card.querySelector('[data-remove]').addEventListener('click', () => {
+      const delInput = card.querySelector(`input[name="${AUTRES_PREFIX}-${idx}-DELETE"]`);
+      if (delInput) delInput.value = 'on';
+      card.style.display = 'none';
+    });
+    return card;
+  }
+
+  document.getElementById('btn-add-autre').addEventListener('click', () => {
+    const idx = parseInt(autresTotalForms.value, 10);
+    renderAutreCard(idx);
+    autresTotalForms.value = String(idx + 1);
+  });
+
+  // Hydratation des "autres ressources" existantes
+  {% if autres_formset and autres_formset.forms %}
+  (function hydraterAutres() {
+    const hosts = Array.from(document.querySelectorAll('#autres-host .formset-form'));
+    hosts.forEach(host => {
+      const idxAttr = host.dataset.autreIndex;
+      const idx = idxAttr != null ? parseInt(idxAttr, 10) : 0;
+      // Récup valeurs depuis les inputs dans le host
+      const nomIn  = host.querySelector('input[name$="-nom"]') || host.querySelector('textarea[name$="-nom"]');
+      const effIn  = host.querySelector('input[name$="-efficience"]');
+      const nIn    = host.querySelector('input[name$="-apports_mensuels_normale"]');
+      const hIn    = host.querySelector('input[name$="-apports_mensuels_humide"]');
+      const sIn    = host.querySelector('input[name$="-apports_mensuels_seche"]');
+      const initial = {
+        nom: nomIn ? nomIn.value : '',
+        efficience: effIn ? parseFloat(effIn.value) : 0.80,
+        apports_normale: nIn ? nIn.value : '',
+        apports_humide:  hIn ? hIn.value : '',
+        apports_seche:   sIn ? sIn.value : '',
+      };
+      host.remove();
+      renderAutreCard(idx, initial);
+    });
+  })();
+  {% endif %}
+})();
+</script>
+{% endblock %}

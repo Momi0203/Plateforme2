@@ -1,0 +1,226 @@
+{% load static %}
+
+<div class="form-card" style="border-color:#abebc6; background:#fafffb;">
+    <div class="card-title" style="border-color:#d4edda;">
+        <i class="fas fa-check-circle" style="color:#1e8449;"></i>
+        Resultats du calcul - {{ ouvrage_label }} : {{ ouvrage }}
+    </div>
+
+    <style>
+      .inv-graphs { display:grid; gap:12px; }
+      .inv-graph-card { background:#fff; border:1px solid #f0e8d8; border-radius:10px; padding:10px 12px; }
+      .inv-graph-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+      .inv-graph-title { font-size:12px; font-weight:700; color:#1a1a2e; }
+      .inv-graph-sub { font-size:11px; color:#777; }
+      .inv-bar-bg { width:100%; height:10px; border-radius:999px; background:#f3efe8; overflow:hidden; }
+      .inv-bar-fill-eff { height:100%; background:linear-gradient(90deg,#1e8449,#52be80); border-radius:999px; }
+      .inv-bar-fill-perte { height:100%; background:linear-gradient(90deg,#f0a500,#d35400); border-radius:999px; }
+      .inv-graph-meta { margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:#666; }
+      .inv-pill { display:inline-flex; align-items:center; padding:2px 7px; border-radius:999px; font-size:10px; font-weight:700; }
+      .inv-pill-ok { background:#eafaf1; color:#1e8449; }
+      .inv-pill-mid { background:#fff8ee; color:#f0a500; }
+      .inv-pill-bad { background:#fdecea; color:#c0392b; }
+      .inv-sec-title { font-size:13px; font-weight:700; color:#1a1a2e; margin: 14px 0 8px; display:flex; align-items:center; gap:6px; }
+    </style>
+
+    <!-- Cards efficience 3 niveaux + global -->
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px;">
+
+        <div style="background:#fff; border:1.5px solid #f0e8d8; border-radius:10px; padding:14px; text-align:center;">
+            <div style="font-size:10.5px; color:#888; text-transform:uppercase; letter-spacing:.5px; font-weight:700;">E. Principale</div>
+            <div style="font-size:24px; font-weight:800; color:#1a1a2e; margin-top:4px;">
+                {% if efficiences_par_categorie.principale is not None %}
+                    {{ efficiences_par_categorie.principale|floatformat:2 }} <span style="font-size:14px; color:#888;">%</span>
+                {% else %}
+                    <span style="color:#aaa; font-size:14px; font-weight:400;">absente</span>
+                {% endif %}
+            </div>
+            <div style="font-size:11px; color:#888; margin-top:4px;">{{ compteurs.principale }} troncon{{ compteurs.principale|pluralize }}</div>
+        </div>
+
+        <div style="background:#fff; border:1.5px solid #f0e8d8; border-radius:10px; padding:14px; text-align:center;">
+            <div style="font-size:10.5px; color:#888; text-transform:uppercase; letter-spacing:.5px; font-weight:700;">E. Secondaire</div>
+            <div style="font-size:24px; font-weight:800; color:#1a1a2e; margin-top:4px;">
+                {% if efficiences_par_categorie.secondaire is not None %}
+                    {{ efficiences_par_categorie.secondaire|floatformat:2 }} <span style="font-size:14px; color:#888;">%</span>
+                {% else %}
+                    <span style="color:#aaa; font-size:14px; font-weight:400;">absente</span>
+                {% endif %}
+            </div>
+            <div style="font-size:11px; color:#888; margin-top:4px;">{{ compteurs.secondaire }} troncon{{ compteurs.secondaire|pluralize }}</div>
+        </div>
+
+        <div style="background:#fff; border:1.5px solid #f0e8d8; border-radius:10px; padding:14px; text-align:center;">
+            <div style="font-size:10.5px; color:#888; text-transform:uppercase; letter-spacing:.5px; font-weight:700;">E. Tertiaire</div>
+            <div style="font-size:24px; font-weight:800; color:#1a1a2e; margin-top:4px;">
+                {% if efficiences_par_categorie.tertiaire is not None %}
+                    {{ efficiences_par_categorie.tertiaire|floatformat:2 }} <span style="font-size:14px; color:#888;">%</span>
+                {% else %}
+                    <span style="color:#aaa; font-size:14px; font-weight:400;">absente</span>
+                {% endif %}
+            </div>
+            <div style="font-size:11px; color:#888; margin-top:4px;">{{ compteurs.tertiaire }} troncon{{ compteurs.tertiaire|pluralize }}</div>
+        </div>
+
+        <div style="border-radius:10px; padding:14px; text-align:center; border:2px solid
+            {% if efficience_globale_pourcent > 80 %}#1e8449
+            {% elif efficience_globale_pourcent > 50 %}#f0a500
+            {% else %}#c0392b{% endif %};
+            background:
+            {% if efficience_globale_pourcent > 80 %}#eafaf1
+            {% elif efficience_globale_pourcent > 50 %}#fff8ee
+            {% else %}#fdecea{% endif %};">
+            <div style="font-size:10.5px; color:#1a1a2e; text-transform:uppercase; letter-spacing:.5px; font-weight:800;">Efficience globale</div>
+            <div style="font-size:30px; font-weight:800; color:#1a1a2e; margin-top:4px;">
+                {{ efficience_globale_pourcent|floatformat:2 }} <span style="font-size:16px;">%</span>
+            </div>
+            <div style="font-size:11px; color:#1a1a2e; opacity:.7; margin-top:4px;">Cascade P x S x T</div>
+        </div>
+    </div>
+
+    <!-- Graphe inverse 1/3 : par troncon -->
+    <h4 class="inv-sec-title">
+        <i class="fas fa-chart-bar" style="color:#f0a500;"></i> Graphe inverse - Par troncon
+    </h4>
+    <div class="inv-graphs">
+      {% for d in details_par_troncon %}
+      <div class="inv-graph-card">
+        <div class="inv-graph-head">
+          <div>
+            <div class="inv-graph-title">{{ d.seguia_nom }} {% if d.troncon_code %}({{ d.troncon_code }}){% endif %}</div>
+            <div class="inv-graph-sub">{{ d.type_seguia_label|default:"-" }} - {{ d.nature_label|default:"-" }}</div>
+          </div>
+          <div>
+            {% if d.efficience_pourcent >= 80 %}
+              <span class="inv-pill inv-pill-ok">{{ d.efficience_pourcent|floatformat:2 }} %</span>
+            {% elif d.efficience_pourcent >= 50 %}
+              <span class="inv-pill inv-pill-mid">{{ d.efficience_pourcent|floatformat:2 }} %</span>
+            {% else %}
+              <span class="inv-pill inv-pill-bad">{{ d.efficience_pourcent|floatformat:2 }} %</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="inv-bar-bg">
+          <div class="inv-bar-fill-eff" style="width:{% if d.efficience_pourcent < 0 %}0{% elif d.efficience_pourcent > 100 %}100{% else %}{{ d.efficience_pourcent|floatformat:0 }}{% endif %}%;"></div>
+        </div>
+        <div class="inv-graph-meta">
+          <span>Debit: <b>{{ d.debit_amont|floatformat:3 }}</b> m3/s</span>
+          <span>Pi: <b>{{ d.perte_infiltration_m3s|floatformat:6 }}</b> m3/s</span>
+          <span>Pv: <b>{{ d.perte_vaporisation_m3s|floatformat:6 }}</b> m3/s</span>
+          <span>{% if d.is_dalot %}Dalot{% else %}Ciel ouvert{% endif %}</span>
+        </div>
+      </div>
+      {% empty %}
+      <div class="inv-graph-card" style="text-align:center; color:#888;">Aucun troncon trouve.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Graphe inverse 2/3 : par type -->
+    <h4 class="inv-sec-title">
+        <i class="fas fa-layer-group" style="color:#f0a500;"></i> Graphe inverse - Par type
+    </h4>
+    <div class="inv-graphs">
+      {% for t in tableau_par_type %}
+      <div class="inv-graph-card">
+        <div class="inv-graph-head">
+          <div>
+            <div class="inv-graph-title">{{ t.type_label }}</div>
+            <div class="inv-graph-sub">{{ t.nb_troncons }} troncon{{ t.nb_troncons|pluralize }}</div>
+          </div>
+          <div class="inv-pill inv-pill-ok">{% if t.efficience_moyenne_ponderee is not None %}{{ t.efficience_moyenne_ponderee|floatformat:2 }} %{% else %}-{% endif %}</div>
+        </div>
+
+        <div style="font-size:10px; color:#777; margin-bottom:4px;">Efficience moyenne</div>
+        <div class="inv-bar-bg" style="margin-bottom:8px;">
+          <div class="inv-bar-fill-eff" style="width:{% if t.efficience_moyenne_ponderee is None %}0{% elif t.efficience_moyenne_ponderee < 0 %}0{% elif t.efficience_moyenne_ponderee > 100 %}100{% else %}{{ t.efficience_moyenne_ponderee|floatformat:0 }}{% endif %}%;"></div>
+        </div>
+
+        <div style="font-size:10px; color:#777; margin-bottom:4px;">Taux de perte global</div>
+        <div class="inv-bar-bg">
+          <div class="inv-bar-fill-perte" style="width:{% if t.taux_perte_global_pourcent is None %}0{% elif t.taux_perte_global_pourcent < 0 %}0{% elif t.taux_perte_global_pourcent > 100 %}100{% else %}{{ t.taux_perte_global_pourcent|floatformat:0 }}{% endif %}%;"></div>
+        </div>
+
+        <div class="inv-graph-meta">
+          <span>Debit total: <b>{{ t.debit_total_m3s|floatformat:3 }}</b> m3/s</span>
+          <span>Pi total: <b>{{ t.perte_infiltration_totale_m3s|floatformat:6 }}</b></span>
+          <span>Pv total: <b>{{ t.perte_vaporisation_totale_m3s|floatformat:6 }}</b></span>
+          <span>Pertes: <b>{% if t.taux_perte_global_pourcent is not None %}{{ t.taux_perte_global_pourcent|floatformat:2 }} %{% else %}-{% endif %}</b></span>
+        </div>
+      </div>
+      {% empty %}
+      <div class="inv-graph-card" style="text-align:center; color:#888;">Aucun type disponible.</div>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;">
+        <div style="font-size:11px; color:#888; display:flex; align-items:center; gap:6px;">
+            <i class="fas fa-database"></i>
+            Resultat persiste (Efficience #{{ efficience.id }}) - {{ efficience.date_calcul|date:"d/m/Y H:i:s" }}
+        </div>
+        <a href="{% url 'efficiences:exporter_excel' efficience.pk %}"
+           style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:600;background:#1e7e34;color:#fff;text-decoration:none;">
+            <i class="fas fa-file-excel"></i> Excel
+        </a>
+        <a href="{% url 'efficiences:exporter_pdf' efficience.pk %}"
+           style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:600;background:#c0392b;color:#fff;text-decoration:none;">
+            <i class="fas fa-file-pdf"></i> PDF
+        </a>
+        {% if efficience.statut == 'valide' %}
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12.5px; font-weight:700; background:#1a7a4a; color:#fff;">
+            <i class="fas fa-check-circle"></i> Validé
+        </span>
+        {% else %}
+        <button id="btn-valider-eff"
+            style="display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12.5px; font-weight:600; background:#e6f9f0; color:#1a7a4a; border:none; cursor:pointer; font-family:'Inter',sans-serif;"
+            data-url="{% url 'efficiences:valider_efficience' efficience.pk %}"
+            data-csrf="{{ csrf_token }}">
+            <i class="fas fa-check-circle"></i> Valider
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modale de confirmation validation efficience -->
+<div id="modal-confirm-validation"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:14px; padding:26px 28px; max-width:480px; width:90%; box-shadow:0 12px 40px rgba(0,0,0,.22);">
+    <h3 style="font-size:15px; font-weight:700; color:#1a1a2e; margin:0 0 14px; display:flex; align-items:center; gap:9px;">
+      <i class="fas fa-check-circle" style="color:#1e8449; font-size:18px;"></i>
+      Confirmer la validation
+    </h3>
+    <p style="font-size:13px; color:#555; margin:0 0 14px;">
+      Vous allez valider définitivement le calcul d'efficience pour :
+    </p>
+    <div style="background:#f8f4ee; border:1px solid #f0e8d8; border-radius:9px; padding:13px 16px; margin-bottom:16px; font-size:12.5px; color:#1a1a2e; line-height:1.8;">
+      <div><i class="fas fa-cogs" style="color:#f0a500; width:16px;"></i>
+           <strong>Ouvrage de tête :</strong> {{ ouvrage_label }} — {{ ouvrage }}
+      </div>
+      <div><i class="fas fa-chart-bar" style="color:#f0a500; width:16px;"></i>
+           <strong>Efficience globale :</strong> {{ efficience_globale_pourcent|floatformat:2 }} %
+      </div>
+      <div><i class="fas fa-stream" style="color:#f0a500; width:16px;"></i>
+           <strong>Tronçons :</strong>
+           {{ compteurs.principale }} principale{{ compteurs.principale|pluralize }} /
+           {{ compteurs.secondaire }} secondaire{{ compteurs.secondaire|pluralize }} /
+           {{ compteurs.tertiaire }} tertiaire{{ compteurs.tertiaire|pluralize }}
+      </div>
+      <div><i class="fas fa-hashtag" style="color:#f0a500; width:16px;"></i>
+           <strong>Efficience #{{ efficience.id }}</strong> — calculée le {{ efficience.date_calcul|date:"d/m/Y à H:i" }}
+      </div>
+    </div>
+    <p style="font-size:12px; color:#c0392b; margin:0 0 20px; display:flex; align-items:center; gap:6px;">
+      <i class="fas fa-exclamation-triangle"></i>
+      Cette action est irréversible. Le statut passera à <strong>&nbsp;« Validé »</strong>.
+    </p>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button id="btn-annuler-validation"
+        style="padding:9px 20px; background:#f5ece0; color:#1a1a2e; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif;">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button id="btn-confirmer-validation"
+        style="padding:9px 22px; background:#1e8449; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; display:inline-flex; align-items:center; gap:6px;">
+        <i class="fas fa-check-circle"></i> Confirmer
+      </button>
+    </div>
+  </div>
+</div>

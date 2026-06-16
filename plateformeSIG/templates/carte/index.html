@@ -1,0 +1,3996 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Carte — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+{# MapLibre GL CSS — doit être dans <head> avant le rendu du canvas #}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Layout 3 colonnes — Carte SIG
+   Navbar = 62px (base.html). Le reste remplit 100vh.
+══════════════════════════════════════════════════════════════════ */
+
+#carte-app {
+  display: flex;
+  width: 100%;            /* pleine largeur (le centre flex:1 pousse le panneau droit au bord) */
+  height: calc(100vh - 62px);
+  overflow: hidden;
+  background: var(--c-dark);
+  align-items: stretch;   /* BUG-L1 */
+}
+
+/* ── Zone Layout (FEATURE-C4) ──────────────────────────────────── */
+
+#zone-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f5f0e8;
+}
+
+.lc-container {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  overflow: hidden;
+}
+
+.lc-params {
+  width: 300px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 14px 12px;
+  background: #faf4ea;
+  border-right: 1px solid #eddfc8;
+}
+
+.lc-params::-webkit-scrollbar       { width: 5px; }
+.lc-params::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.lc-preview-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #e8e0d0;
+  overflow: hidden;
+}
+
+.lc-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  letter-spacing: 0.06em;
+  margin: 12px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #eddfc8;
+}
+.lc-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+.lc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+.lc-label {
+  font-size: 11px;
+  color: var(--c-dark);
+  flex-shrink: 0;
+  min-width: 90px;
+}
+
+.lc-input, .lc-select {
+  flex: 1;
+  padding: 4px 7px;
+  font-size: 11px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.lc-input-full {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: #fff;
+  margin-bottom: 5px;
+}
+
+.lc-check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  font-size: 11px;
+  color: var(--c-dark);
+}
+
+.lc-logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.lc-logo-label  { font-size: 10.5px; flex: 1; color: var(--c-dark); }
+
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-dark);
+  background: var(--c-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  margin-top: 12px;
+  transition: background .13s;
+}
+.lc-btn:hover            { background: #e8a000; }
+.lc-btn:disabled         { opacity: 0.5; cursor: not-allowed; }
+
+.lc-btn-capture {
+  background: #2980b9;
+  color: #fff;
+  margin-top: 6px;
+}
+.lc-btn-capture:hover { background: #1f6a9a; }
+
+.lc-preview-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  background: #fff;
+}
+
+.lc-preview-placeholder {
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+}
+.lc-preview-placeholder i { font-size: 48px; display: block; margin-bottom: 12px; }
+
+.lc-status {
+  font-size: 11px;
+  color: var(--c-muted);
+  margin-top: 8px;
+  text-align: center;
+}
+.lc-status-ok      { color: #27ae60; }
+.lc-status-error   { color: #c0392b; }
+.lc-status-loading { color: var(--c-muted); }
+
+/* Sous-panneau ouvrages associés (FEATURE-C2) */
+#ta-ouvrages-panel {
+  flex-shrink: 0;
+  border-top: 2px solid var(--c-accent);
+  background: #faf4ea;
+  overflow-x: auto;
+}
+
+.ta-ouv-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f0e8d8;
+  border-bottom: 1px solid #eddfc8;
+}
+
+.ta-ouv-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--c-dark);
+  flex: 1;
+}
+
+.ta-ouv-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 8px;
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+  overflow-x: auto;
+}
+
+.ta-ouv-tab {
+  padding: 5px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--c-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ta-ouv-tab.active   { color: var(--c-dark); border-bottom-color: var(--c-accent); }
+.ta-ouv-tab:hover    { color: var(--c-dark); }
+
+.ta-ouv-body         { padding: 8px; overflow-x: auto; max-height: 200px; overflow-y: auto; }
+.ta-ouv-mini-table   { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ta-ouv-mini-table th { background: #f0e8d8; padding: 4px 7px; font-weight: 700; text-align: left; border-bottom: 1px solid #ddd; }
+.ta-ouv-mini-table td { padding: 3px 7px; border-bottom: 1px solid #f0e8d8; }
+.ta-ouv-count        { font-size: 10px; color: var(--c-muted); margin-left: 4px; }
+
+/* ── Panneaux latéraux (gauche ET droit) ──────────────────────── */
+
+.sig-panneau {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+  min-height: 0;   /* BUG-L1: empêche le débordement flex */
+}
+
+#panneau-couches { box-shadow:  2px 0 12px rgba(0,0,0,.14); }
+#panneau-outils  { box-shadow: -2px 0 12px rgba(0,0,0,.14); }
+
+/* BUG-L2 — Panneaux glissants (Google-Earth style) */
+.sig-panneau {
+  transition: width 0.25s ease, opacity 0.2s ease;
+}
+.sig-panneau.collapsed {
+  width: 0 !important;
+  opacity: 0;
+  min-width: 0;
+}
+
+/* ── Poignées de redimensionnement ───────────────────────────── */
+.panel-resize-handle {
+  width: 6px;
+  flex-shrink: 0;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 15;
+  position: relative;
+  transition: background 0.15s;
+}
+.panel-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  background: var(--c-muted);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.panel-resize-handle:hover::after,
+.panel-resize-handle.dragging::after { opacity: 0.45; }
+.panel-resize-handle:hover,
+.panel-resize-handle.dragging { background: rgba(230, 160, 0, 0.12); }
+body.resizing-panel,
+body.resizing-panel * { user-select: none !important; cursor: col-resize !important; }
+
+#toggle-left-panel,
+#toggle-right-panel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  width: 20px;
+  height: 44px;
+  background: var(--c-dark);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  padding: 0;
+  transition: background 0.13s;
+  flex-shrink: 0;
+}
+#toggle-left-panel:hover,
+#toggle-right-panel:hover { background: var(--c-accent); color: var(--c-dark); }
+#toggle-left-panel  { left: 0;  border-radius: 0 5px 5px 0; box-shadow:  2px 0 6px rgba(0,0,0,.25); }
+#toggle-right-panel { right: 0; border-radius: 5px 0 0 5px; box-shadow: -2px 0 6px rgba(0,0,0,.25); }
+
+.panneau-header {
+  height: 44px;
+  flex-shrink: 0;
+  background: var(--c-dark);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  border-bottom: 2px solid var(--c-accent);
+}
+
+.panneau-header i { color: var(--c-accent); font-size: 13px; }
+
+/* Lot A — bouton « Fermer toutes les fenêtres » (FloatingChart), dans l'en-tête Outils */
+.po-close-all {
+  margin-left: auto;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 5px;
+  color: #fff; cursor: pointer;
+  font-size: 12px; transition: background .12s;
+}
+.po-close-all:hover { background: rgba(255,255,255,.26); }
+.po-close-all i { color: #fff; }
+
+/* ── Panneau gauche — gestionnaire de couches ─────────────────── */
+
+#couches-liste {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+#couches-liste::-webkit-scrollbar { width: 5px; }
+#couches-liste::-webkit-scrollbar-track  { background: #f5efe6; }
+#couches-liste::-webkit-scrollbar-thumb  { background: #cdb898; border-radius: 3px; }
+
+.couche-groupe {
+  border-bottom: 1px solid #f0e8d8;
+}
+
+.couche-groupe > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--c-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background .13s;
+}
+
+.couche-groupe > summary::-webkit-details-marker { display: none; }
+
+.couche-groupe > summary::before {
+  content: "\f054";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 7px;
+  color: var(--c-accent);
+  transition: transform .18s ease;
+  flex-shrink: 0;
+  width: 10px;
+}
+
+.couche-groupe[open] > summary::before { transform: rotate(90deg); }
+.couche-groupe > summary:hover { background: #fdf7ef; }
+
+.couche-liste {
+  list-style: none;
+  padding: 2px 0 6px;
+}
+
+/* Ligne couche : flex row pour label + bouton palette */
+.couche-row {
+  display: flex;
+  align-items: center;
+}
+
+.couche-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 24px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--c-text);
+  transition: background .12s;
+}
+
+.couche-row:hover .couche-item { background: #fdf7ef; }
+
+/* Bouton palette (apparaît au survol) */
+.couche-style-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--c-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity .15s, color .15s;
+  line-height: 1;
+}
+.couche-row:hover .couche-style-btn { opacity: 1; }
+.couche-style-btn:hover              { color: var(--c-accent); }
+
+/* BUG-L4-B — Boutons Centrer / Isoler */
+.couche-action-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--c-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 10.5px;
+  opacity: 0;
+  transition: opacity .15s, color .15s;
+  line-height: 1;
+}
+.couche-row:hover .couche-action-btn { opacity: 1; }
+.couche-action-btn:hover             { color: var(--c-accent); }
+.couche-action-btn.active            { color: var(--c-accent); opacity: 1; }
+
+#carte-isolation-banner {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 400;
+  background: rgba(26, 26, 46, 0.88);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  pointer-events: auto;
+}
+#btn-isolation-reset {
+  background: none;
+  border: none;
+  color: var(--c-accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+  margin-left: 4px;
+}
+#btn-isolation-reset:hover { color: #fff; }
+
+.couche-item input[type="checkbox"] {
+  accent-color: var(--c-accent);
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Pastilles de type géométrique */
+.couche-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.couche-dot.geom-polygon    { background: #27ae60; }
+.couche-dot.geom-linestring { background: #3498db; height: 3px; border-radius: 2px; }
+.couche-dot.geom-point      { background: #e74c3c; border-radius: 50%; }
+.couche-dot.geom-geometry   { background: #9b59b6; border-radius: 50% 0 50% 0; }
+
+.couche-label { flex: 1; }
+
+/* États de chargement du panneau */
+.couches-loading {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--c-muted);
+  font-size: 13px;
+  gap: 10px;
+}
+
+.couches-error {
+  margin: 10px;
+  padding: 12px 14px;
+  background: #fff0f0;
+  color: #c0392b;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--c-danger);
+  line-height: 1.6;
+}
+
+/* ── Zone centrale — onglets Carte | Tableau | Dashboard ──────── */
+
+#map-container {
+  flex: 1;
+  min-width: 240px;     /* garde-fou : la carte ne peut jamais être écrasée par des panneaux trop larges */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;   /* ancrage du panel export */
+}
+
+#centrale-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--c-dark);
+  border-bottom: 2px solid var(--c-accent);
+  height: 44px;
+  padding: 0 8px;
+  gap: 2px;
+  z-index: 5;
+}
+
+.centrale-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #8899aa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-bottom: -2px;
+  transition: color .14s, border-color .14s;
+}
+
+.centrale-tab:hover            { color: #fff; }
+.centrale-tab.active           { color: #fff; border-bottom-color: var(--c-accent); }
+.centrale-tab i                { font-size: 11px; }
+
+/* ── Zone carte (contient la map MapLibre) ────────────────────── */
+
+#zone-carte {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Zone tableau (§5.2.3) ─────────────────────────────────────── */
+
+#zone-tableau {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #faf6f0;
+}
+
+#ta-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e8e0d0;
+}
+
+.ta-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ta-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#ta-select-pagesize {
+  font-size: 12px;
+  padding: 3px 7px;
+  border: 1px solid #d0c8b8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--c-dark);
+}
+
+.ta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid #d0c8b8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--c-dark);
+  transition: background .14s, border-color .14s;
+}
+
+.ta-btn:hover          { background: #f5ede0; border-color: var(--c-accent); }
+.ta-btn--primary       { background: var(--c-accent); border-color: var(--c-accent); color: #222; }
+.ta-btn--primary:hover { background: var(--c-accent-dark); border-color: var(--c-accent-dark); }
+
+/* Variantes Excel */
+.ta-btn--xlsx               { border-color: #27ae60; color: #1e8449; }
+.ta-btn--xlsx:hover         { background: #eafaf1; border-color: #1e8449; }
+.ta-btn--primary-xlsx       { background: #27ae60; border-color: #27ae60; color: #fff; }
+.ta-btn--primary-xlsx:hover { background: #1e8449; border-color: #1e8449; }
+
+/* Séparateur visuel dans la toolbar */
+.ta-sep {
+  display:    inline-block;
+  width:      1px;
+  height:     18px;
+  background: #ddd;
+  margin:     0 2px;
+  flex-shrink: 0;
+}
+
+/* ── Panel sélecteur de colonnes (TA-13) ────────────────────────── */
+
+.ta-col-picker {
+  position:   absolute;
+  top:        calc(100% + 4px);
+  right:      0;
+  width:      220px;
+  background: #fff;
+  border:     1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.18);
+  z-index:    500;
+  font-size:  12px;
+}
+
+.ta-cp-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         8px 10px;
+  background:      #1A1A2E;
+  color:           #fff;
+  font-weight:     700;
+  font-size:       12px;
+  border-radius:   5px 5px 0 0;
+}
+
+.ta-cp-close-btn {
+  background: none;
+  border:     none;
+  color:      #aaa;
+  font-size:  13px;
+  cursor:     pointer;
+  line-height: 1;
+  padding:    0;
+}
+.ta-cp-close-btn:hover { color: #fff; }
+
+.ta-cp-body {
+  padding:    8px 10px 4px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+.ta-cp-body::-webkit-scrollbar { width: 4px; }
+.ta-cp-body::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+.ta-cp-all {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  cursor:      pointer;
+  font-size:   11.5px;
+  margin-bottom: 3px;
+}
+
+.ta-cp-sep {
+  border:     none;
+  border-top: 1px solid #eee;
+  margin:     5px 0;
+}
+
+.ta-cp-list {
+  display:        flex;
+  flex-direction: column;
+  gap:            2px;
+}
+
+.ta-cp-item {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  cursor:      pointer;
+  font-size:   11px;
+  color:       var(--c-text);
+  padding:     1px 0;
+}
+.ta-cp-item:hover { color: var(--c-dark); }
+.ta-cp-item input[type=checkbox] { accent-color: var(--c-accent); cursor: pointer; }
+
+.ta-cp-footer {
+  display:  flex;
+  gap:      6px;
+  padding:  8px 10px;
+  border-top: 1px solid #eee;
+}
+
+#ta-couche-label {
+  font-size: 11.5px;
+  color: var(--c-muted);
+  margin-left: 8px;
+}
+
+#ta-grid-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+#ta-grid-wrap::-webkit-scrollbar       { width: 6px; height: 6px; }
+#ta-grid-wrap::-webkit-scrollbar-track { background: #f5efe6; }
+#ta-grid-wrap::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.ta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: auto;
+}
+
+.ta-table thead tr th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--c-dark);
+  color: #fff;
+  padding: 7px 10px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  border-right: 1px solid rgba(255,255,255,.1);
+  transition: background .13s;
+}
+
+.ta-table thead th:hover           { background: #2c3a44; }
+.ta-table thead th.ta-sorted       { background: #8c5e15; color: #ffe0a0; }
+.ta-sort-icon                      { font-size: 10px; margin-left: 4px; opacity: .85; }
+
+.ta-table tbody tr                 { cursor: pointer; }
+.ta-table tbody tr:hover td        { background: #fdf3d0; }
+.ta-table tbody tr:nth-child(even) td { background: #fdfaf6; }
+.ta-table tbody tr:nth-child(even):hover td { background: #fdf3d0; }
+.ta-table tbody tr.ta-row-sel td   { background: #fff59d !important; }
+
+.ta-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #f0e8d8;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #333;
+  font-size: 12px;
+}
+
+#ta-pagination {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: #fff;
+  border-top: 1px solid #e8e0d0;
+}
+
+.ta-page-info {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--c-muted);
+}
+
+.ta-page-btn, .ta-page-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: 12px;
+  border: 1px solid #d0c8b8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--c-dark);
+  transition: background .13s;
+}
+
+.ta-page-btn:hover:not(:disabled), .ta-page-num:hover:not(.active) { background: #f5ede0; }
+.ta-page-btn:disabled              { opacity: .4; cursor: not-allowed; }
+.ta-page-num.active                { background: var(--c-accent); border-color: var(--c-accent); color: #222; font-weight: 700; }
+.ta-page-ellipsis                  { padding: 0 4px; color: var(--c-muted); font-size: 12px; line-height: 28px; }
+
+#ta-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #f0e8d8;
+  border-top: 1px solid #ddd0c0;
+  font-size: 11px;
+  color: var(--c-muted);
+}
+
+.ta-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 160px;
+  gap: 12px;
+  color: var(--c-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 40px 20px;
+  line-height: 1.6;
+}
+
+.ta-placeholder i { font-size: 34px; color: #ccc; }
+
+/* ── Zone Dashboard (DB-01 à DB-08) ────────────────────────────── */
+
+#zone-dashboard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #faf6f0;
+}
+
+#db-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e8e0d0;
+}
+
+.db-couche-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-dark);
+}
+
+.db-scope-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.db-scope-btn {
+  padding: 4px 11px;
+  font-size: 11.5px;
+  border: 1px solid #d0c8b8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--c-muted);
+  font-weight: 600;
+  transition: all .13s;
+}
+
+.db-scope-btn.active {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: #222;
+}
+
+#db-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+#db-grid::-webkit-scrollbar       { width: 6px; }
+#db-grid::-webkit-scrollbar-track { background: #f5efe6; }
+#db-grid::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.db-widget {
+  background: #fff;
+  border: 1px solid #e8e0d0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.db-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  background: #fdfaf6;
+  border-bottom: 1px solid #f0e8d8;
+}
+
+.db-widget-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-dark);
+  flex: 1;
+}
+
+.db-widget-body {
+  padding: 10px 12px;
+  flex: 1;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.db-widget-body canvas { max-height: 230px; cursor: pointer; }
+
+.db-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.db-kpi-card {
+  background: #faf4ea;
+  border: 1px solid #eddfc8;
+  border-radius: 6px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.db-kpi-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--c-accent-dark);
+  line-height: 1.1;
+  word-break: break-all;
+}
+
+.db-kpi-label {
+  font-size: 10px;
+  color: var(--c-muted);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.db-widget-no-data {
+  color: var(--c-muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.db-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-muted);
+  font-size: 13px;
+  gap: 8px;
+  padding: 40px;
+}
+
+#db-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-muted);
+  font-size: 13px;
+  gap: 12px;
+  text-align: center;
+  line-height: 1.7;
+}
+
+#db-placeholder i { font-size: 36px; color: #ccc; }
+
+/* ── Badge drill-down (§5.1.6) ─────────────────────────────────── */
+
+.dd-badge {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;          /* affiché par JS */
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  background: rgba(26, 26, 46, .93);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  white-space: nowrap;
+}
+
+.dd-badge i   { color: var(--c-accent); font-size: 12px; }
+.dd-badge kbd {
+  font-family: monospace;
+  font-size: 10px;
+  background: rgba(255,255,255,.18);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.dd-badge button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.65);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 3px;
+  line-height: 1;
+  margin-left: 4px;
+  transition: color .12s;
+}
+
+.dd-badge button:hover { color: #fff; }
+
+/* Repositionnement des contrôles MapLibre */
+.maplibregl-ctrl-top-right    { top: 10px; right: 10px; }
+.maplibregl-ctrl-bottom-left  { bottom: 28px; left: 10px; }
+.maplibregl-ctrl-bottom-right { bottom: 28px; right: 10px; }
+
+/* ── Contrôle sélecteur fonds Esri (CA-15) ────────────────────── */
+
+.esri-ctrl { position: relative; }
+
+/* Bouton principal */
+.esri-ctrl__toggle {
+  width: 29px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.esri-ctrl__toggle:hover { background: #f0e8d8; color: var(--c-accent); }
+
+/* Menu déroulant (s'ouvre vers le haut) */
+.esri-ctrl__menu {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 188px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.22);
+  overflow: hidden;
+  z-index: 200;
+}
+.esri-ctrl__menu--open { display: block; }
+
+.esri-ctrl__menu-header {
+  padding: 7px 13px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--c-muted);
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+}
+
+/* Groupe de boutons radio basemap */
+.esri-ctrl__radio-group {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+}
+
+.esri-ctrl__radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  color: var(--c-text);
+  cursor: pointer;
+  transition: background .1s;
+}
+.esri-ctrl__radio-label:hover { background: #fdf7ef; }
+.esri-ctrl__radio-label input[type="radio"] {
+  accent-color: var(--c-accent);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+
+
+/* ── Panneau Outils — boîtes outils périmètre ────────────────── */
+
+.po-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0 12px;
+}
+.po-scroll::-webkit-scrollbar       { width: 5px; }
+.po-scroll::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+/* Groupe (style "Linear Referencing Tools") */
+.po-group {
+  margin: 6px 8px 4px;
+}
+.po-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s;
+}
+.po-group-header:hover { background: #f0e8d8; }
+.po-group-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  background: #c0392b;
+  flex-shrink: 0;
+}
+.po-group-icon i { font-size: 11px; color: #fff; }
+.po-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-dark);
+}
+
+/* Items (style "Calibrate Routes") */
+.po-item-list {
+  list-style: none;
+  margin: 2px 0 0 0;
+  padding: 0;
+}
+.po-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px 5px 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--c-dark);
+  transition: background .12s;
+}
+.po-item:hover { background: #f0e8d8; }
+.po-item i {
+  font-size: 13px;
+  color: #b87333;
+  flex-shrink: 0;
+}
+.po-item-todo {
+  font-size: 9.5px;
+  color: var(--c-muted);
+  font-style: italic;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Sous-panneau outil (Besoin / Comparaison / Hydrologie) */
+#po-panel-besoin,
+#po-panel-comparaison,
+.po-subpanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.po-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--c-dark);
+  margin: 5px 0;
+  cursor: pointer;
+  line-height: 1.35;
+}
+.po-radio input { margin-top: 1px; flex-shrink: 0; }
+.po-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+}
+.po-back-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0e8d8;
+  border: 1px solid #eddfc8;
+  border-radius: 4px;
+  color: var(--c-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.po-back-btn:hover { background: #fff; color: var(--c-dark); border-color: var(--c-accent); }
+.po-panel-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.po-panel-title i { color: var(--c-accent); }
+.po-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+.po-panel-body::-webkit-scrollbar       { width: 5px; }
+.po-panel-body::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.po-field-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--c-dark);
+  margin: 10px 0 4px;
+}
+.po-field-label:first-child { margin-top: 0; }
+.po-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--c-muted);
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+.po-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--c-dark);
+}
+.po-input[readonly] { background: #f5ede0; color: var(--c-muted); }
+
+.po-exec-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-dark);
+  background: var(--c-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .13s;
+}
+.po-exec-btn:hover { background: #e8a000; }
+
+.po-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-muted);
+  background: #f0e4d0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .13s;
+}
+.po-clear-btn:hover { background: #eddfc8; }
+
+.po-result { margin-top: 8px; font-size: 11px; line-height: 1.6; }
+.po-result .po-ok    { color: #27ae60; }
+.po-result .po-err   { color: #c0392b; }
+.po-result .po-muted { color: var(--c-muted); }
+
+/* ── Fenêtre flottante déplaçable « Comparaison besoin » ──────── */
+.cb-window {
+  position: fixed;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 640px;
+  max-width: 94vw;
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+  box-shadow: 0 16px 44px rgba(26,26,46,.32);
+  z-index: 1400;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: both;
+  min-width: 360px;
+  min-height: 260px;
+}
+.cb-window-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2a2a44 100%);
+  color: #fff;
+  cursor: grab;
+  user-select: none;
+}
+.cb-window-head:active { cursor: grabbing; }
+.cb-window-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.cb-window-title i { color: var(--c-accent); }
+.cb-window-btn {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background .12s;
+}
+.cb-window-btn:hover { background: rgba(255,255,255,.25); }
+.cb-window-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 12px 12px;
+  background: var(--c-bg-soft);
+}
+.cb-window-status { font-size: 11.5px; margin-bottom: 8px; line-height: 1.5; }
+.cb-window-status .cb-ok    { color: #27ae60; font-weight: 600; }
+.cb-window-status .cb-err   { color: #c0392b; font-weight: 600; }
+.cb-window-status .cb-muted { color: var(--c-muted); }
+.cb-window-status .cb-warn  { color: #b8860b; font-weight: 600; }
+.cb-window-chart-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.cb-window-chart {
+  position: relative;
+  height: 100%;
+  min-height: 240px;
+}
+
+/* ── Légende unifiée des rendus carte (carte-rendu.js) ───────── */
+#carte-rendu-legende {
+  position: absolute;
+  left: 12px;
+  bottom: 28px;
+  z-index: 5;
+  width: 230px;
+  max-height: 60%;
+  overflow-y: auto;
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(26,26,46,.18);
+  padding: 8px;
+  font-family: 'Inter', sans-serif;
+}
+#carte-rendu-legende .cr-bloc { margin-bottom: 8px; }
+#carte-rendu-legende .cr-bloc:last-of-type { margin-bottom: 0; }
+#carte-rendu-legende .cr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#carte-rendu-legende .cr-tag {
+  font-size: 8.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+#carte-rendu-legende .cr-tag-resultat { background: var(--c-accent); color: var(--c-dark); }
+#carte-rendu-legende .cr-tag-contexte { background: #5d7891; }
+#carte-rendu-legende .cr-titre {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-dark);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#carte-rendu-legende .cr-x {
+  flex-shrink: 0;
+  width: 18px; height: 18px;
+  border: none;
+  background: #f0e4d0;
+  color: var(--c-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+#carte-rendu-legende .cr-x:hover { background: #e74c3c; color: #fff; }
+#carte-rendu-legende .cr-corps { margin-top: 4px; }
+#carte-rendu-legende .cr-all {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-muted);
+  background: #f0e4d0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#carte-rendu-legende .cr-all:hover { background: #eddfc8; }
+
+/* Chevron toggle */
+.po-chevron {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--c-accent);
+  flex-shrink: 0;
+  transition: transform .2s ease;
+}
+.po-chevron i { font-size: 9px; color: var(--c-dark); }
+.po-group.collapsed .po-chevron  { transform: rotate(-90deg); }
+.po-group.collapsed .po-item-list { display: none; }
+
+/* ── Panneau Symbologie (SY-01 à SY-04) ──────────────────────── */
+
+#panneau-symbologie {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sym-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+}
+
+#sym-retour {
+  background: none;
+  border: none;
+  color: var(--c-muted);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 13px;
+  border-radius: 3px;
+  transition: color .13s, background .13s;
+}
+#sym-retour:hover { color: var(--c-dark); background: #eddfc8; }
+
+.sym-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-dark);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* SY-04 — bande de prévisualisation */
+.sym-preview {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  border-bottom: 1px solid #f0e8d8;
+  background: #fff;
+}
+
+.sym-preview-label { font-size: 12px; color: var(--c-text); }
+
+/* Sélecteur de mode */
+.sym-mode-bar {
+  flex-shrink: 0;
+  display: flex;
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+}
+
+.sym-mode {
+  flex: 1;
+  padding: 7px 4px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: color .13s, border-color .13s;
+}
+.sym-mode:hover       { color: var(--c-dark); }
+.sym-mode.active      { color: var(--c-dark); border-bottom-color: var(--c-accent); }
+
+/* Contenu du mode */
+.sym-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.sym-content::-webkit-scrollbar { width: 5px; }
+.sym-content::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.sym-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sym-field > label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-muted);
+  cursor: default;
+}
+
+.sym-field input[type="color"] {
+  width: 100%;
+  height: 28px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 1px 2px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.sym-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--c-accent);
+}
+
+.sym-field select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sym-btn-apply {
+  padding: 8px 12px;
+  background: var(--c-accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+  transition: background .13s;
+}
+.sym-btn-apply:hover    { background: var(--c-dark); }
+.sym-btn-apply:disabled { background: #ccc; cursor: not-allowed; }
+
+/* Catégorisé — liste valeurs */
+.sym-cat-values {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sym-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sym-cat-row input[type="color"] {
+  width: 28px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+  padding: 1px;
+  cursor: pointer;
+}
+
+.sym-cat-val { font-size: 12px; color: var(--c-text); }
+
+.sym-hint {
+  font-size: 12px;
+  color: var(--c-muted);
+  text-align: center;
+  padding: 10px 0;
+  margin: 0;
+}
+.sym-hint--error { color: var(--c-danger, #c0392b); }
+
+/* ── Symbologie graduée (champ quantitatif — SY-02) ───────────── */
+
+.sym-cat-values:has(.sym-grad-table) { max-height: 360px; }
+
+.sym-grad-params {
+  display: flex;
+  gap: 8px;
+}
+.sym-grad-param {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sym-grad-param label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--c-muted);
+}
+.sym-grad-param select {
+  font-size: 11.5px;
+  padding: 4px 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.sym-grad-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #faf4ea;
+  border: 1px solid #eddfc8;
+  border-radius: 5px;
+}
+.sym-grad-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--c-dark);
+  cursor: pointer;
+}
+.sym-grad-check input[type="checkbox"] { accent-color: var(--c-accent); }
+
+.sym-grad-minmax {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--c-muted);
+}
+.sym-grad-minmax input[type="number"] {
+  width: 56px;
+  font-size: 11px;
+  padding: 3px 5px;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+}
+.sym-grad-minmax input[type="color"] {
+  width: 34px;
+  height: 20px;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+  padding: 1px;
+  cursor: pointer;
+}
+
+.sym-grad-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.sym-grad-table th {
+  text-align: left;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--c-muted);
+  padding: 3px 4px;
+  border-bottom: 1px solid #eddfc8;
+}
+.sym-grad-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #f5efe6;
+  vertical-align: middle;
+}
+.sym-grad-table td:first-child { width: 40px; }
+
+.sym-grad-swatch { display: inline-block; }
+
+.sym-grad-borne {
+  width: 86px;
+  font-size: 11px;
+  padding: 3px 5px;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+}
+
+.sym-grad-label {
+  font-size: 10.5px;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+/* ── En-tête des sous-panneaux par couche (Requête / Multi / Sélection) ── */
+
+.pg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin: -10px -10px 6px;
+  padding: 8px 10px;
+  background: #faf4ea;
+  border-bottom: 1px solid #eddfc8;
+}
+
+.pg-back-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  color: var(--c-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.pg-back-btn:hover { background: #fff; color: var(--c-dark); border-color: var(--c-accent); }
+
+.pg-panel-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-dark);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.pg-panel-title i { color: var(--c-accent); font-size: 11px; flex-shrink: 0; }
+
+.pg-panel-couche {
+  color: var(--c-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Les panneaux avec gap gerent deja l'espacement sous l'en-tete */
+#pg-tab-multi .pg-panel-head,
+#pg-tab-selection .pg-panel-head { margin-bottom: 0; }
+
+/* ── Contenu onglet Sélection ──────────────────────────────────── */
+
+#pg-tab-selection {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  gap: 10px;
+}
+
+#pg-tab-selection::-webkit-scrollbar { width: 5px; }
+#pg-tab-selection::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.sel-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--c-muted);
+  margin: 0;
+}
+
+.sel-mode-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sel-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--c-text);
+  cursor: pointer;
+  flex: 1;
+  justify-content: center;
+  transition: background .13s, color .13s, border-color .13s;
+}
+.sel-tool-btn:hover  { background: #fdf7ef; border-color: var(--c-accent); }
+.sel-tool-btn.active {
+  background: var(--c-accent);
+  color: #fff;
+  border-color: var(--c-accent);
+}
+
+.sel-action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sel-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--c-text);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  text-align: left;
+}
+.sel-action-btn:hover { background: #fdf7ef; border-color: var(--c-accent); }
+.sel-action-btn i     { color: var(--c-muted); width: 14px; text-align: center; }
+
+/* ── Onglet Requete simple (RS-01 à RS-05) ────────────────────── */
+
+#pg-tab-requete {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+#pg-tab-requete::-webkit-scrollbar { width: 5px; }
+#pg-tab-requete::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.qr-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Conditions supplémentaires de la requête (combinées ET/OU) */
+#qr-extra-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#qr-extra-conditions:empty { display: none; }
+
+.qr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.qr-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--c-muted);
+}
+
+.qr-select, .qr-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--c-text);
+  box-sizing: border-box;
+}
+.qr-select { cursor: pointer; }
+.qr-input  { cursor: text; }
+.qr-input:focus { outline: none; border-color: var(--c-accent); }
+
+.qr-select:disabled, .qr-input:disabled {
+  background: #f5f5f5;
+  color: #bbb;
+  cursor: not-allowed;
+}
+
+.qr-preview {
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.4;
+}
+.qr-preview--loading { background: #f0f4ff; color: #555; }
+.qr-preview--ok      { background: #f0fff4; color: #27ae60; }
+.qr-preview--empty   { background: #fffbf0; color: #e67e22; }
+.qr-preview--error   { background: #fff0f0; color: #c0392b; }
+.qr-preview--applied { background: #f0fff4; color: #27ae60; }
+
+.qr-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.qr-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.qr-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.qr-btn--secondary {
+  background: #fff;
+  color: var(--c-text);
+  border-color: #dee2e6;
+}
+.qr-btn--secondary:not(:disabled):hover {
+  background: #fdf7ef;
+  border-color: var(--c-accent);
+}
+
+.qr-btn--primary {
+  background: var(--c-accent);
+  color: #fff;
+  border-color: var(--c-accent);
+}
+.qr-btn--primary:not(:disabled):hover { background: var(--c-dark); }
+
+/* ── Barre de statut (SEL-06) ─────────────────────────────────── */
+
+#sel-statusbar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: rgba(30,30,30,.82);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 16px;
+  z-index: 20;
+  pointer-events: none;
+  font-size: 11px;
+}
+
+#sel-compteur {
+  color: #f1c40f;
+  font-weight: 700;
+  letter-spacing: .02em;
+  display: none;
+}
+#sel-compteur.sel-compteur--visible { display: block; }
+
+/* ── Onglet Requete multicritere (RM-01/02/07) ─────────────────── */
+
+#pg-tab-multi {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  gap: 8px;
+}
+#pg-tab-multi::-webkit-scrollbar { width: 5px; }
+#pg-tab-multi::-webkit-scrollbar-thumb { background: #cdb898; border-radius: 3px; }
+
+.rm-logique-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.rm-logique-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.rm-logique-btn.active {
+  background: var(--c-accent);
+  color: #fff;
+  border-color: var(--c-accent);
+}
+
+/* Separateur ET / OU entre deux blocs */
+.rm-sep {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 2px 0;
+}
+.rm-sep::before, .rm-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #eddfc8;
+}
+.rm-sep-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-accent);
+  letter-spacing: .06em;
+  padding: 1px 7px;
+  border: 1px solid var(--c-accent);
+  border-radius: 10px;
+}
+
+/* Bloc condition */
+.rm-cond-block {
+  background: #faf4ea;
+  border: 1px solid #eddfc8;
+  border-radius: 5px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rm-cond-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rm-cond-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-muted);
+  letter-spacing: .05em;
+}
+
+.rm-del-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+  color: var(--c-muted);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.rm-del-btn:hover { background: #fff0f0; color: #c0392b; border-color: #c0392b; }
+
+.rm-sel-sm { font-size: 11px; padding: 4px 6px; }
+
+.rm-val-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Boutons d'action du panneau multi */
+.rm-btns {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+
+/* ── Bouton Export dans la barre centrale ────────────────────── */
+
+.centrale-export-btn {
+  display:     inline-flex;
+  align-items: center;
+  gap:         5px;
+  padding:     0 14px;
+  background:  none;
+  border:      none;
+  color:       #8899aa;
+  font-size:   11.5px;
+  font-weight: 600;
+  cursor:      pointer;
+  transition:  color .14s, background .14s;
+  white-space: nowrap;
+  border-radius: 4px;
+  margin:      0 4px;
+}
+.centrale-export-btn:hover {
+  color:       #fff;
+  background:  rgba(255,255,255,.08);
+}
+.centrale-export-btn i { font-size: 11px; }
+
+/* Bouton plein écran — actif */
+#btn-fullscreen.is-fullscreen {
+  color: var(--c-accent);
+}
+
+/* ── Panel export ────────────────────────────────────────────── */
+
+.export-panel {
+  position:   absolute;
+  top:        36px;   /* hauteur de #centrale-tabs */
+  right:      0;
+  width:      268px;
+  background: #fff;
+  border:     1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.22);
+  z-index:    300;
+  font-size:  12px;
+}
+
+.export-panel-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         9px 12px;
+  background:      #1A1A2E;
+  color:           #fff;
+  font-size:       12px;
+  font-weight:     700;
+  border-radius:   0;
+}
+
+.export-close-btn {
+  background: none;
+  border:     none;
+  color:      #aaa;
+  font-size:  14px;
+  cursor:     pointer;
+  line-height: 1;
+  padding:    0;
+  transition: color .12s;
+}
+.export-close-btn:hover { color: #fff; }
+
+.export-panel-body {
+  padding: 12px 14px 14px;
+}
+
+.export-row {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             8px;
+  margin-bottom:   7px;
+}
+
+.export-label {
+  font-size:  11.5px;
+  color:      var(--c-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.export-select {
+  flex:        1;
+  font-size:   11.5px;
+  padding:     3px 6px;
+  border:      1px solid #ddd;
+  border-radius: 4px;
+  background:  #fff;
+  color:       var(--c-text);
+  cursor:      pointer;
+}
+
+.export-sep {
+  border:      none;
+  border-top:  1px solid #eee;
+  margin:      10px 0 8px;
+}
+
+.export-section-title {
+  font-size:   11px;
+  font-weight: 600;
+  color:       var(--c-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin:      0 0 7px;
+}
+
+.export-titre-row {
+  display:       flex;
+  flex-direction: column;
+  gap:           4px;
+  margin-bottom: 8px;
+}
+
+.export-titre-input {
+  width:        100%;
+  font-size:    11.5px;
+  padding:      4px 7px;
+  border:       1px solid #ddd;
+  border-radius: 4px;
+  color:        var(--c-text);
+  box-sizing:   border-box;
+}
+.export-titre-input:disabled {
+  background: #f5f5f5;
+  color: #aaa;
+}
+
+.export-checks {
+  display:        grid;
+  grid-template-columns: 1fr 1fr;
+  gap:            4px 8px;
+  margin-bottom:  10px;
+}
+
+.export-check-label {
+  display:     flex;
+  align-items: center;
+  gap:         5px;
+  font-size:   11.5px;
+  color:       var(--c-text);
+  cursor:      pointer;
+  user-select: none;
+}
+.export-check-label input[type="checkbox"] {
+  accent-color: var(--c-accent);
+  cursor:       pointer;
+}
+
+.export-erreur {
+  background:    #fff0f0;
+  border:        1px solid #f5c6cb;
+  border-radius: 4px;
+  color:         #c0392b;
+  font-size:     11px;
+  padding:       6px 8px;
+  margin-bottom: 8px;
+  line-height:   1.5;
+}
+
+.export-actions {
+  display:   flex;
+  gap:       8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 1100px) {
+  .sig-panneau { width: 240px; }
+}
+
+@media (max-width: 800px) {
+  #panneau-outils { display: none; }
+  .sig-panneau    { width: 220px; }
+}
+
+/* ── Onglet Métier — conteneurs génériques ───────────────────── */
+
+.metier-box {
+  border-bottom: 1px solid #ede6dc;
+}
+
+.metier-box-title {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-dark);
+  cursor: pointer;
+  user-select: none;
+  background: #fdf9f4;
+}
+.metier-box-title::-webkit-details-marker { display: none; }
+.metier-box-title::before {
+  content: '\f078';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  font-size: 9px;
+  margin-right: 2px;
+  transition: transform .2s;
+}
+details.metier-box:not([open]) .metier-box-title::before {
+  transform: rotate(-90deg);
+}
+
+.metier-box-body {
+  padding: 10px 12px 14px;
+}
+
+/* ── Box Seuil — scoring ─────────────────────────────────────── */
+
+.seuil-params-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.seuil-param-label {
+  font-size: 11px;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+.seuil-select {
+  font-size: 11.5px;
+  padding: 2px 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--c-text);
+}
+
+.seuil-loading {
+  font-size: 11px;
+  color: var(--c-muted);
+  padding: 6px 0;
+}
+
+.seuil-criteres-form {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  padding-right: 2px;
+}
+.seuil-criteres-form::-webkit-scrollbar { width: 4px; }
+.seuil-criteres-form::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+.seuil-critere-row {
+  margin-bottom: 7px;
+}
+
+.seuil-critere-label {
+  display: block;
+  font-size: 10.5px;
+  color: var(--c-text);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.seuil-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seuil-slider {
+  flex: 1;
+  accent-color: var(--c-accent);
+  cursor: pointer;
+}
+
+.seuil-slider-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-dark);
+  min-width: 14px;
+  text-align: right;
+}
+
+.seuil-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.seg-btn-secondary {
+  background: #ecf0f1;
+  color: var(--c-dark);
+  border: 1px solid #ddd;
+}
+.seg-btn-secondary:hover { background: #dfe6e9; }
+
+/* ── Box Séguia (onglet Métier) ──────────────────────────────── */
+
+.seg-box {
+  padding: 10px 12px;
+}
+
+.seg-box-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--c-dark);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seg-outil {
+  margin-bottom: 14px;
+}
+
+.seg-outil-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-dark);
+  margin: 0 0 3px;
+}
+
+.seg-outil-hint {
+  font-size: 10.5px;
+  color: var(--c-muted);
+  margin: 0 0 7px;
+  line-height: 1.5;
+}
+
+.seg-params {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.seg-param-label {
+  font-size: 11px;
+  color: var(--c-text);
+  white-space: nowrap;
+}
+
+.seg-param-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--c-muted);
+}
+
+.seg-input {
+  font-size: 11.5px;
+  padding: 3px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--c-text);
+  background: #fff;
+}
+
+.seg-btn {
+  font-size: 11.5px;
+  padding: 5px 12px;
+  background: var(--c-accent);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: opacity .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.seg-btn:hover   { opacity: .85; }
+.seg-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.seg-sep {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 12px 0;
+}
+
+.seg-result {
+  margin-top: 8px;
+  font-size: 11px;
+  overflow-x: auto;
+}
+
+.seg-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.seg-result-table th,
+.seg-result-table td {
+  padding: 3px 5px;
+  border: 1px solid #e0d8cf;
+  text-align: right;
+}
+
+.seg-result-table th {
+  background: #fdf7ef;
+  color: var(--c-dark);
+  font-weight: 600;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  #panneau-couches { display: none; }
+}
+
+/* ── Menu contextuel clic droit (T2) ────────────────────────── */
+
+#carte-ctx-menu {
+  position: fixed;
+  display: none;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.22);
+  min-width: 210px;
+  z-index: 900;
+  font-size: 12.5px;
+  overflow: hidden;
+}
+.ctx-header {
+  padding: 7px 12px;
+  background: var(--c-dark);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 13px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background .1s;
+  box-sizing: border-box;
+}
+.ctx-item:hover    { background: #fdf7ef; }
+.ctx-item i:first-child { color: var(--c-accent); width: 14px; text-align: center; flex-shrink: 0; }
+.ctx-sep           { border: none; border-top: 1px solid #f0e8d8; margin: 2px 0; }
+.ctx-sub-item      { padding-left: 34px; font-size: 12px; color: var(--c-text); }
+.ctx-sub-item:hover { background: #fdf7ef; color: var(--c-dark); }
+
+/* ── Bannière masque actif (T6) ─────────────────────────────── */
+
+#carte-masque-banner {
+  position: absolute;
+  bottom: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 400;
+  background: rgba(26, 26, 46, 0.90);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+#carte-masque-banner i { color: var(--c-accent); }
+#btn-masque-reset {
+  background: none;
+  border: none;
+  color: var(--c-accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+  margin-left: 4px;
+}
+#btn-masque-reset:hover { color: #fff; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div id="carte-app">
+
+  {# ── Panneau gauche : gestionnaire de couches + sélection + symbologie ── #}
+  <aside class="sig-panneau" id="panneau-couches">
+    <div class="panneau-header">
+      <i class="fas fa-layer-group"></i>
+      <span>Couches</span>
+    </div>
+
+    {# Liste des couches (masquée quand un sous-panneau par couche est ouvert) #}
+    <div id="couches-liste">
+      <div class="couches-loading">
+        <i class="fas fa-spinner fa-spin"></i>&nbsp; Chargement…
+      </div>
+    </div>
+
+    {# Panneau symbologie — rendu et géré par symbologie.js #}
+    <div id="panneau-symbologie"></div>
+
+    {# Sous-panneau Requête par couche (RS-01 à RS-05) — ouvert via le bouton entonnoir #}
+    <div id="pg-tab-requete">
+      <div class="pg-panel-head">
+        <button class="pg-back-btn" title="Retour aux couches"><i class="fas fa-arrow-left"></i></button>
+        <span class="pg-panel-title">
+          <i class="fas fa-filter"></i> Requête —
+          <span class="pg-panel-couche" id="pg-requete-couche-label"></span>
+        </span>
+      </div>
+      <div class="qr-form">
+
+        <div class="qr-field" id="qr-couche-field" style="display:none">
+          <label class="qr-label" for="qr-couche">Couche</label>
+          <select id="qr-couche" class="qr-select">
+            <option value="">— choisir —</option>
+          </select>
+        </div>
+
+        <div class="qr-field">
+          <label class="qr-label" for="qr-champ">Champ</label>
+          <select id="qr-champ" class="qr-select" disabled>
+            <option value="">— sélectionner une couche —</option>
+          </select>
+        </div>
+
+        <div class="qr-field">
+          <label class="qr-label" for="qr-op">Opérateur</label>
+          <select id="qr-op" class="qr-select" disabled></select>
+        </div>
+
+        <div class="qr-field" id="qr-valeur-wrap">
+          <label class="qr-label">Valeur</label>
+          <input  type="text" id="qr-val"     class="qr-input"  placeholder="Valeur…"     disabled>
+          <select             id="qr-val-sel" class="qr-select" style="display:none"       disabled></select>
+          <input  type="text" id="qr-val2"    class="qr-input"  placeholder="Valeur max…"  style="display:none" disabled>
+        </div>
+
+        {# Logique ET / OU — visible dès qu'il y a au moins 2 conditions #}
+        <div class="qr-field" id="qr-logique-field" style="display:none">
+          <label class="qr-label">Combiner les conditions</label>
+          <div class="rm-logique-bar">
+            <button type="button" class="rm-logique-btn qr-logique-btn active" data-logique="ET">ET</button>
+            <button type="button" class="rm-logique-btn qr-logique-btn"        data-logique="OU">OU</button>
+          </div>
+        </div>
+
+        {# Conditions supplémentaires combinées par ET/OU #}
+        <div id="qr-extra-conditions"></div>
+
+        <button id="btn-qr-add-cond" class="qr-btn qr-btn--secondary" disabled
+                title="Ajouter une condition combinée par ET ou OU">
+          <i class="fas fa-plus"></i> Ajouter une condition
+        </button>
+
+        <div id="qr-preview" class="qr-preview" style="display:none"></div>
+
+        <div class="qr-btns">
+          <button id="btn-qr-preview" class="qr-btn qr-btn--secondary" disabled>
+            <i class="fas fa-eye"></i> Prévisualiser
+          </button>
+          <button id="btn-qr-apply" class="qr-btn qr-btn--primary" disabled
+                  title="Filtrer la carte : seules les entités correspondantes restent affichées">
+            <i class="fas fa-filter"></i> Filtrer
+          </button>
+        </div>
+        <button id="btn-qr-reset" class="qr-btn qr-btn--secondary" disabled
+                title="Effacer le filtre : réafficher toutes les entités de la couche">
+          <i class="fas fa-undo"></i> Réinitialiser le filtre
+        </button>
+
+      </div>
+    </div>
+
+    {# Sous-panneau Requête multicritère par couche (RM-01, RM-02, RM-07) #}
+    <div id="pg-tab-multi">
+      <div class="pg-panel-head">
+        <button class="pg-back-btn" title="Retour aux couches"><i class="fas fa-arrow-left"></i></button>
+        <span class="pg-panel-title">
+          <i class="fas fa-sliders-h"></i> Multicritère —
+          <span class="pg-panel-couche" id="pg-multi-couche-label"></span>
+        </span>
+      </div>
+
+      {# Couche (masquée : pré-remplie par le bouton de la couche) #}
+      <div class="qr-field" id="rm-couche-field" style="display:none">
+        <label class="qr-label" for="rm-couche">Couche</label>
+        <select id="rm-couche" class="qr-select">
+          <option value="">— choisir —</option>
+        </select>
+      </div>
+
+      {# Logique ET / OU #}
+      <div class="qr-field">
+        <label class="qr-label">Combiner les conditions</label>
+        <div class="rm-logique-bar">
+          <button class="rm-logique-btn active" data-logique="ET">ET</button>
+          <button class="rm-logique-btn"        data-logique="OU">OU</button>
+        </div>
+      </div>
+
+      {# Zone dynamique des conditions #}
+      <div id="rm-conditions"></div>
+
+      {# Boutons d'action #}
+      <div class="rm-btns">
+        <button id="btn-rm-add" class="qr-btn qr-btn--secondary" disabled>
+          <i class="fas fa-plus"></i> Ajouter
+        </button>
+        <button id="btn-rm-exec" class="qr-btn qr-btn--primary" disabled
+                title="Filtrer la carte : seules les entités correspondantes restent affichées">
+          <i class="fas fa-filter"></i> Filtrer
+        </button>
+      </div>
+      <button id="btn-rm-reset" class="qr-btn qr-btn--secondary" disabled
+              title="Effacer le filtre : réafficher toutes les entités de la couche">
+        <i class="fas fa-undo"></i> Réinitialiser le filtre
+      </button>
+
+      {# Zone de résultat #}
+      <div id="rm-result" class="qr-preview" style="display:none"></div>
+
+    </div>
+
+    {# Sous-panneau Sélection par couche (SEL-01, SEL-07) #}
+    <div id="pg-tab-selection">
+      <div class="pg-panel-head">
+        <button class="pg-back-btn" title="Retour aux couches"><i class="fas fa-arrow-left"></i></button>
+        <span class="pg-panel-title">
+          <i class="fas fa-mouse-pointer"></i> Sélection —
+          <span class="pg-panel-couche" id="pg-selection-couche-label"></span>
+        </span>
+      </div>
+      <p class="sel-section-title"><i class="fas fa-drafting-compass"></i> Mode de sélection</p>
+      <div class="sel-mode-btns">
+        <button id="btn-sel-rect" class="sel-tool-btn" title="Tracez un rectangle pour sélectionner les entités">
+          <i class="fas fa-vector-square"></i> Rectangle
+        </button>
+      </div>
+
+      <p class="sel-section-title" style="margin-top:4px"><i class="fas fa-tasks"></i> Actions</p>
+      <div class="sel-action-btns">
+        <button id="btn-sel-deselect" class="sel-action-btn">
+          <i class="fas fa-times-circle"></i> Tout désélectionner
+        </button>
+        <button id="btn-sel-invert" class="sel-action-btn">
+          <i class="fas fa-exchange-alt"></i> Inverser la sélection
+        </button>
+      </div>
+
+      <p class="sel-section-title" style="margin-top:4px">
+        <i class="fas fa-info-circle"></i> Astuce
+      </p>
+      <p style="font-size:11px;color:var(--c-muted);line-height:1.6;margin:0">
+        Cliquez sur une entité pour la sélectionner et afficher ses attributs principaux.
+        Cliquez à nouveau pour la désélectionner.
+      </p>
+    </div>
+  </aside>
+  <div class="panel-resize-handle" id="resize-handle-left" title="Glisser pour redimensionner"></div>
+
+  {# ── Zone centrale : Carte | Tableau | Dashboard ── #}
+  <div id="map-container">
+
+    {# BUG-L2 — Boutons bascule panneaux latéraux #}
+    <button id="toggle-left-panel"  title="Réduire/agrandir le panneau gauche">&#9668;</button>
+    <button id="toggle-right-panel" title="Réduire/agrandir le panneau droit">&#9658;</button>
+
+    {# Barre d'onglets centrale #}
+    <div id="centrale-tabs">
+      <button class="centrale-tab active" data-ctab="carte">
+        <i class="fas fa-map"></i> Carte
+      </button>
+      <button class="centrale-tab" data-ctab="tableau">
+        <i class="fas fa-table"></i> Tableau
+      </button>
+      <button class="centrale-tab" data-ctab="dashboard">
+        <i class="fas fa-chart-bar"></i> Dashboard
+      </button>
+      <button class="centrale-tab" id="tab-central-layout-btn" data-ctab="layout">
+        <i class="fas fa-print"></i> Layout
+      </button>
+      <div style="flex:1"></div>
+      <button id="btn-export-carte" class="centrale-export-btn"
+              title="Exporter la carte en PDF (CA-09 à CA-14)">
+        <i class="fas fa-file-export"></i> Export
+      </button>
+      <button id="btn-fullscreen" class="centrale-export-btn"
+              title="Plein écran (F11)">
+        <i class="fas fa-expand"></i>
+      </button>
+    </div>
+
+    {# ── Panel export carte (CA-09 à CA-14) ── #}
+    <div id="export-carte-panel" class="export-panel" style="display:none" role="dialog"
+         aria-label="Options d'export de la carte">
+      <div class="export-panel-header">
+        <span><i class="fas fa-file-pdf"></i>&nbsp; Export carte PDF</span>
+        <button id="btn-export-fermer" class="export-close-btn" title="Fermer">&#10005;</button>
+      </div>
+      <div class="export-panel-body">
+
+        {# Format / Orientation / DPI #}
+        <div class="export-row">
+          <label class="export-label" for="export-format">Format</label>
+          <select id="export-format" class="export-select">
+            <option value="A4" selected>A4</option>
+            <option value="A3">A3</option>
+            <option value="A2">A2</option>
+            <option value="A1">A1</option>
+            <option value="A0">A0</option>
+          </select>
+        </div>
+        <div class="export-row">
+          <label class="export-label" for="export-orientation">Orientation</label>
+          <select id="export-orientation" class="export-select">
+            <option value="landscape" selected>Paysage</option>
+            <option value="portrait">Portrait</option>
+          </select>
+        </div>
+        <div class="export-row">
+          <label class="export-label" for="export-dpi">Résolution</label>
+          <select id="export-dpi" class="export-select">
+            <option value="72">72 dpi — web</option>
+            <option value="150" selected>150 dpi — brouillon</option>
+            <option value="300">300 dpi — impression</option>
+          </select>
+        </div>
+
+        <hr class="export-sep">
+        <p class="export-section-title">Éléments cartographiques</p>
+
+        {# Titre #}
+        <div class="export-titre-row">
+          <label class="export-check-label">
+            <input type="checkbox" id="export-titre-cb" checked> Titre
+          </label>
+          <input type="text" id="export-titre" class="export-titre-input"
+                 placeholder="Titre de la carte…" maxlength="120">
+        </div>
+
+        {# Cases à cocher éléments #}
+        <div class="export-checks">
+          <label class="export-check-label">
+            <input type="checkbox" id="export-legende" checked> Légende
+          </label>
+          <label class="export-check-label">
+            <input type="checkbox" id="export-nord" checked> Flèche Nord
+          </label>
+          <label class="export-check-label">
+            <input type="checkbox" id="export-echelle" checked> Barre d'échelle
+          </label>
+          <label class="export-check-label">
+            <input type="checkbox" id="export-date" checked> Date d'export
+          </label>
+        </div>
+
+        <div id="export-erreur" class="export-erreur" style="display:none"></div>
+
+        <div class="export-actions">
+          <button id="btn-export-telecharger" class="seg-btn">
+            <i class="fas fa-download"></i> Télécharger
+            <i id="export-spinner" class="fas fa-spinner fa-spin" style="display:none;margin-left:4px"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {# ── Onglet Carte ── #}
+    <div id="zone-carte">
+      <div id="map"></div>
+
+      {# ── Légende unifiée des rendus (gérée par carte-rendu.js) ── #}
+      <div id="carte-rendu-legende" style="display:none"></div>
+
+      {# ── Menu contextuel clic droit (T2) ── #}
+      <div id="carte-ctx-menu">
+        <div class="ctx-header" id="ctx-layer-name"></div>
+        <button class="ctx-item" id="ctx-action-zoom">
+          <i class="fas fa-search-plus"></i> Zoom vers l'entité
+        </button>
+        <hr class="ctx-sep">
+        <div class="ctx-item ctx-has-sub" id="ctx-masque-trigger">
+          <i class="fas fa-filter"></i> Masque
+          <i class="fas fa-chevron-right" style="margin-left:auto;font-size:9px;color:var(--c-muted)"></i>
+        </div>
+        <div id="ctx-masque-sub"></div>
+      </div>
+
+      {# ── Bannière masque actif (T6) ── #}
+      <div id="carte-masque-banner" style="display:none">
+        <i class="fas fa-filter"></i>
+        <span id="carte-masque-label"></span>
+        <button id="btn-masque-reset" title="Retirer le masque">✕ Réinitialiser</button>
+      </div>
+
+      {# Bannière vue isolée (BUG-L4-B) #}
+      <div id="carte-isolation-banner" style="display:none">
+        <i class="fas fa-eye"></i>
+        Vue isolée — <span id="carte-isolation-label"></span>
+        <button id="btn-isolation-reset" title="Restaurer toutes les couches">✕ Désactiver</button>
+      </div>
+      {# Barre de statut (SEL-06) #}
+      <div id="sel-statusbar">
+        <span id="sel-compteur"></span>
+      </div>
+    </div>
+
+    {# ── Onglet Tableau attributaire (§5.2.3) ── #}
+    <div id="zone-tableau" style="display:none">
+
+      {# Barre d'outils #}
+      <div id="ta-toolbar">
+        <div class="ta-toolbar-left">
+          <label for="ta-select-pagesize" style="font-size:11.5px;color:var(--c-muted)">Lignes&nbsp;/&nbsp;page :</label>
+          <select id="ta-select-pagesize">
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+          <span id="ta-couche-label"></span>
+        </div>
+        <div class="ta-toolbar-right" style="position:relative">
+
+          {# Sélecteur de colonnes (TA-13) #}
+          <button id="btn-ta-cols" class="ta-btn" title="Choisir les colonnes à exporter (TA-13)">
+            <i class="fas fa-columns"></i> Colonnes
+          </button>
+
+          {# Séparateur visuel #}
+          <span class="ta-sep"></span>
+
+          {# Barre export CSV/Excel — masquée pour les visiteurs (Phase 2 §5) #}
+          <div id="barre-export" style="display:flex;align-items:center;gap:6px">
+
+          {# Export CSV (TA-09 / TA-12) #}
+          <button id="btn-ta-export-sel" class="ta-btn"
+                  title="Exporter la sélection en CSV (TA-09 / TA-12)">
+            <i class="fas fa-file-csv"></i> CSV sél.
+          </button>
+          <button id="btn-ta-export-all" class="ta-btn"
+                  title="Exporter toute la couche en CSV (TA-09 / TA-12)">
+            <i class="fas fa-file-csv"></i> CSV tout
+          </button>
+
+          {# Export Excel (TA-10 / TA-12) #}
+          <button id="btn-ta-xls-sel" class="ta-btn ta-btn--xlsx"
+                  title="Exporter la sélection en Excel (TA-10 / TA-12)">
+            <i class="fas fa-file-excel"></i> XLS sél.
+          </button>
+          <button id="btn-ta-xls-all" class="ta-btn ta-btn--xlsx ta-btn--primary-xlsx"
+                  title="Exporter toute la couche en Excel (TA-10 / TA-12)">
+            <i class="fas fa-file-excel"></i> XLS tout
+          </button>
+
+          </div>{# /barre-export #}
+
+          {# Panel sélecteur de colonnes (TA-13) — rempli dynamiquement #}
+          <div id="ta-col-picker" class="ta-col-picker" style="display:none"></div>
+
+        </div>
+      </div>
+
+      {# Grille #}
+      <div id="ta-grid-wrap">
+        <div id="ta-grid-container">
+          <div class="ta-placeholder">
+            <i class="fas fa-table"></i>
+            <span>Activez une couche dans le panneau gauche<br>pour afficher ses attributs.</span>
+          </div>
+        </div>
+      </div>
+
+      {# Pagination #}
+      <div id="ta-pagination">
+        <span class="ta-page-info" id="ta-page-info"></span>
+        <div id="ta-page-btns" style="display:flex;align-items:center;gap:4px"></div>
+      </div>
+
+      {# Pied de tableau #}
+      <div id="ta-footer">
+        <span id="ta-footer-total"></span>
+        <span id="ta-footer-sel"></span>
+      </div>
+
+    </div>
+
+    {# ── Onglet Dashboard (§5.2.2 — DB-01 à DB-08) ── #}
+    <div id="zone-dashboard" style="display:none">
+
+      {# Barre d'outils : couche active + scope Tout/Sélection #}
+      <div id="db-toolbar" style="display:none">
+        <div class="db-toolbar-left">
+          <span id="db-couche-label" class="db-couche-label"></span>
+        </div>
+        <div class="db-scope-bar">
+          <button class="db-scope-btn active" data-scope="all">Tout</button>
+          <button class="db-scope-btn" data-scope="selection">
+            Sélection (<span id="db-sel-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      {# Grille des widgets (injectée par dashboard.js) #}
+      <div id="db-grid"></div>
+
+      {# Placeholder affiché avant activation d'une couche #}
+      <div id="db-placeholder">
+        <i class="fas fa-chart-pie"></i>
+        <span>Activez une couche dans le panneau gauche<br>pour afficher les graphiques.</span>
+      </div>
+
+    </div>
+
+    {# ── Onglet Layout — Compositeur de carte (FEATURE-C4) ── #}
+    <div id="zone-layout" style="display:none">
+      {% include "carte/layout_composer.html" %}
+    </div>
+
+    {# ── Sous-panneau ouvrages associés (FEATURE-C2) — rempli par table.js ── #}
+    <div id="ta-ouvrages-panel" style="display:none"></div>
+
+  </div>
+  <div class="panel-resize-handle" id="resize-handle-right" title="Glisser pour redimensionner"></div>
+
+  {# ── Panneau Outils (droit) ── #}
+  <aside class="sig-panneau" id="panneau-outils">
+    <div class="panneau-header">
+      <i class="fas fa-tools"></i>
+      <span>Outils</span>
+      {# Lot A — ferme toutes les fenêtres flottantes (FloatingChart). Masqué tant qu'aucune n'est ouverte. #}
+      <button id="fc-close-all" class="po-close-all" title="Fermer toutes les fenêtres" style="display:none">
+        <i class="fas fa-window-restore"></i>
+      </button>
+    </div>
+
+    <div class="po-scroll" id="po-outils-liste">
+
+      {# ── Couches (Lot E) ── #}
+      <div class="po-group">
+        <div class="po-group-header">
+          <span class="po-group-icon" style="background:#1a6fa8"><i class="fas fa-layer-group"></i></span>
+          <span class="po-group-label">Couches</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="co-hydro2">
+            <i class="fas fa-diagram-project"></i>
+            Hydrologie 2 — couches ouvrage de tête
+          </li>
+        </ul>
+      </div>
+
+      {# ── Outils Périmètre ── #}
+      <div class="po-group">
+        <div class="po-group-header">
+          <span class="po-group-icon"><i class="fas fa-toolbox"></i></span>
+          <span class="po-group-label">Outils périmètre</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="po-besoin">
+            <i class="fas fa-hammer"></i>
+            Besoin
+          </li>
+          <li class="po-item" id="po-comparaison">
+            <i class="fas fa-chart-column"></i>
+            Comparaison besoin
+          </li>
+        </ul>
+      </div>
+
+      {# ── Hydrologie / Crues ── #}
+      <div class="po-group collapsed">
+        <div class="po-group-header">
+          <span class="po-group-icon" style="background:#2980b9"><i class="fas fa-water"></i></span>
+          <span class="po-group-label">Hydrologie / Crues</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="hy-crue">
+            <i class="fas fa-chart-bar"></i>
+            Débits de crue (T)
+          </li>
+          <li class="po-item" id="hy-tc">
+            <i class="fas fa-stopwatch"></i>
+            Temps de concentration
+          </li>
+          <li class="po-item" id="hy-apports">
+            <i class="fas fa-chart-area"></i>
+            Apports de crue mensuels
+          </li>
+          <li class="po-item" id="hy-cruecarte">
+            <i class="fas fa-map-location-dot"></i>
+            Crue de projet (carte)
+          </li>
+          <li class="po-item" id="hy-ap-seuil">
+            <i class="fas fa-droplet"></i>
+            Apport de crue — seuil
+          </li>
+          <li class="po-item" id="hy-ap-prise">
+            <i class="fas fa-droplet"></i>
+            Apport de crue — prise
+          </li>
+          <li class="po-item" id="hy-ap-barrage">
+            <i class="fas fa-droplet"></i>
+            Apport de crue — barrage
+          </li>
+        </ul>
+      </div>
+
+      {# ── Bilan eau ── #}
+      <div class="po-group collapsed">
+        <div class="po-group-header">
+          <span class="po-group-icon" style="background:#27ae60"><i class="fas fa-scale-balanced"></i></span>
+          <span class="po-group-label">Bilan eau</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="bl-bilan">
+            <i class="fas fa-chart-line"></i>
+            Bilan mensuel
+          </li>
+          <li class="po-item" id="bl-couverture">
+            <i class="fas fa-fill-drip"></i>
+            Taux de couverture (carte)
+          </li>
+          <li class="po-item" id="bl-eto">
+            <i class="fas fa-sun"></i>
+            ET0 climatique
+          </li>
+        </ul>
+      </div>
+
+      {# ── Efficience réseau ── #}
+      <div class="po-group collapsed">
+        <div class="po-group-header">
+          <span class="po-group-icon" style="background:#16a085"><i class="fas fa-gauge-high"></i></span>
+          <span class="po-group-label">Efficience réseau</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="ef-ouvrage">
+            <i class="fas fa-sitemap"></i>
+            Efficience ouvrage de tête
+          </li>
+          <li class="po-item" id="ef-profil">
+            <i class="fas fa-chart-area"></i>
+            Profil de pertes (séguia)
+          </li>
+          <li class="po-item" id="ef-rendement">
+            <i class="fas fa-route"></i>
+            Rendement tronçons (carte)
+          </li>
+        </ul>
+      </div>
+
+      {# ── Diagnostic ── #}
+      <div class="po-group collapsed">
+        <div class="po-group-header">
+          <span class="po-group-icon" style="background:#c0392b"><i class="fas fa-clipboard-check"></i></span>
+          <span class="po-group-label">Diagnostic</span>
+          <span class="po-chevron"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <ul class="po-item-list">
+          <li class="po-item" id="dg-prio">
+            <i class="fas fa-ranking-star"></i>
+            Indice de priorité / Scoring
+          </li>
+          <li class="po-item" id="dg-etat">
+            <i class="fas fa-chart-simple"></i>
+            Comparaison d'état
+          </li>
+          <li class="po-item" id="dg-debit">
+            <i class="fas fa-gauge"></i>
+            Débit mobilisé (carte)
+          </li>
+          <li class="po-item" id="dg-asso">
+            <i class="fas fa-seedling"></i>
+            Assolement
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+    {# ── Sous-panneau Besoin (ouvert via l'outil Besoin) ── #}
+    <div id="po-panel-besoin" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn" id="po-besoin-back" title="Retour aux outils">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <span class="po-panel-title"><i class="fas fa-hammer"></i> Besoin — Périmètres</span>
+      </div>
+      <div class="po-panel-body">
+
+        <label class="po-field-label">Périmètres sélectionnés</label>
+        <input type="text" id="po-besoin-count" class="po-input" readonly
+               value="0 — toute la couche">
+
+        <label class="po-field-label">Année</label>
+        <select id="po-besoin-annee" class="po-input">
+          <option value="normale">Année normale</option>
+          <option value="humide">Année humide</option>
+          <option value="seche">Année sèche</option>
+        </select>
+
+        <label class="po-field-label">Mode de présentation sur carte</label>
+        <select id="po-besoin-mode" class="po-input">
+          <option value="point_valeur">Point selon valeur (classé)</option>
+          <option value="cercle_prop">Cercle proportionnel</option>
+          <option value="camembert">Diagramme circulaire (3 années)</option>
+          <option value="barres">Diagramme en barres (3 années)</option>
+          <option value="choroplethe">Aplat de couleur (polygone)</option>
+        </select>
+
+        <button class="po-exec-btn" id="po-besoin-exec">
+          <i class="fas fa-play"></i> Exécuter
+        </button>
+        <button class="po-clear-btn" id="po-besoin-clear" style="display:none">
+          <i class="fas fa-eraser"></i> Effacer de la carte
+        </button>
+
+        <div id="po-besoin-result" class="po-result"></div>
+      </div>
+    </div>
+
+    {# ── Sous-panneau Comparaison besoin (page isolée, hors carte) ── #}
+    <div id="po-panel-comparaison" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn" id="po-comp-back" title="Retour aux outils">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <span class="po-panel-title"><i class="fas fa-chart-column"></i> Comparaison besoin</span>
+      </div>
+      <div class="po-panel-body">
+
+        <label class="po-field-label">Périmètres sélectionnés</label>
+        <input type="text" id="po-comp-count" class="po-input" readonly
+               value="0 — toute la couche">
+
+        <div id="po-comp-warn" class="po-result" style="display:none">
+          <span class="po-err"><i class="fas fa-exclamation-triangle"></i>
+            Maximum 25 périmètres — seuls les 25 premiers seront comparés.</span>
+        </div>
+
+        <label class="po-field-label">Année</label>
+        <select id="po-comp-annee" class="po-input">
+          <option value="normale">Année normale</option>
+          <option value="humide">Année humide</option>
+          <option value="seche">Année sèche</option>
+        </select>
+
+        <button class="po-exec-btn" id="po-comp-exec">
+          <i class="fas fa-chart-bar"></i> Générer le graphique
+        </button>
+
+        <div id="po-comp-result" class="po-result">
+          <span class="po-muted">
+            <i class="fas fa-info-circle"></i>
+            Le graphe comparatif (besoin · excédent · déficit) s'affiche dans une
+            fenêtre déplaçable, sur la carte.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Couches : Réseau du BV (intersection forcée réseau ↔ BV) ── #}
+    <div id="co-panel-reseau" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn co-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-diagram-project"></i> Réseau du BV</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Réseau</label>
+        <input type="text" id="co-reseau-label" class="po-input" readonly>
+        <label class="po-field-label">Bassin versant</label>
+        <select id="co-reseau-bv" class="po-input"></select>
+        <label class="po-field-label">Détail réseau</label>
+        <select id="co-reseau-grid" class="po-input">
+          <option value="">Automatique</option>
+          <option value="0">Réseau complet (grid faible inclus)</option>
+          <option value="1">Drains forts (grid_code ≥ 1)</option>
+        </select>
+        <span class="po-hint">Affiche ce réseau clippé au bassin versant choisi (mode forcé : la couche réseau n'est pas appariée automatiquement).</span>
+        <button class="po-exec-btn" id="co-reseau-exec"><i class="fas fa-play"></i> Afficher</button>
+        <button class="po-clear-btn" id="co-reseau-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="co-reseau-result" class="po-result"></div>
+      </div>
+    </div>
+
+    {# ── Hydrologie : Débits de crue (T) ── #}
+    <div id="hy-panel-crue" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-chart-bar"></i> Débits de crue (T)</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Bassin versant</label>
+        <select id="hy-crue-bv" class="po-input"></select>
+        <button class="po-exec-btn" id="hy-crue-exec"><i class="fas fa-chart-bar"></i> Générer le graphique</button>
+        <div id="hy-crue-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Lecture de la dernière analyse hydrologique du bassin (fenêtre déplaçable).</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Hydrologie : Temps de concentration ── #}
+    <div id="hy-panel-tc" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-stopwatch"></i> Temps de concentration</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Bassin versant</label>
+        <select id="hy-tc-bv" class="po-input"></select>
+        <button class="po-exec-btn" id="hy-tc-exec"><i class="fas fa-chart-bar"></i> Générer le graphique</button>
+        <div id="hy-tc-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Tc par formule (Kirpich, Turraza…) + moyenne.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Hydrologie : Apports de crue mensuels ── #}
+    <div id="hy-panel-apports" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-chart-area"></i> Apports de crue mensuels</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Bassin versant (cible)</label>
+        <select id="hy-apports-bv" class="po-input"></select>
+        <label class="po-field-label">Station hydrométrique (référence)</label>
+        <select id="hy-apports-station" class="po-input"></select>
+        <label class="po-field-label">Tc (h) — vide = auto depuis le BV</label>
+        <input type="number" id="hy-apports-tc" class="po-input" min="0.1" step="0.1" placeholder="auto">
+        <button class="po-exec-btn" id="hy-apports-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="hy-apports-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Débits station transposés (Francou-Rodier) vers le BV ; volumes mensuels × 3 années.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Hydrologie : Crue de projet (thématique carte) ── #}
+    <div id="hy-panel-cruecarte" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-map-location-dot"></i> Crue de projet (carte)</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Période de retour</label>
+        <select id="hy-cruecarte-t" class="po-input">
+          <option value="100">T = 100 ans</option>
+          <option value="50">T = 50 ans</option>
+          <option value="20">T = 20 ans</option>
+          <option value="10">T = 10 ans</option>
+        </select>
+        <label class="po-field-label">Mode de présentation</label>
+        <select id="hy-cruecarte-mode" class="po-input">
+          <option value="cercle_prop">Cercles proportionnels</option>
+          <option value="point_valeur">Cercles classés (quantiles)</option>
+        </select>
+        <button class="po-exec-btn" id="hy-cruecarte-exec"><i class="fas fa-play"></i> Afficher</button>
+        <button class="po-clear-btn" id="hy-cruecarte-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="hy-cruecarte-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Cercles proportionnels au débit de pointe Q(T) par bassin.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Hydrologie : Apport de crue par ouvrage (seuil / prise / barrage) ── #}
+    <div id="hy-panel-ap-seuil" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-droplet"></i> Apport de crue — seuil</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Seuil sélectionné</label>
+        <input type="text" id="hy-ap-seuil-count" class="po-input" readonly value="Aucun — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez un seuil sur la carte. Apport de crue du BV (transposé) + volume capté (débit mobilisé).</span>
+        <button class="po-exec-btn" id="hy-ap-seuil-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="hy-ap-seuil-result" class="po-result"></div>
+      </div>
+    </div>
+    <div id="hy-panel-ap-prise" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-droplet"></i> Apport de crue — prise</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Prise sélectionnée</label>
+        <input type="text" id="hy-ap-prise-count" class="po-input" readonly value="Aucune — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez une prise sur la carte. Apport de crue du BV (transposé) + volume capté (débit dérivé).</span>
+        <button class="po-exec-btn" id="hy-ap-prise-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="hy-ap-prise-result" class="po-result"></div>
+      </div>
+    </div>
+    <div id="hy-panel-ap-barrage" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn hy-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-droplet"></i> Apport de crue — barrage</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Barrage sélectionné</label>
+        <input type="text" id="hy-ap-barrage-count" class="po-input" readonly value="Aucun — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez un barrage sur la carte. Apport de crue du BV (transposé) + volume capté (débit dérivé).</span>
+        <button class="po-exec-btn" id="hy-ap-barrage-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="hy-ap-barrage-result" class="po-result"></div>
+      </div>
+    </div>
+
+    {# ── Bilan eau : Bilan mensuel ── #}
+    <div id="bl-panel-bilan" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn bl-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-chart-line"></i> Bilan mensuel</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Périmètre sélectionné</label>
+        <input type="text" id="bl-bilan-count" class="po-input" readonly value="Aucun — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez un périmètre sur la carte (couche « Périmètres agricoles »).</span>
+        <label class="po-field-label">Année</label>
+        <select id="bl-bilan-annee" class="po-input">
+          <option value="normale">Année normale</option>
+          <option value="humide">Année humide</option>
+          <option value="seche">Année sèche</option>
+        </select>
+        <button class="po-exec-btn" id="bl-bilan-exec"><i class="fas fa-chart-line"></i> Générer le graphique</button>
+        <div id="bl-bilan-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Besoins vs ressources (12 mois Sep→Aoû) du dernier bilan.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Bilan eau : Taux de couverture (thématique carte) ── #}
+    <div id="bl-panel-couverture" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn bl-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-fill-drip"></i> Taux de couverture</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Année</label>
+        <select id="bl-couverture-annee" class="po-input">
+          <option value="normale">Année normale</option>
+          <option value="humide">Année humide</option>
+          <option value="seche">Année sèche</option>
+        </select>
+        <label class="po-field-label">Mode de présentation</label>
+        <select id="bl-couverture-mode" class="po-input">
+          <option value="seuils">Classes fixes (couvert / déficit)</option>
+          <option value="choroplethe">Aplat de couleur (périmètres)</option>
+          <option value="point_valeur">Cercles classés (quantiles)</option>
+          <option value="cercle_prop">Cercles proportionnels</option>
+        </select>
+        <button class="po-exec-btn" id="bl-couverture-exec"><i class="fas fa-play"></i> Afficher</button>
+        <button class="po-clear-btn" id="bl-couverture-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="bl-couverture-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Ressources / besoins (%) par périmètre.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Bilan eau : ET0 climatique ── #}
+    <div id="bl-panel-eto" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn bl-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-sun"></i> ET0 climatique</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Station climatique sélectionnée</label>
+        <input type="text" id="bl-eto-count" class="po-input" readonly value="Aucune — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez une station sur la carte (couche « Stations climatiques »).</span>
+        <button class="po-exec-btn" id="bl-eto-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="bl-eto-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> ET0 mensuelle (12 mois Sep→Aoû).</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Efficience : ouvrage de tête (cascade P/S/T) ── #}
+    <div id="ef-panel-ouvrage" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn ef-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-sitemap"></i> Efficience ouvrage de tête</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Ouvrage de tête (résultat calculé)</label>
+        <select id="ef-ouvrage-sel" class="po-input"></select>
+        <button class="po-exec-btn" id="ef-ouvrage-exec"><i class="fas fa-chart-bar"></i> Générer le graphique</button>
+        <div id="ef-ouvrage-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Cascade Principale / Secondaire / Tertiaire → globale.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Efficience : profil de pertes d'une séguia ── #}
+    <div id="ef-panel-profil" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn ef-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-chart-area"></i> Profil de pertes (séguia)</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Séguia</label>
+        <select id="ef-profil-sel" class="po-input"></select>
+        <button class="po-exec-btn" id="ef-profil-exec"><i class="fas fa-chart-area"></i> Générer le graphique</button>
+        <div id="ef-profil-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Débit amont→aval + pertes (infiltration / vaporisation) par tronçon.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Efficience : rendement des tronçons (thématique carte) ── #}
+    <div id="ef-panel-rendement" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn ef-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-route"></i> Rendement tronçons</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Mode de présentation</label>
+        <select id="ef-rendement-mode" class="po-input">
+          <option value="seuils">Seuils fixes (% efficience)</option>
+          <option value="quantiles">Classes (quantiles)</option>
+        </select>
+        <button class="po-exec-btn" id="ef-rendement-exec"><i class="fas fa-play"></i> Afficher</button>
+        <button class="po-clear-btn" id="ef-rendement-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="ef-rendement-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Tronçons colorés par efficience calculée (%).</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Diagnostic : Indice de priorité / Scoring (thématique carte) ── #}
+    <div id="dg-panel-prio" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn dg-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-ranking-star"></i> Indice de priorité / Scoring</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Couche d'ouvrages</label>
+        <select id="dg-prio-couche" class="po-input">
+          <option value="seuils">Seuils</option>
+          <option value="murs_protection">Murs de protection</option>
+          <option value="troncons_seguias">Tronçons de séguias</option>
+          <option value="barrages">Barrages de retenue</option>
+          <option value="khettaras">Khettaras</option>
+          <option value="forages_puits">Forages / Puits</option>
+          <option value="prises_locales">Prises locales</option>
+        </select>
+        <label class="po-field-label">Sélection sur la carte</label>
+        <input type="text" id="dg-prio-count" class="po-input" readonly value="0 — toute la couche">
+        <span class="po-hint">Sélectionnez des ouvrages de cette couche sur la carte pour restreindre le calcul ; vide = toute la couche.</span>
+        <label class="po-field-label">Critères &amp; coefficients (0–5)</label>
+        <div id="dg-prio-crit"></div>
+        <label class="po-field-label">Méthode</label>
+        <select id="dg-prio-methode" class="po-input">
+          <option value="fixe">Seuils fixes (indice 0–100 %)</option>
+          <option value="quantile">Quantiles</option>
+          <option value="jenks">Jenks</option>
+        </select>
+        <button class="po-exec-btn" id="dg-prio-exec"><i class="fas fa-play"></i> Calculer &amp; colorer</button>
+        <button class="po-clear-btn" id="dg-prio-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="dg-prio-result" class="po-result"></div>
+      </div>
+    </div>
+
+    {# ── Diagnostic : Comparaison d'état ── #}
+    <div id="dg-panel-etat" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn dg-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-chart-simple"></i> Comparaison d'état</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Couche d'ouvrages</label>
+        <select id="dg-etat-couche" class="po-input">
+          <option value="seuils">Seuils</option>
+          <option value="murs_protection">Murs de protection</option>
+          <option value="troncons_seguias">Tronçons de séguias</option>
+          <option value="barrages">Barrages de retenue</option>
+          <option value="khettaras">Khettaras</option>
+          <option value="forages_puits">Forages / Puits</option>
+          <option value="prises_locales">Prises locales</option>
+        </select>
+        <label class="po-field-label">Sélection sur la carte</label>
+        <input type="text" id="dg-etat-count" class="po-input" readonly value="0 — toute la couche">
+        <span class="po-hint">Sélectionnez des ouvrages de cette couche sur la carte ; vide = toute la couche.</span>
+        <button class="po-exec-btn" id="dg-etat-exec"><i class="fas fa-chart-bar"></i> Générer le graphique</button>
+        <div id="dg-etat-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Répartition des ouvrages par état général.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Diagnostic : Débit mobilisé (thématique carte) ── #}
+    <div id="dg-panel-debit" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn dg-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-gauge"></i> Débit mobilisé</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Couche d'ouvrages</label>
+        <select id="dg-debit-couche" class="po-input">
+          <option value="seuils">Seuils</option>
+          <option value="barrages">Barrages de retenue</option>
+          <option value="khettaras">Khettaras</option>
+          <option value="forages_puits">Forages / Puits</option>
+          <option value="prises_locales">Prises locales</option>
+          <option value="troncons_seguias">Tronçons de séguias</option>
+        </select>
+        <label class="po-field-label">Sélection sur la carte</label>
+        <input type="text" id="dg-debit-count" class="po-input" readonly value="0 — toute la couche">
+        <span class="po-hint">Sélectionnez des ouvrages de cette couche sur la carte ; vide = toute la couche.</span>
+        <label class="po-field-label">Mode de présentation</label>
+        <select id="dg-debit-mode" class="po-input">
+          <option value="cercle_prop">Cercles proportionnels</option>
+          <option value="point_valeur">Cercles classés (quantiles)</option>
+        </select>
+        <button class="po-exec-btn" id="dg-debit-exec"><i class="fas fa-play"></i> Afficher</button>
+        <button class="po-clear-btn" id="dg-debit-clear" style="display:none"><i class="fas fa-eraser"></i> Effacer de la carte</button>
+        <div id="dg-debit-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Cercles proportionnels au débit de l'ouvrage.</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Diagnostic : Assolement ── #}
+    <div id="dg-panel-asso" class="po-subpanel" style="display:none">
+      <div class="po-panel-head">
+        <button class="po-back-btn dg-back" title="Retour aux outils"><i class="fas fa-arrow-left"></i></button>
+        <span class="po-panel-title"><i class="fas fa-seedling"></i> Assolement</span>
+      </div>
+      <div class="po-panel-body">
+        <label class="po-field-label">Périmètre sélectionné</label>
+        <input type="text" id="dg-asso-count" class="po-input" readonly value="Aucun — sélectionnez sur la carte">
+        <span class="po-hint">Sélectionnez un périmètre sur la carte (couche « Périmètres agricoles »).</span>
+        <button class="po-exec-btn" id="dg-asso-exec"><i class="fas fa-chart-pie"></i> Générer le graphique</button>
+        <div id="dg-asso-result" class="po-result">
+          <span class="po-muted"><i class="fas fa-info-circle"></i> Répartition des surfaces par culture.</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  {# Fenêtres flottantes des graphes (Lot C) : window.FloatingChart crée une fenêtre .fc-window par exécution (cascade, illimitées) ; bouton « Fermer toutes » #fc-close-all dans l'en-tête. #}
+
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+{# Rôle utilisateur — injecté avant tout script SIG (Phase 2 §5 Droits) #}
+<script>
+  window.USER_ROLE       = '{{ user_role }}';
+  window.USER_ROLE_LEVEL = {{ user_role_level }};
+</script>
+<script src="{% static 'carte/js/access.js' %}"></script>
+{# MapLibre GL JS — après le DOM pour que #map soit disponible #}
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+{# Chart.js v4 — requis par dashboard.js #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="{% static 'carte/js/map.js' %}"></script>
+<script src="{% static 'carte/js/basemap.js' %}"></script>
+<script src="{% static 'carte/js/contextmenu.js' %}"></script>
+<script src="{% static 'carte/js/layers.js' %}?v=11"></script>
+<script src="{% static 'carte/js/couches_styles.js' %}"></script>
+<script src="{% static 'carte/js/symbologie.js' %}"></script>
+<script src="{% static 'carte/js/selection.js' %}"></script>
+<script src="{% static 'carte/js/query.js' %}"></script>
+<script src="{% static 'carte/js/multiquery.js' %}"></script>
+<script src="{% static 'carte/js/table.js' %}"></script>
+<script src="{% static 'carte/js/dashboard.js' %}"></script>
+<script src="{% static 'carte/js/drilldown.js' %}?v=3"></script>
+<script src="{% static 'carte/js/tools.js' %}"></script>
+<script src="{% static 'carte/js/export.js' %}"></script>
+<script src="{% static 'carte/js/carte-rendu.js' %}"></script>
+{# Socle transversal des outils (Lot A) : sélection carte unifiée + fenêtres multi-instances + primitives de rendu #}
+<script src="{% static 'carte/js/outils-commun.js' %}"></script>
+<script src="{% static 'carte/js/outils-rendu.js' %}"></script>
+<script src="{% static 'carte/js/outils-couches.js' %}"></script>
+<script src="{% static 'carte/js/outils-perimetre.js' %}"></script>
+<script src="{% static 'carte/js/outils-hydrologie.js' %}"></script>
+<script src="{% static 'carte/js/outils-bilan.js' %}"></script>
+<script src="{% static 'carte/js/outils-efficience.js' %}"></script>
+<script src="{% static 'carte/js/outils-diagnostic.js' %}"></script>
+<script src="{% static 'carte/js/layout.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initExportCarte();
+
+  // ── Groupes accordéon panneau Outils ──────────────────────────────────
+  document.querySelectorAll('.po-group-header').forEach(header => {
+    header.addEventListener('click', () => {
+      header.closest('.po-group').classList.toggle('collapsed');
+    });
+  });
+  if (typeof initLayout === 'function') initLayout();
+
+  // ── Item 6 — Masquer les exports CSV/Excel pour les visiteurs ──────────
+  if (typeof window.minRole === 'function' && !window.minRole('operateur')) {
+    const barreExport = document.getElementById('barre-export');
+    if (barreExport) barreExport.style.display = 'none';
+  }
+
+  // ── Plein écran (F11 logiciel) ────────────────────────────────────────
+  (function initFullscreen() {
+    const btn = document.getElementById('btn-fullscreen');
+    if (!btn) return;
+
+    function update() {
+      const fs = !!document.fullscreenElement;
+      btn.classList.toggle('is-fullscreen', fs);
+      btn.querySelector('i').className = fs ? 'fas fa-compress' : 'fas fa-expand';
+      btn.title = fs ? 'Quitter le plein écran' : 'Plein écran';
+      if (window.MAP) window.MAP.resize();
+    }
+
+    btn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    document.addEventListener('fullscreenchange', update);
+  })();
+
+  // ── BUG-L2 — Panneaux glissants avec persistance localStorage ─────────
+  (function initPanelToggles() {
+    const leftPanel  = document.getElementById('panneau-couches');
+    const rightPanel = document.getElementById('panneau-outils');
+    const btnLeft    = document.getElementById('toggle-left-panel');
+    const btnRight   = document.getElementById('toggle-right-panel');
+    if (!btnLeft || !btnRight) return;
+
+    function applyState(panel, btn, open, isLeft) {
+      if (open) {
+        panel.classList.remove('collapsed');
+        btn.innerHTML = isLeft ? '&#9668;' : '&#9658;';
+      } else {
+        panel.classList.add('collapsed');
+        btn.innerHTML = isLeft ? '&#9658;' : '&#9668;';
+      }
+    }
+
+    const leftOpen  = localStorage.getItem('carte_left_open')  !== 'false';
+    const rightOpen = localStorage.getItem('carte_right_open') !== 'false';
+    applyState(leftPanel,  btnLeft,  leftOpen,  true);
+    applyState(rightPanel, btnRight, rightOpen, false);
+
+    btnLeft.addEventListener('click', () => {
+      const willOpen = leftPanel.classList.contains('collapsed');
+      applyState(leftPanel, btnLeft, willOpen, true);
+      localStorage.setItem('carte_left_open', String(willOpen));
+      setTimeout(() => { if (window.MAP) window.MAP.resize(); }, 280);
+    });
+
+    btnRight.addEventListener('click', () => {
+      const willOpen = rightPanel.classList.contains('collapsed');
+      applyState(rightPanel, btnRight, willOpen, false);
+      localStorage.setItem('carte_right_open', String(willOpen));
+      setTimeout(() => { if (window.MAP) window.MAP.resize(); }, 280);
+    });
+  })();
+
+  // ── Redimensionnement des panneaux par glisser-déposer ─────────────────
+  (function initPanelResize() {
+    const MIN_W = 180;
+    const MAX_W = 620;
+    // Plafond dynamique : un panneau ne peut jamais dépasser ~38 % de la largeur
+    // visible → la zone centrale (carte) garde toujours sa place, même avec des
+    // largeurs sauvegardées sur un écran étroit / zoomé.
+    const capW = () => Math.max(MIN_W, Math.min(MAX_W, Math.round((window.innerWidth || 1280) * 0.38)));
+
+    function makeResizable(handleEl, panelEl, side) {
+      let startX, startW;
+
+      handleEl.addEventListener('mousedown', e => {
+        if (panelEl.classList.contains('collapsed')) return;
+        e.preventDefault();
+        startX = e.clientX;
+        startW = panelEl.offsetWidth;
+        handleEl.classList.add('dragging');
+        document.body.classList.add('resizing-panel');
+        panelEl.style.transition = 'none';
+
+        function onMove(ev) {
+          const delta = side === 'left' ? (ev.clientX - startX) : (startX - ev.clientX);
+          const newW  = Math.max(MIN_W, Math.min(capW(), startW + delta));
+          panelEl.style.width = newW + 'px';
+        }
+
+        function onUp() {
+          handleEl.classList.remove('dragging');
+          document.body.classList.remove('resizing-panel');
+          panelEl.style.transition = '';
+          localStorage.setItem(
+            side === 'left' ? 'carte_left_width' : 'carte_right_width',
+            panelEl.style.width
+          );
+          if (window.MAP) window.MAP.resize();
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup',   onUp);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+      });
+    }
+
+    const leftPanel   = document.getElementById('panneau-couches');
+    const rightPanel  = document.getElementById('panneau-outils');
+    const leftHandle  = document.getElementById('resize-handle-left');
+    const rightHandle = document.getElementById('resize-handle-right');
+
+    // Migration v2 : purge une seule fois les largeurs sauvegardées incohérentes
+    // (anciennes valeurs qui pouvaient écraser la carte) → retour aux 280px CSS.
+    if (localStorage.getItem('carte_layout_v') !== '2') {
+      localStorage.removeItem('carte_left_width');
+      localStorage.removeItem('carte_right_width');
+      localStorage.setItem('carte_layout_v', '2');
+    }
+
+    if (leftHandle  && leftPanel)  makeResizable(leftHandle,  leftPanel,  'left');
+    if (rightHandle && rightPanel) makeResizable(rightHandle, rightPanel, 'right');
+
+    // Restaurer les largeurs sauvegardées (bornées à capW → le centre ne peut
+    // jamais disparaître, même avec des largeurs anciennes ou un écran étroit).
+    const _applySaved = (panel, key) => {
+      if (!panel || panel.classList.contains('collapsed')) return;
+      const v = parseInt(localStorage.getItem(key), 10);
+      if (v) panel.style.width = Math.max(MIN_W, Math.min(capW(), v)) + 'px';
+    };
+    _applySaved(leftPanel,  'carte_left_width');
+    _applySaved(rightPanel, 'carte_right_width');
+
+    // Re-borne au redimensionnement de la fenêtre (zoom navigateur, etc.).
+    window.addEventListener('resize', () => {
+      [leftPanel, rightPanel].forEach(p => {
+        if (!p || p.classList.contains('collapsed') || !p.style.width) return;
+        const w = parseInt(p.style.width, 10);
+        if (w) p.style.width = Math.max(MIN_W, Math.min(capW(), w)) + 'px';
+      });
+      if (window.MAP) window.MAP.resize();
+    });
+  })();
+});
+</script>
+{% endblock %}

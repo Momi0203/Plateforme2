@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Bassins versants — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; align-items: center; }
+.search-bar { padding: 9px 13px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; width: 220px; }
+.search-bar:focus { outline: none; border-color: #f0a500; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+.btn-danger { background: #c0392b; color: #fff; }
+.btn-danger:hover { background: #a93226; }
+.btn-danger:disabled { background: #e59898; cursor: not-allowed; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.bv-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 18px; transition: border-color .2s, box-shadow .2s; position: relative; }
+.bv-card:hover { border-color: #f0a500; box-shadow: 0 4px 14px rgba(240,165,0,.12); }
+.bv-card.selected { border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192,57,43,.2); background: #fdf2f2; }
+.bv-card-title { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.bv-card-title i { color: #f0a500; }
+.bv-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+.bv-meta-item { font-size: 12px; color: #666; }
+.bv-meta-item b { color: #1a1a2e; }
+.bv-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-view   { background: #1a1a2e; color: #fff; }
+.btn-view:hover { background: #2a2a4e; }
+.btn-edit   { background: #e8f4fd; color: #1a6fa8; }
+.btn-edit:hover { background: #d1eaf9; }
+.btn-del    { background: #fde8e8; color: #c0392b; }
+.btn-del:hover  { background: #f9cfcf; }
+.btn-analyse { background: #fff3cd; color: #856404; }
+.btn-analyse:hover { background: #ffe8a0; }
+
+/* Checkbox de sélection */
+.select-checkbox { position: absolute; top: 12px; right: 12px; width: 20px; height: 20px; cursor: pointer; z-index: 2; }
+
+/* Barre d'actions batch */
+.batch-bar {
+    display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.25); z-index: 1000; align-items: center; gap: 16px;
+}
+.batch-bar.active { display: flex; }
+.batch-info { font-size: 13px; font-weight: 600; }
+.batch-info b { color: #f0a500; }
+.batch-actions { display: flex; gap: 8px; }
+.batch-btn {
+    padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    border: none; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex;
+    align-items: center; gap: 6px; transition: background .2s;
+}
+.batch-confirm { background: #c0392b; color: #fff; }
+.batch-confirm:hover { background: #a93226; }
+.batch-cancel { background: #444; color: #fff; }
+.batch-cancel:hover { background: #555; }
+
+.empty-state { text-align: center; padding: 60px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 20px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* Info bulle sélection */
+.select-hint {
+    font-size: 11px; color: #888; margin-top: 4px; font-style: italic;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}"><i class="fas fa-tint"></i> Hydrologie</a> › Bassins versants
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-mountain"></i> Bassins versants</h1>
+    <div class="hdr-actions">
+      <form method="get" style="display:flex;gap:6px;">
+        <input class="search-bar" type="text" name="q" value="{{ q }}" placeholder="Rechercher…">
+        <button class="btn-sm" style="background:#1a1a2e;color:#fff;" type="submit">
+          <i class="fas fa-search"></i>
+        </button>
+      </form>
+      <a href="{% url 'creer_bv' %}" class="btn-sm btn-accent"><i class="fas fa-plus"></i> Nouveau</a>
+    </div>
+  </div>
+
+  <p class="select-hint"><i class="fas fa-info-circle"></i> Maintenez <b>Ctrl</b> ou <b>Shift</b> pour sélectionner plusieurs bassins</p>
+
+  {% if bassins %}
+  <div class="card-grid">
+    {% for bv in bassins %}
+    <div class="bv-card" data-id="{{ bv.pk }}">
+      <input type="checkbox" class="select-checkbox" value="{{ bv.pk }}">
+      <div class="bv-card-title"><i class="fas fa-mountain"></i> {{ bv.nom }}</div>
+      <div class="bv-meta">
+        <div class="bv-meta-item">Surface<br><b>{{ bv.surface }} km²</b></div>
+        <div class="bv-meta-item">Périmètre<br><b>{{ bv.perimetre }} km</b></div>
+        <div class="bv-meta-item">Thalweg<br><b>{{ bv.thalweg }} km</b></div>
+        <div class="bv-meta-item">Z min/max<br><b>{{ bv.z_min }}/{{ bv.z_max }} m</b></div>
+      </div>
+      <div class="bv-actions">
+        <a href="{% url 'detail_bv' bv.pk %}" class="btn-xs btn-view"><i class="fas fa-eye"></i> Détail</a>
+        <a href="{% url 'lancer_analyse' bv.pk %}" class="btn-xs btn-analyse"><i class="fas fa-chart-line"></i> Analyser</a>
+        <a href="{% url 'modifier_bv' bv.pk %}" class="btn-xs btn-edit"><i class="fas fa-pencil-alt"></i> Modifier</a>
+        <a href="{% url 'supprimer_bv' bv.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-mountain"></i>
+    {% if q %}Aucun bassin versant ne correspond à « {{ q }} ».{% else %}Aucun bassin versant enregistré.{% endif %}<br>
+    <a href="{% url 'creer_bv' %}" style="color:#f0a500;font-weight:600;text-decoration:none;">+ Créer le premier</a>
+  </div>
+  {% endif %}
+
+  <!-- Barre d'actions batch -->
+  <div class="batch-bar" id="batch-bar">
+    <span class="batch-info"><b id="selected-count">0</b> bassin(s) sélectionné(s)</span>
+    <div class="batch-actions">
+      <button type="button" class="batch-btn batch-cancel" onclick="clearSelection()">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button type="button" class="batch-btn batch-confirm" onclick="deleteSelected()">
+        <i class="fas fa-trash"></i> Supprimer
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = "{{ csrf_token }}";
+const DELETE_BATCH_URL = "{% url 'supprimer_bv_multiple' %}";
+
+let lastClicked = null;
+
+function updateBatchBar() {
+    const checked = document.querySelectorAll('.select-checkbox:checked');
+    const count = checked.length;
+    const bar = document.getElementById('batch-bar');
+    document.getElementById('selected-count').textContent = count;
+    bar.classList.toggle('active', count > 0);
+}
+
+function clearSelection() {
+    document.querySelectorAll('.select-checkbox').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.bv-card').forEach(card => card.classList.remove('selected'));
+    updateBatchBar();
+}
+
+function deleteSelected() {
+    const checked = document.querySelectorAll('.select-checkbox:checked');
+    if (checked.length === 0) return;
+
+    const names = Array.from(checked).map(cb => {
+        const card = cb.closest('.bv-card');
+        return card.querySelector('.bv-card-title').textContent.trim();
+    });
+
+    const msg = `Voulez-vous vraiment supprimer ${checked.length} bassin(s) versant(s) ?\n\n${names.join('\n')}`;
+    if (!confirm(msg)) return;
+
+    const ids = Array.from(checked).map(cb => cb.value);
+
+    fetch(DELETE_BATCH_URL, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': CSRF,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ids: ids }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert('Erreur: ' + data.error);
+            return;
+        }
+        // Supprimer les cartes du DOM
+        ids.forEach(id => {
+            const card = document.querySelector(`.bv-card[data-id="${id}"]`);
+            if (card) card.remove();
+        });
+        clearSelection();
+        // Vérifier s'il reste des bassins
+        if (document.querySelectorAll('.bv-card').length === 0) {
+            location.reload();
+        }
+    })
+    .catch(err => alert('Erreur: ' + err));
+}
+
+// Gestion Ctrl + Clic simple
+document.querySelectorAll('.bv-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+        // Ignorer si clic sur un lien ou checkbox
+        if (e.target.tagName === 'A' || e.target.closest('a') || e.target.classList.contains('select-checkbox')) return;
+
+        const checkbox = this.querySelector('.select-checkbox');
+        if (e.ctrlKey || e.metaKey) {
+            checkbox.checked = !checkbox.checked;
+            this.classList.toggle('selected', checkbox.checked);
+        } else if (e.shiftKey && lastClicked) {
+            const cards = Array.from(document.querySelectorAll('.bv-card'));
+            const startIdx = cards.indexOf(lastClicked);
+            const endIdx = cards.indexOf(this);
+            const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+
+            cards.slice(from, to + 1).forEach(c => {
+                const cb = c.querySelector('.select-checkbox');
+                cb.checked = true;
+                c.classList.add('selected');
+            });
+        } else {
+            // Clic simple : tout désélectionner sauf celui-ci
+            document.querySelectorAll('.select-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.bv-card').forEach(c => c.classList.remove('selected'));
+            checkbox.checked = true;
+            this.classList.add('selected');
+        }
+        lastClicked = this;
+        updateBatchBar();
+    });
+});
+
+document.querySelectorAll('.select-checkbox').forEach(cb => {
+    cb.addEventListener('click', e => {
+        e.stopPropagation();
+        const card = cb.closest('.bv-card');
+        card.classList.toggle('selected', cb.checked);
+        updateBatchBar();
+    });
+});
+</script>
+{% endblock %}

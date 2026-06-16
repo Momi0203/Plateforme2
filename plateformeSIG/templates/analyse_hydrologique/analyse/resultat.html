@@ -1,0 +1,1068 @@
+{% extends "base.html" %}
+{% load hydro_tags %}
+{% load static %}
+
+{% block title %}Résultats — {{ resultat.bassin_versant }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+#bv-map { height: 420px; }
+.page { padding: 28px 32px; }
+.page-layout { display: grid; grid-template-columns: 1fr 560px; gap: 20px; align-items: start; }
+.col-sidebar { position: sticky; top: 20px; }
+@media (max-width: 1100px) {
+    .page-layout { grid-template-columns: 1fr; }
+    .col-sidebar { position: static; }
+}
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 14px; flex-wrap: wrap; }
+.result-header-left h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.result-header-left h1 i { color: #f0a500; }
+.meta-row { display: flex; gap: 18px; margin-top: 8px; flex-wrap: wrap; }
+.meta-item { font-size: 12px; color: #888; display: flex; align-items: center; gap: 5px; }
+.meta-item i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-print  { background: #1a1a2e; color: #fff; }
+.btn-print:hover  { background: #2a2a4e; }
+.btn-excel  { background: #1e7e34; color: #fff; }
+.btn-excel:hover  { background: #155724; }
+.btn-pdf    { background: #c0392b; color: #fff; }
+.btn-pdf:hover    { background: #922b21; }
+.btn-del    { background: #fde8e8; color: #c0392b; }
+.btn-del:hover    { background: #f9cfcf; }
+.btn-validate { background: #e6f9f0; color: #1a7a4a; }
+.btn-validate:hover { background: #c8f0dc; }
+.btn-validated { background: #1a7a4a; color: #fff; cursor: default; }
+.statut-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.statut-badge.valide { background: #e6f9f0; color: #1a7a4a; border: 1.5px solid #a3e4c1; }
+.statut-badge.brouillon { background: #fff8e6; color: #b07a00; border: 1.5px solid #f0dea0; }
+
+/* Dropdown export */
+.export-group { position: relative; display: inline-flex; }
+.export-menu  { display: none; position: absolute; top: calc(100% + 4px); right: 0;
+                background: #fff; border: 1.5px solid #f0e8d8; border-radius: 10px;
+                box-shadow: 0 6px 20px rgba(0,0,0,.12); min-width: 190px; z-index: 100; overflow: hidden; }
+.export-group:hover .export-menu,
+.export-group:focus-within .export-menu { display: block; }
+.export-menu a { display: flex; align-items: center; gap: 9px; padding: 10px 14px;
+                  font-size: 13px; font-weight: 600; color: #1a1a2e; text-decoration: none;
+                  transition: background .15s; }
+.export-menu a:hover { background: #fffbf4; }
+.export-menu a i.fa-file-excel   { color: #1e7e34; }
+.export-menu a i.fa-file-pdf     { color: #c0392b; }
+
+/* Section cards */
+.section { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; margin-bottom: 20px; overflow: hidden; }
+.section-head { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; background: #1a1a2e; }
+.section-head-left { display: flex; align-items: center; gap: 10px; }
+.section-head-left i { color: #f0a500; font-size: 15px; }
+.section-head-left span { font-size: 14px; font-weight: 700; color: #fff; }
+.section-head-left small { font-size: 11px; color: rgba(255,255,255,.5); }
+.personalize-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(240,165,0,.2); color: #f0a500; border: 1px solid rgba(240,165,0,.3); border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s; }
+.personalize-btn:hover { background: rgba(240,165,0,.3); }
+.section-body { padding: 18px 20px; overflow-x: auto; }
+
+/* Tables */
+.res-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.res-table th { background: #f8f4ee; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 9px 14px; color: #666; text-align: center; border-bottom: 2px solid #f0e8d8; }
+.res-table th:first-child { text-align: left; }
+.res-table td { padding: 10px 14px; text-align: center; border-bottom: 1px solid #f9f1e8; color: #1a1a2e; }
+.res-table td:first-child { text-align: left; font-weight: 600; }
+.res-table tr:last-child td { border-bottom: none; }
+.res-table tr.moyenne-row td { background: #fffbf0; font-weight: 700; color: #856404; border-top: 2px solid #f0e8d8; }
+.res-table tr.gradex-row td { background: #f0f9ff; color: #1a6fa8; font-weight: 700; border-top: 2px solid #d1eaf9; }
+.res-table tr.final-row td { background: #f0fff5; color: #1e8449; font-weight: 700; font-size: 14px; border-top: 2px solid #c3e6cb; }
+.res-table tr.is-excluded td {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    opacity: .5;
+    background: #faf4f1 !important;
+}
+
+.q-val { font-size: 14px; font-weight: 700; }
+.q-unit { font-size: 10px; color: #aaa; font-weight: 400; }
+
+/* Summary cards */
+.summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.sum-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 16px; text-align: center; }
+.sum-card .lbl { font-size: 11px; color: #aaa; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+.sum-card .val { font-size: 22px; font-weight: 800; color: #f0a500; }
+.sum-card .unit { font-size: 11px; color: #888; }
+.sum-card .period { font-size: 11px; color: #bbb; margin-top: 2px; }
+
+/* Info panels */
+.info-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.info-mini { background: #fff; border-radius: 10px; border: 1px solid #f0e8d8; padding: 14px; }
+.info-mini .lbl { font-size: 10.5px; color: #aaa; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+.kv { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid #f9f1e8; }
+.kv:last-child { border-bottom: none; }
+.kv .k { color: #888; }
+.kv .v { font-weight: 700; color: #1a1a2e; }
+
+/* Modal */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 2000; align-items: center; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal { background: #fff; border-radius: 14px; padding: 24px; max-width: 480px; width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+.modal h3 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.modal h3 i { color: #f0a500; }
+.modal-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.modal-check-grid label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; padding: 7px 10px; border: 1.5px solid #e0d0c0; border-radius: 8px; transition: all .15s; }
+.modal-check-grid label:has(input:checked) { border-color: #f0a500; background: #fff8ee; }
+.modal-check-grid input { accent-color: #f0a500; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-apply { padding: 9px 22px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-close-modal { padding: 9px 18px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+
+.no-details { background: #fff8ee; border: 1px solid #f0e8d8; border-radius: 10px; padding: 20px; text-align: center; color: #888; font-size: 13px; margin-bottom: 16px; }
+
+/* Crue chart */
+.scenario-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab-btn { padding: 9px 18px; border-radius: 8px; font-size: 12.5px; font-weight: 600; border: 1.5px solid #e0d0c0; background: #fff; color: #888; cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+.tab-btn:hover { border-color: #f0a500; color: #1a1a2e; }
+.tab-btn.active { border-color: #f0a500; background: #fff8ee; color: #1a1a2e; }
+.tab-btn i { color: #f0a500; }
+.tab-btn-compare { border-color: #1a6fa8; color: #1a6fa8; }
+.tab-btn-compare:hover, .tab-btn-compare.active { border-color: #1a6fa8; background: #eaf3fb; color: #0c4d7a; }
+.tab-btn-compare i { color: #1a6fa8; }
+.chart-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 16px 18px; }
+.chart-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.chart-title i { color: #f0a500; }
+.chart-container { position: relative; height: 300px; }
+.chart-empty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #aaa; font-size: 12.5px; text-align: center; padding: 14px; background: repeating-linear-gradient(45deg, transparent, transparent 8px, #fafafa 8px, #fafafa 14px); border-radius: 8px; }
+.chart-empty.show { display: flex; }
+.chart-empty i { font-size: 26px; color: #ddd; }
+.chart-empty a { color: #f0a500; font-weight: 600; text-decoration: none; }
+.chart-empty a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_analyses' %}">Analyses</a> › Résultats
+  </div>
+
+  <div class="result-header">
+    <div class="result-header-left">
+      <h1><i class="fas fa-chart-bar"></i> Résultats d'analyse hydrologique</h1>
+      <div class="meta-row">
+        <span class="meta-item"><i class="fas fa-mountain"></i> {{ resultat.bassin_versant }}</span>
+        <span class="meta-item"><i class="fas fa-calendar"></i> {{ resultat.date_analyse|date:"d/m/Y à H:i" }}</span>
+        <span class="meta-item"><i class="fas fa-user"></i> {{ resultat.operateur }}</span>
+        {% if details %}<span class="meta-item"><i class="fas fa-cloud-rain"></i> {{ details.station_pluvio }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn-sm btn-print" onclick="window.print()"><i class="fas fa-print"></i> Imprimer</button>
+
+      <div class="export-group">
+        <button class="btn-sm btn-print" style="background:#0c7a8a;gap:6px;">
+          <i class="fas fa-download"></i> Télécharger <i class="fas fa-chevron-down" style="font-size:10px;opacity:.7;"></i>
+        </button>
+        <div class="export-menu">
+          <a href="{% url 'exporter_excel' resultat.pk %}">
+            <i class="fas fa-file-excel fa-fw"></i> Exporter en Excel (.xlsx)
+          </a>
+          <a href="{% url 'exporter_pdf' resultat.pk %}">
+            <i class="fas fa-file-pdf fa-fw"></i> Exporter en PDF
+          </a>
+        </div>
+      </div>
+
+      {% if resultat.statut == 'valide' %}
+      <span class="btn-sm btn-validated" id="btn-valider-wrap"><i class="fas fa-check-circle"></i> Validé</span>
+      {% else %}
+      <button class="btn-sm btn-validate" id="btn-valider" data-url="{% url 'valider_analyse' resultat.pk %}">
+        <i class="fas fa-check-circle"></i> Valider
+      </button>
+      {% endif %}
+      <a href="{% url 'supprimer_analyse' resultat.pk %}" class="btn-sm btn-del"><i class="fas fa-trash"></i></a>
+    </div>
+  </div>
+
+  <!-- Q finaux (résumé) -->
+  <div class="summary-row">
+    {% if resultat.qcrue_t10  %}<div class="sum-card"><div class="lbl">Q crue T=10</div><div class="val">{{ resultat.qcrue_t10|floatformat:2 }}</div><div class="unit">m³/s</div></div>{% endif %}
+    {% if resultat.qcrue_t20  %}<div class="sum-card"><div class="lbl">Q crue T=20</div><div class="val">{{ resultat.qcrue_t20|floatformat:2 }}</div><div class="unit">m³/s</div></div>{% endif %}
+    {% if resultat.qcrue_t50  %}<div class="sum-card"><div class="lbl">Q crue T=50</div><div class="val">{{ resultat.qcrue_t50|floatformat:2 }}</div><div class="unit">m³/s</div></div>{% endif %}
+    {% if resultat.qcrue_t100 %}<div class="sum-card"><div class="lbl">Q crue T=100</div><div class="val">{{ resultat.qcrue_t100|floatformat:2 }}</div><div class="unit">m³/s</div></div>{% endif %}
+  </div>
+
+  <div class="page-layout">
+    <div class="col-main">
+
+  {% if not details %}
+  <div class="no-details">
+    <i class="fas fa-info-circle" style="color:#f0a500;"></i>
+    Les détails intermédiaires ne sont disponibles qu'immédiatement après le calcul.
+    Seuls les débits finaux stockés en base sont affichés.
+  </div>
+  {% else %}
+
+  <!-- Info de contexte -->
+  <div class="info-row">
+    <div class="info-mini">
+      <div class="lbl">Temps de concentration</div>
+      <div class="kv"><span class="k">Tc moyen</span><span class="v">{{ details.Tc_min }} min</span></div>
+      <div class="kv"><span class="k">Tc (heures)</span><span class="v">{{ details.Tc_h }} h</span></div>
+      <div class="kv"><span class="k">Pente BV</span><span class="v">{{ details.pente_pct }} %</span></div>
+    </div>
+    <div class="info-mini">
+      <div class="lbl">Intensités Montana (mm/h)</div>
+      {% for T, I in details.intensites.items %}
+      <div class="kv"><span class="k">T={{ T }} ans</span><span class="v">{{ I }} mm/h</span></div>
+      {% endfor %}
+    </div>
+    <div class="info-mini">
+      <div class="lbl">Pluies de projet Pj24h (mm)</div>
+      {% for T, P in details.pj24h.items %}
+      <div class="kv"><span class="k">T={{ T }} ans</span><span class="v">{{ P }} mm</span></div>
+      {% endfor %}
+      <div class="kv"><span class="k">Q10 référence Gradex</span><span class="v">{{ details.Q10_gradex }} m³/s</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 1 — Temps de concentration
+  ════════════════════════════════════════════════════════════ -->
+  <div class="section" id="section-tc">
+    <div class="section-head">
+      <div class="section-head-left">
+        <i class="fas fa-clock"></i>
+        <div>
+          <span>Temps de concentration</span>
+          <small style="display:block;">par formule (minutes)</small>
+        </div>
+      </div>
+      <button class="personalize-btn" onclick="openModal('tc')"><i class="fas fa-sliders-h"></i> Sélectionner</button>
+    </div>
+    <div class="section-body">
+      <table class="res-table" id="tc-table">
+        <thead>
+          <tr>
+            <th>Formule</th>
+            <th>Tc (min)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for formule, val in details.tc.items %}
+          {% if formule != 'Moyenne' %}
+          <tr class="tc-row" data-formule="{{ formule }}">
+            <td>{{ formule }}</td>
+            <td class="q-val">{{ val }} <span class="q-unit">min</span></td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="moyenne-row">
+            <td><i class="fas fa-equals"></i> Moyenne retenue (Tc)</td>
+            <td class="q-val">{{ details.Tc_min }} <span class="q-unit">min</span></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 2 — Débits Q T=10 retenus (sans Gradex)
+  ════════════════════════════════════════════════════════════ -->
+  <div class="section" id="section-qt10">
+    <div class="section-head">
+      <div class="section-head-left">
+        <i class="fas fa-water"></i>
+        <div>
+          <span>Débits Q T=10 ans — formules retenues (hors Gradex)</span>
+          <small style="display:block;">m³/s · base pour la méthode du Gradex</small>
+        </div>
+      </div>
+      <button class="personalize-btn" onclick="openModal('qt10')"><i class="fas fa-sliders-h"></i> Sélectionner</button>
+    </div>
+    <div class="section-body">
+      <table class="res-table" id="qt10-table">
+        <thead>
+          <tr><th>Formule</th><th>Q T=10 (m³/s)</th></tr>
+        </thead>
+        <tbody>
+          {% for formule, qd in details.debits.items %}
+          <tr class="qt10-row" data-formule="{{ formule }}">
+            <td>{{ formule }}</td>
+            <td class="q-val">{{ qd.10|floatformat:3 }} <span class="q-unit">m³/s</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="gradex-row">
+            <td><i class="fas fa-arrow-right"></i> Q10 référence → Gradex</td>
+            <td class="q-val">{{ details.Q10_gradex|floatformat:3 }} <span class="q-unit">m³/s</span></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SECTION 3 — Résultats finaux (toutes périodes)
+  ════════════════════════════════════════════════════════════ -->
+  <div class="section" id="section-final">
+    <div class="section-head">
+      <div class="section-head-left">
+        <i class="fas fa-chart-bar"></i>
+        <div>
+          <span>Débits de crue finals — moyenne des formules retenues</span>
+          <small id="final-included-label" style="display:block;">Formules incluses : {{ details.formules_q_incluses|join:", " }}</small>
+        </div>
+      </div>
+      <button class="personalize-btn" onclick="openModal('final')"><i class="fas fa-sliders-h"></i> Sélectionner</button>
+    </div>
+    <div class="section-body">
+      <table class="res-table" id="final-table">
+        <thead>
+          <tr>
+            <th>Formule</th>
+            {% for T in periodes %}<th>T={{ T }} ans (m³/s)</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for formule, qd in details.debits.items %}
+          <tr class="final-formula-row final-select-row" data-formule="{{ formule }}">
+            <td>{{ formule }}</td>
+            {% for T in periodes %}
+            <td class="q-val">
+              {% with val=qd|dictsort:"0" %}
+                {{ qd|get_item:T|default:"—"|floatformat:3 }}
+              {% endwith %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          <!-- Gradex row -->
+          <tr class="gradex-row final-select-row" data-formule="Gradex">
+            <td>Gradex</td>
+            {% for T in periodes %}<td class="q-val">{{ details.debits_gradex|get_item:T|default:"—"|floatformat:3 }}</td>{% endfor %}
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="final-row">
+            <td><i class="fas fa-check-double"></i> Débit retenu (moyenne)</td>
+            {% for T in periodes %}<td class="q-val">{{ details.q_finaux|get_item:T|default:"—"|floatformat:3 }} <span class="q-unit">m³/s</span></td>{% endfor %}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  {% endif %}{# end if details #}
+
+
+  <div class="section" id="section-crue">
+    <div class="section-head">
+      <div class="section-head-left">
+        <i class="fas fa-water"></i>
+        <div>
+          <span>Apports du bassin versant</span>
+          <small style="display:block;"></small>
+        </div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="scenario-tabs" id="crue-tabs">
+        <button type="button" class="tab-btn active" data-crue-scenario="normale"><i class="fas fa-sun"></i> Annee normale</button>
+        <button type="button" class="tab-btn" data-crue-scenario="humide"><i class="fas fa-cloud-rain"></i> Annee humide</button>
+        <button type="button" class="tab-btn" data-crue-scenario="seche"><i class="fas fa-fire"></i> Annee seche</button>
+        <button type="button" class="tab-btn tab-btn-compare" data-crue-scenario="comparaison"><i class="fas fa-balance-scale"></i> Comparaison</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><i class="fas fa-chart-line"></i> Volume mensuel des apports de crue (m3)</div>
+        <div class="chart-container">
+          <canvas id="chart-crue"></canvas>
+          <div class="chart-empty" id="chart-crue-empty">
+            <i class="fas fa-water"></i>
+            <div id="chart-crue-empty-text">Aucune station hydrometrique exploitable pour ce calcul.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Annotations (toujours affichées, éditables) -->
+  <div class="section" id="section-annotations">
+    <div class="section-head">
+      <div class="section-head-left"><i class="fas fa-comment-alt"></i><span>Annotations</span></div>
+      <button class="personalize-btn" id="annot-save-btn" onclick="saveAnnotations()">
+        <i class="fas fa-save"></i> Enregistrer
+      </button>
+    </div>
+    <div class="section-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;margin-bottom:6px;">Observations</div>
+        <textarea id="annot-observations" rows="5" style="width:100%;padding:9px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;transition:border-color .2s;" onfocus="this.style.borderColor='#f0a500'" onblur="this.style.borderColor='#e0d0c0'">{{ resultat.observations }}</textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;margin-bottom:6px;">Conclusions et recommandations</div>
+        <textarea id="annot-conclusions" rows="5" style="width:100%;padding:9px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;transition:border-color .2s;" onfocus="this.style.borderColor='#f0a500'" onblur="this.style.borderColor='#e0d0c0'">{{ resultat.conclusions }}</textarea>
+      </div>
+    </div>
+    <div id="annot-msg" style="font-size:12px;padding:6px 20px 12px;display:none;"></div>
+  </div>
+
+    </div><!-- /col-main -->
+    <div class="col-sidebar">
+      <div class="section">
+        <div class="section-head">
+          <div class="section-head-left">
+            <i class="fas fa-map"></i>
+            <div>
+              <span>Carte du bassin versant + réseau hydrographique</span>
+              <small style="display:block;">{{ resultat.bassin_versant }}</small>
+            </div>
+          </div>
+          <a href="{% url 'modifier_bv' resultat.bassin_versant.pk %}" style="font-size:11.5px;color:rgba(255,255,255,.6);text-decoration:none;">
+            <i class="fas fa-edit"></i> Modifier la géométrie
+          </a>
+        </div>
+        <div id="bv-map"></div>
+        <div style="padding:8px 14px;background:#fffbf4;border-top:1px solid #f0e8d8;display:flex;gap:16px;font-size:11.5px;color:#555;flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:14px;height:8px;background:#f0a500;opacity:.5;border:1.5px solid #f0a500;vertical-align:middle;"></span> Bassin versant</span>
+          <span><span style="display:inline-block;width:14px;height:2px;background:#1a6fa8;vertical-align:middle;"></span> Réseau hydrographique</span>
+          <span id="reseau-status" style="margin-left:auto;color:#888;font-size:10.5px;">Chargement…</span>
+        </div>
+      </div>
+    </div><!-- /col-sidebar -->
+  </div><!-- /page-layout -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL Personnaliser
+════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="modal-bg" onclick="closeModal(event)">
+  <div class="modal">
+    <h3><i class="fas fa-sliders-h"></i> <span id="modal-title">Personnaliser</span></h3>
+    <div class="modal-check-grid" id="modal-checks"></div>
+    <div class="modal-actions">
+      <button class="btn-close-modal" onclick="closeModal()">Annuler</button>
+      <button class="btn-apply" onclick="applyModal()">Appliquer</button>
+    </div>
+  </div>
+</div>
+{{ json_payload|json_script:"bilan-payload" }}
+{{ crue_graph|json_script:"crue-payload" }}
+{% if geojson_perimetre %}{{ geojson_perimetre|json_script:"perimetre-geojson" }}{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="{% static 'analyse_hydrologique/js/reseau_personnalisable.js' %}"></script>
+<script>
+const map = L.map('bv-map');
+const basemaps = {
+    'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+    'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+    'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+    'ESRI Streets':       L.esri.basemapLayer('Streets'),
+};
+basemaps['OpenStreetMap'].addTo(map);
+
+let bvLayer = null;
+{% if resultat.bassin_versant.geometrie %}
+bvLayer = L.geoJSON({{ resultat.bassin_versant.geometrie.geojson|safe }}, {
+    style: { color: '#d4920a', weight: 2.5, fillOpacity: 0.18, fillColor: '#d4920a' }
+}).addTo(map);
+bvLayer.bindTooltip('{{ resultat.bassin_versant.nom }}', { permanent: false });
+map.fitBounds(bvLayer.getBounds(), { padding: [24, 24] });
+{% else %}
+map.setView([{{ resultat.bassin_versant.y_exutoire }}, {{ resultat.bassin_versant.x_exutoire }}], 10);
+L.circleMarker([{{ resultat.bassin_versant.y_exutoire }}, {{ resultat.bassin_versant.x_exutoire }}], { radius: 10, color: '#f0a500', fillOpacity: 0.8 })
+    .bindTooltip('{{ resultat.bassin_versant.nom }} (exutoire)').addTo(map);
+{% endif %}
+
+// Réseau hydrographique « ouvrage de tête » — module partagé personnalisable
+ReseauPersonnalisable.init(map, {
+    url:      "{% url 'bv_reseau_geojson' resultat.bassin_versant.pk %}",
+    gridMax:  {{ reseau_grid_max|default:0 }},
+    basemaps: basemaps,
+    bvLayer:  bvLayer,
+    statusEl: document.getElementById('reseau-status'),
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ─── Personnaliser modal ────────────────────────────────────────────────────
+let currentModal = null;
+
+const MODALS = {
+    tc: {
+        title: 'Formules Tc affichées',
+        rows: () => document.querySelectorAll('.tc-row'),
+        getLabel: row => row.dataset.formule,
+    },
+    qt10: {
+        title: 'Formules Q T10 affichées',
+        rows: () => document.querySelectorAll('.qt10-row'),
+        getLabel: row => row.dataset.formule,
+    },
+    final: {
+        title: 'Formules et périodes affichées',
+        rows: () => document.querySelectorAll('.final-select-row'),
+        getLabel: row => row.dataset.formule,
+        extraChecksPeriods: true,
+    },
+};
+
+// Period columns state for final table
+const periodState = { 10: true, 20: true, 50: true, 100: true };
+
+function isRowIncluded(row) {
+    return !row.classList.contains('is-excluded');
+}
+
+function setRowIncluded(row, included) {
+    row.classList.toggle('is-excluded', !included);
+}
+
+function updateIncludedFormulaLabel(formules) {
+    const label = document.getElementById('final-included-label');
+    if (label)
+        label.textContent = `Formules incluses : ${formules.length ? formules.join(', ') : 'aucune'}`;
+}
+
+function openModal(type) {
+    currentModal = type;
+    const cfg = MODALS[type];
+    document.getElementById('modal-title').textContent = cfg.title;
+    const checksDiv = document.getElementById('modal-checks');
+    checksDiv.innerHTML = '';
+
+    cfg.rows().forEach(row => {
+        const label = cfg.getLabel(row);
+        const checked = isRowIncluded(row);
+        checksDiv.innerHTML += `
+            <label>
+              <input type="checkbox" value="${label}" ${checked ? 'checked' : ''}>
+              ${label}
+            </label>`;
+    });
+
+    if (type === 'final') {
+        [10, 20, 50, 100].forEach(T => {
+            checksDiv.innerHTML += `
+                <label>
+                  <input type="checkbox" value="T${T}" class="period-check" ${periodState[T] ? 'checked' : ''}>
+                  Colonne T=${T} ans
+                </label>`;
+        });
+    }
+
+    document.getElementById('modal-bg').classList.add('open');
+}
+
+function closeModal(e) {
+    if (!e || e.target === document.getElementById('modal-bg'))
+        document.getElementById('modal-bg').classList.remove('open');
+}
+
+function applyModal() {
+    const cfg = MODALS[currentModal];
+    const checked = new Set(
+        [...document.querySelectorAll('#modal-checks input:checked:not(.period-check)')]
+            .map(i => i.value)
+    );
+
+    cfg.rows().forEach(row => {
+        setRowIncluded(row, checked.has(cfg.getLabel(row)));
+    });
+
+    // Synchroniser la visibilité entre qt10 et final (mêmes formules)
+    if (currentModal === 'final') {
+        [10, 20, 50, 100].forEach((T, idx) => {
+            const visible = document.querySelector(`#modal-checks input[value="T${T}"]`).checked;
+            periodState[T] = visible;
+            document.querySelectorAll(`#final-table th:nth-child(${idx + 2}), #final-table td:nth-child(${idx + 2})`)
+                .forEach(el => el.style.display = visible ? '' : 'none');
+        });
+    }
+
+    document.getElementById('modal-bg').classList.remove('open');
+
+    // ── Recalculer côté serveur pour propager les changements ─────────────
+    if (currentModal === 'tc') {
+        const selectedTc = [...document.querySelectorAll('.tc-row')]
+            .filter(isRowIncluded)
+            .map(row => row.dataset.formule);
+        if (selectedTc.length)
+            recalcFromServer('tc', { formules_tc: selectedTc });
+        else
+            recalcTcLocal();
+    } else if (currentModal === 'qt10' || currentModal === 'final') {
+        const selector = currentModal === 'qt10' ? '.qt10-row' : '.final-select-row';
+        let selectedQ = [...document.querySelectorAll(selector)]
+            .filter(isRowIncluded)
+            .map(r => r.dataset.formule);
+
+        if (currentModal === 'qt10') {
+            // Sync formula rows in final-table to match qt10 exclusion state
+            document.querySelectorAll('#final-table .final-formula-row').forEach(row => {
+                setRowIncluded(row, checked.has(row.dataset.formule));
+            });
+            // Preserve current Gradex inclusion from final-table so the server
+            // doesn't accidentally exclude it from q_finaux
+            const gradexFinalRow = document.querySelector('#final-table .gradex-row');
+            if (gradexFinalRow && isRowIncluded(gradexFinalRow))
+                selectedQ = [...selectedQ, 'Gradex'];
+        }
+
+        if (selectedQ.length)
+            recalcFromServer('formules_q', { formules_q_incluses: selectedQ });
+        else {
+            recalcQt10Local();
+            recalcFinalLocal();
+        }
+    }
+}
+
+// ─── Recalcul AJAX (serveur) ──────────────────────────────────────────────
+
+function recalcFromServer(mode, data) {
+    const url = "{% url 'recalculer_analyse' resultat.pk %}";
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ mode, ...data })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) {
+            console.warn('Recalcul serveur:', res.error);
+            // Repli sur calcul local
+            if (mode === 'tc') recalcTcLocal();
+            else { recalcQt10Local(); recalcFinalLocal(); }
+            return;
+        }
+        if (mode === 'tc') applyTcResult(res);
+        else                applyQResult(res);
+    })
+    .catch(() => {
+        if (mode === 'tc') recalcTcLocal();
+        else { recalcQt10Local(); recalcFinalLocal(); }
+    });
+}
+
+function applyTcResult(res) {
+    // 1. Tc moyen dans le footer du tableau Tc
+    const tcCell = document.querySelector('#tc-table .moyenne-row td:nth-child(2)');
+    if (tcCell) tcCell.innerHTML = `${res.Tc_min} <span class="q-unit">min</span>`;
+
+    // 2. Panneau intensités Montana
+    const intensPanel = document.querySelector('.info-mini:nth-child(2)');
+    if (intensPanel && res.intensites) {
+        intensPanel.querySelectorAll('.kv').forEach((kv, i) => {
+            const T = [10, 20, 50, 100][i];
+            const v = res.intensites[T] !== undefined ? res.intensites[T]
+                    : res.intensites[String(T)];
+            if (v !== undefined) kv.querySelector('.v').textContent = v + ' mm/h';
+        });
+    }
+
+    // 3. Ligne Rationnelle dans qt10-table
+    if (res.debits && res.debits['Rationnelle']) {
+        const qd = res.debits['Rationnelle'];
+        const q10 = qd[10] !== undefined ? qd[10] : qd['10'];
+        const ratRow = document.querySelector('#qt10-table .qt10-row[data-formule="Rationnelle"]');
+        if (ratRow && q10 !== undefined)
+            ratRow.querySelector('td:nth-child(2)').innerHTML =
+                `${parseFloat(q10).toFixed(3)} <span class="q-unit">m³/s</span>`;
+
+        // Ligne Rationnelle dans final-table
+        const ratFinalRow = document.querySelector('#final-table .final-formula-row[data-formule="Rationnelle"]');
+        if (ratFinalRow) {
+            [10, 20, 50, 100].forEach((T, idx) => {
+                const cell = ratFinalRow.querySelector(`td:nth-child(${idx + 2})`);
+                const v = qd[T] !== undefined ? qd[T] : qd[String(T)];
+                if (cell && v !== undefined) cell.textContent = parseFloat(v).toFixed(3);
+            });
+        }
+    }
+
+    // 4. Q10 référence Gradex + résultats globaux (délégués à applyQResult)
+    applyQResult(res);
+}
+
+function applyQResult(res) {
+    if (res.formules_q_incluses)
+        updateIncludedFormulaLabel(res.formules_q_incluses);
+
+    // 4-bis. Q10 référence Gradex dans qt10-table (identique à applyTcResult)
+    const q10Cell = document.querySelector('#qt10-table .gradex-row td:nth-child(2)');
+    if (q10Cell && res.Q10_gradex !== undefined)
+        q10Cell.innerHTML = `${parseFloat(res.Q10_gradex).toFixed(3)} <span class="q-unit">m³/s</span>`;
+
+    const q10InfoKv = document.querySelector('.info-mini:nth-child(3) .kv:last-child .v');
+    if (q10InfoKv && res.Q10_gradex !== undefined)
+        q10InfoKv.textContent = res.Q10_gradex + ' m³/s';
+
+    // 5. Ligne Gradex dans final-table
+    if (res.debits_gradex) {
+        const gradexRow = document.querySelector('#final-table .gradex-row');
+        if (gradexRow) {
+            [10, 20, 50, 100].forEach((T, idx) => {
+                const cell = gradexRow.querySelector(`td:nth-child(${idx + 2})`);
+                const v = res.debits_gradex[T] !== undefined ? res.debits_gradex[T]
+                        : res.debits_gradex[String(T)];
+                if (cell && v !== undefined) cell.textContent = parseFloat(v).toFixed(3);
+            });
+        }
+    }
+
+    // 6. Ligne finale (débit retenu)
+    if (res.q_finaux) {
+        const finalRow = document.querySelector('#final-table .final-row');
+        if (finalRow) {
+            [10, 20, 50, 100].forEach((T, idx) => {
+                const cell = finalRow.querySelector(`td:nth-child(${idx + 2})`);
+                const v = res.q_finaux[T] !== undefined ? res.q_finaux[T]
+                        : res.q_finaux[String(T)];
+                if (cell && v !== undefined)
+                    cell.innerHTML = `${parseFloat(v).toFixed(3)} <span class="q-unit">m³/s</span>`;
+            });
+        }
+    }
+
+    // 7. Cartes résumé en haut de page
+    if (res.q_finaux) {
+        const cards = document.querySelectorAll('.sum-card');
+        [10, 20, 50, 100].forEach((T, idx) => {
+            const v = res.q_finaux[T] !== undefined ? res.q_finaux[T]
+                    : res.q_finaux[String(T)];
+            if (v !== undefined && cards[idx])
+                cards[idx].querySelector('.val').textContent = parseFloat(v).toFixed(2);
+        });
+    }
+}
+
+// ─── Fallback local (si pas de données serveur) ───────────────────────────
+
+function numFromCell(cell) { return parseFloat(cell ? cell.textContent : NaN); }
+
+function recalcTcLocal() {
+    const rows = [...document.querySelectorAll('.tc-row')].filter(isRowIncluded);
+    if (!rows.length) return;
+    const vals = rows.map(r => numFromCell(r.querySelector('td:nth-child(2)'))).filter(v => !isNaN(v));
+    if (!vals.length) return;
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const cell = document.querySelector('#tc-table .moyenne-row td:nth-child(2)');
+    if (cell) cell.innerHTML = `${avg.toFixed(2)} <span class="q-unit">min</span>`;
+}
+
+function recalcQt10Local() {
+    const rows = [...document.querySelectorAll('.qt10-row')].filter(isRowIncluded);
+    if (!rows.length) return;
+    const vals = rows.map(r => numFromCell(r.querySelector('td:nth-child(2)'))).filter(v => !isNaN(v));
+    if (!vals.length) return;
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const cell = document.querySelector('#qt10-table .gradex-row td:nth-child(2)');
+    if (cell) cell.innerHTML = `${avg.toFixed(3)} <span class="q-unit">m³/s</span>`;
+}
+
+function recalcFinalLocal() {
+    [10, 20, 50, 100].forEach((T, idx) => {
+        const col = idx + 2;
+        const header = document.querySelector(`#final-table th:nth-child(${col})`);
+        if (header && header.style.display === 'none') return;
+        const allRows = [...document.querySelectorAll('.final-select-row')]
+            .filter(isRowIncluded);
+        const vals = allRows.map(r => {
+            const cell = r.querySelector(`td:nth-child(${col})`);
+            return cell && cell.style.display !== 'none' ? numFromCell(cell) : NaN;
+        }).filter(v => !isNaN(v));
+        if (!vals.length) return;
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const cell = document.querySelector(`#final-table .final-row td:nth-child(${col})`);
+        if (cell) cell.innerHTML = `${avg.toFixed(3)} <span class="q-unit">m³/s</span>`;
+    });
+}
+
+// ─── Annotations AJAX save ────────────────────────────────────────────────
+// Crue sans prelevement
+const cruePayloadNode = document.getElementById('crue-payload');
+if (cruePayloadNode) {
+    const CRUE = JSON.parse(cruePayloadNode.textContent);
+    const crueCanvas = document.getElementById('chart-crue');
+    const crueEmpty = document.getElementById('chart-crue-empty');
+    const crueEmptyText = document.getElementById('chart-crue-empty-text');
+    const crueTabs = [...document.querySelectorAll('#crue-tabs [data-crue-scenario]')];
+    const moisDefaut = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aout'];
+    const mois = (CRUE && CRUE.mois) ? CRUE.mois : moisDefaut;
+    let crueChart = null;
+
+    function getScenarioData(scenario) {
+        return (CRUE && CRUE[scenario]) ? CRUE[scenario] : null;
+    }
+
+    function hasScenarioData(data) {
+        return !!(data && Array.isArray(data.volumes_m3) && data.volumes_m3.some(v => Number(v || 0) > 0));
+    }
+
+    function setActiveScenario(scenario) {
+        crueTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.crueScenario === scenario));
+    }
+
+    const SCENARIO_COLORS = {
+        normale: { bar: 'rgba(240,165,0,.76)', border: '#f0a500', line: '#c87700', dash: [] },
+        humide:  { bar: 'rgba(26,111,168,.76)', border: '#1a6fa8', line: '#0c4d7a', dash: [5,3] },
+        seche:   { bar: 'rgba(192,57,43,.76)', border: '#c0392b', line: '#7b241c', dash: [2,2] },
+    };
+
+    const SCENARIO_LABELS = { normale: 'Année normale', humide: 'Année humide', seche: 'Année sèche' };
+
+    function _showEmpty(msg) {
+        if (crueChart) { crueChart.destroy(); crueChart = null; }
+        if (crueCanvas) crueCanvas.style.display = 'none';
+        if (crueEmpty) {
+            crueEmpty.classList.add('show');
+            if (crueEmptyText) crueEmptyText.textContent = msg || 'Aucune donnee exploitable.';
+        }
+    }
+
+    function renderScenario(scenario) {
+        if (scenario === 'comparaison') { renderComparison(); return; }
+
+        setActiveScenario(scenario);
+        const data = getScenarioData(scenario);
+
+        if (!crueCanvas || !crueEmpty || !hasScenarioData(data)) {
+            _showEmpty('Aucune donnee exploitable pour le scenario selectionne.');
+            return;
+        }
+
+        crueEmpty.classList.remove('show');
+        crueCanvas.style.display = '';
+        crueCanvas.parentElement.style.height = '300px';
+
+        const col = SCENARIO_COLORS[scenario] || SCENARIO_COLORS.normale;
+        const hasFreq = data.frequences && data.frequences.some(v => Number(v || 0) > 0);
+
+        if (crueChart) crueChart.destroy();
+        crueChart = new Chart(crueCanvas, {
+            type: 'bar',
+            data: {
+                labels: mois,
+                datasets: [
+                    {
+                        label: 'Apports de crue (m³)',
+                        data: data.volumes_m3,
+                        backgroundColor: col.bar,
+                        borderColor: col.border,
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 2,
+                    },
+                    ...(hasFreq ? [{
+                        label: 'Fréquence des crues (jours/mois)',
+                        data: data.frequences,
+                        type: 'line',
+                        borderColor: col.line,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [],
+                        pointRadius: 4,
+                        pointBackgroundColor: col.line,
+                        tension: 0.35,
+                        yAxisID: 'y2',
+                        order: 1,
+                    }] : []),
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: hasFreq, position: 'top', labels: { font: { size: 11 }, boxWidth: 14 } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.yAxisID === 'y2'
+                                ? `${ctx.dataset.label}: ${Number(ctx.raw || 0).toFixed(1)} j`
+                                : `${ctx.dataset.label}: ${Number(ctx.raw || 0).toLocaleString('fr-FR')} m³`,
+                        },
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        position: 'left',
+                        title: { display: true, text: 'Volume (m³)', font: { size: 11 }, color: '#666' },
+                        ticks: { callback: value => Number(value).toLocaleString('fr-FR') },
+                    },
+                    ...(hasFreq ? {
+                        y2: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: 'Fréquence (jours/mois)', font: { size: 11 }, color: col.line },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: col.line, callback: v => v.toFixed(0) + ' j' },
+                        }
+                    } : {}),
+                },
+            },
+        });
+    }
+
+    function renderComparison() {
+        setActiveScenario('comparaison');
+
+        const scenKeys = ['normale', 'humide', 'seche'];
+        const hasAny = scenKeys.some(k => hasScenarioData(getScenarioData(k)));
+
+        if (!crueCanvas || !crueEmpty || !hasAny) {
+            _showEmpty('Aucune donnee exploitable pour la comparaison.');
+            return;
+        }
+
+        crueEmpty.classList.remove('show');
+        crueCanvas.style.display = '';
+        crueCanvas.parentElement.style.height = '360px';
+
+        const barDatasets = scenKeys.map(k => {
+            const col = SCENARIO_COLORS[k];
+            const d = getScenarioData(k);
+            return {
+                label: SCENARIO_LABELS[k] + ' — volumes (m³)',
+                data: d ? d.volumes_m3 : Array(12).fill(0),
+                backgroundColor: col.bar,
+                borderColor: col.border,
+                borderWidth: 1,
+                yAxisID: 'y',
+                order: 2,
+            };
+        });
+
+        const freqDatasets = scenKeys
+            .filter(k => { const d = getScenarioData(k); return d && d.frequences && d.frequences.some(v => Number(v||0) > 0); })
+            .map(k => {
+                const col = SCENARIO_COLORS[k];
+                const d = getScenarioData(k);
+                return {
+                    label: SCENARIO_LABELS[k] + ' — fréquence (j)',
+                    data: d.frequences,
+                    type: 'line',
+                    borderColor: col.line,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: col.dash,
+                    pointRadius: 3,
+                    pointBackgroundColor: col.line,
+                    tension: 0.35,
+                    yAxisID: 'y2',
+                    order: 1,
+                };
+            });
+
+        const hasFreq = freqDatasets.length > 0;
+
+        if (crueChart) crueChart.destroy();
+        crueChart = new Chart(crueCanvas, {
+            type: 'bar',
+            data: { labels: mois, datasets: [...barDatasets, ...freqDatasets] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.yAxisID === 'y2'
+                                ? `${ctx.dataset.label}: ${Number(ctx.raw || 0).toFixed(1)} j`
+                                : `${ctx.dataset.label}: ${Number(ctx.raw || 0).toLocaleString('fr-FR')} m³`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { stacked: false },
+                    y: {
+                        beginAtZero: true,
+                        position: 'left',
+                        title: { display: true, text: 'Volume (m³)', font: { size: 11 }, color: '#666' },
+                        ticks: { callback: v => Number(v).toLocaleString('fr-FR') },
+                    },
+                    ...(hasFreq ? {
+                        y2: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: 'Fréquence (jours/mois)', font: { size: 11 }, color: '#555' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { callback: v => v.toFixed(0) + ' j' },
+                        }
+                    } : {}),
+                },
+            },
+        });
+    }
+
+    crueTabs.forEach(btn => {
+        btn.addEventListener('click', () => renderScenario(btn.dataset.crueScenario));
+    });
+
+    renderScenario('normale');
+}
+
+function saveAnnotations() {
+    const btn = document.getElementById('annot-save-btn');
+    const msg = document.getElementById('annot-msg');
+    btn.disabled = true;
+    fetch("{% url 'sauvegarder_annotations' resultat.pk %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            observations: document.getElementById('annot-observations').value,
+            conclusions:  document.getElementById('annot-conclusions').value,
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        msg.style.display = 'block';
+        if (data.ok) {
+            msg.style.color = '#1e8449';
+            msg.innerHTML = '<i class="fas fa-check-circle"></i> Annotations enregistrées.';
+        } else {
+            msg.style.color = '#c0392b';
+            msg.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.error || 'Erreur.');
+        }
+        setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    })
+    .catch(() => {
+        msg.style.display = 'block';
+        msg.style.color = '#c0392b';
+        msg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Erreur réseau.';
+    })
+    .finally(() => { btn.disabled = false; });
+}
+
+// ── Valider l'analyse ──────────────────────────────────────────────────────
+const btnValider = document.getElementById('btn-valider');
+if (btnValider) {
+    btnValider.addEventListener('click', function() {
+        if (!confirm('Valider définitivement cette analyse ? Le statut passera à « Validé ».')) return;
+        this.disabled = true;
+        fetch(this.dataset.url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                this.outerHTML = '<span class="btn-sm btn-validated" id="btn-valider-wrap"><i class="fas fa-check-circle"></i> Validé</span>';
+            }
+        })
+        .catch(() => { this.disabled = false; });
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Plan {{ plan.annee }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* ── KPI strip ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 16px 18px; }
+.kpi-card .kpi-icon { font-size: 20px; color: #f0a500; margin-bottom: 8px; }
+.kpi-card .kpi-val { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+.kpi-card .kpi-lbl { font-size: 11.5px; color: #999; margin-top: 2px; }
+
+/* ── Progress bar ── */
+.prog-section { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 18px 20px; margin-bottom: 24px; }
+.prog-section h3 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.prog-section h3 i { color: #f0a500; }
+.prog-bar-bg { background: #f0e8d8; border-radius: 10px; height: 14px; overflow: hidden; }
+.prog-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #f0a500, #ffd989); transition: width .6s; }
+.prog-labels { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 8px; }
+
+/* ── Header zone ── */
+.plan-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.plan-header-left h1 { font-size: 20px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.plan-header-left h1 i { color: #f0a500; }
+.plan-statut { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
+.statut-en_preparation { background: #fff3cd; color: #856404; }
+.statut-publie          { background: #d1f7e0; color: #156b3c; }
+.statut-archive         { background: #f0f0f0; color: #666; }
+.plan-meta { font-size: 13px; color: #666; margin-top: 6px; }
+.plan-meta b { color: #1a1a2e; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent  { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover  { background: #d4920a; }
+.btn-dark    { background: #1a1a2e; color: #fff; }
+.btn-dark:hover    { background: #2a2a4e; }
+.btn-danger  { background: #c0392b; color: #fff; }
+.btn-danger:hover  { background: #a93226; }
+
+/* ── Filtre actions ── */
+.filter-bar { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.filter-bar select { padding: 7px 10px; border: 1.5px solid #e0d0c0; border-radius: 7px; font-size: 12.5px; font-family: 'Inter', sans-serif; }
+.filter-bar select:focus { outline: none; border-color: #f0a500; }
+.filter-group label { font-size: 11px; font-weight: 600; color: #999; display: block; margin-bottom: 3px; }
+.btn-filter-sm { padding: 7px 13px; background: #1a1a2e; color: #fff; border: none; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; }
+.btn-reset-sm  { padding: 7px 11px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 7px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; align-self: flex-end; display: inline-flex; align-items: center; gap: 4px; }
+.btn-reset-sm:hover { background: #ead8c5; }
+
+/* ── Table actions ── */
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+
+.table-wrap { overflow-x: auto; }
+table.actions-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.actions-table th { background: #1a1a2e; color: #fff; padding: 10px 12px; text-align: left; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+table.actions-table td { padding: 10px 12px; border-bottom: 1px solid #f0e8d8; vertical-align: middle; }
+table.actions-table tr:hover td { background: #fdf8f0; }
+
+.badge-priorite { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+.priorite-1 { background: #fde8e8; color: #c0392b; }
+.priorite-2 { background: #fff3cd; color: #856404; }
+.priorite-3 { background: #e8f5e9; color: #1e6b32; }
+
+.badge-statut-action { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; }
+.statut-programme  { background: #e8f4fd; color: #1a6fa8; }
+.statut-en_cours   { background: #fff3cd; color: #856404; }
+.statut-realise    { background: #d1f7e0; color: #156b3c; }
+.statut-annule     { background: #f0f0f0; color: #666; }
+
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-edit { background: #e8f4fd; color: #1a6fa8; }
+.btn-edit:hover { background: #d1eaf9; }
+.btn-del { background: #fde8e8; color: #c0392b; }
+.btn-del:hover { background: #f9cfcf; }
+
+.empty-table { text-align: center; padding: 40px; color: #aaa; }
+.empty-table i { font-size: 30px; color: #ddd; display: block; margin-bottom: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    Plan {{ plan.annee }}
+  </div>
+
+  <!-- En-tête du plan -->
+  <div class="plan-header">
+    <div class="plan-header-left">
+      <h1>
+        <i class="fas fa-clipboard-list"></i>
+        Plan PMH {{ plan.annee }}
+        <span class="plan-statut statut-{{ plan.statut }}">{{ plan.get_statut_display }}</span>
+      </h1>
+      <div class="plan-meta">
+        <b>{{ plan.titre }}</b> &nbsp;·&nbsp;
+        Source : <b>{{ plan.get_source_financement_display }}</b> &nbsp;·&nbsp;
+        Budget total : <b>{{ plan.budget_total|floatformat:0 }} MAD</b>
+        {% if plan.cree_par %}&nbsp;·&nbsp; Créé par <b>{{ plan.cree_par.get_full_name }}</b>{% endif %}
+      </div>
+      {% if plan.description %}
+      <div style="font-size:12.5px;color:#888;margin-top:6px;max-width:700px;">{{ plan.description }}</div>
+      {% endif %}
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'plan_action:plan_synthese' plan.pk %}" class="btn-sm" style="background:#27ae60;color:#fff;">
+        <i class="fas fa-chart-bar"></i> Synthèse & Export
+      </a>
+      {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+      <a href="{% url 'plan_action:action_create' plan.pk %}" class="btn-sm btn-accent">
+        <i class="fas fa-plus"></i> Ajouter une action
+      </a>
+      <a href="{% url 'plan_action:plan_update' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-pencil-alt"></i> Modifier le plan
+      </a>
+      {% endif %}
+      {% if user.is_superuser or user.role == 'administrateur' %}
+      <a href="{% url 'plan_action:plan_delete' plan.pk %}" class="btn-sm btn-danger">
+        <i class="fas fa-trash"></i>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
+      <div class="kpi-val">{{ total_actions }}</div>
+      <div class="kpi-lbl">Actions totales</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-check-circle" style="color:#27ae60;"></i></div>
+      <div class="kpi-val">{{ nb_realises }}</div>
+      <div class="kpi-lbl">Réalisées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-coins"></i></div>
+      <div class="kpi-val" style="font-size:16px;">{{ budget_engage|floatformat:0 }}</div>
+      <div class="kpi-lbl">Budget engagé (MAD)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+      <div class="kpi-val" style="color:{% if taux >= 80 %}#27ae60{% elif taux >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ taux }}%</div>
+      <div class="kpi-lbl">Taux de réalisation</div>
+    </div>
+  </div>
+
+  <!-- Barre de progression -->
+  <div class="prog-section">
+    <h3><i class="fas fa-chart-bar"></i> Avancement global du plan</h3>
+    <div class="prog-bar-bg">
+      <div class="prog-bar-fill" style="width:{{ taux }}%;"></div>
+    </div>
+    <div class="prog-labels">
+      <span>{{ nb_realises }} / {{ total_actions }} actions réalisées</span>
+      <span style="font-weight:700;color:{% if taux >= 80 %}#27ae60{% elif taux >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">{{ taux }}%</span>
+    </div>
+  </div>
+
+  <!-- Section liste des actions -->
+  <div class="section-title">
+    <i class="fas fa-list-ul"></i> Actions du plan
+    <span style="font-size:12px;font-weight:500;color:#999;">({{ actions|length }} résultat{% if actions|length != 1 %}s{% endif %})</span>
+  </div>
+
+  <!-- Filtres sur les actions -->
+  <form method="get" class="filter-bar">
+    <div class="filter-group">
+      <label>Type d'action</label>
+      <select name="type_action">
+        <option value="">Tous</option>
+        {% for code, libelle in type_action_choices %}
+        <option value="{{ code }}" {% if filtre_type_action == code %}selected{% endif %}>{{ libelle }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Statut</label>
+      <select name="statut_action">
+        <option value="">Tous</option>
+        <option value="programme"  {% if filtre_statut_action == 'programme' %}selected{% endif %}>Programmé</option>
+        <option value="en_cours"   {% if filtre_statut_action == 'en_cours' %}selected{% endif %}>En cours</option>
+        <option value="realise"    {% if filtre_statut_action == 'realise' %}selected{% endif %}>Réalisé</option>
+        <option value="annule"     {% if filtre_statut_action == 'annule' %}selected{% endif %}>Annulé</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Commune</label>
+      <select name="commune">
+        <option value="">Toutes</option>
+        {% for cid, cnom in communes_plan %}
+        <option value="{{ cid }}" {% if filtre_commune == cid|stringformat:"s" %}selected{% endif %}>{{ cnom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Priorité</label>
+      <select name="priorite">
+        <option value="">Toutes</option>
+        <option value="1" {% if filtre_priorite == '1' %}selected{% endif %}>Haute</option>
+        <option value="2" {% if filtre_priorite == '2' %}selected{% endif %}>Moyenne</option>
+        <option value="3" {% if filtre_priorite == '3' %}selected{% endif %}>Basse</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-filter-sm"><i class="fas fa-filter"></i> Filtrer</button>
+    {% if filtre_type_action or filtre_statut_action or filtre_commune or filtre_priorite %}
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-reset-sm"><i class="fas fa-times"></i> Réinit.</a>
+    {% endif %}
+  </form>
+
+  {% if actions %}
+  <div class="table-wrap">
+    <table class="actions-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Type d'action</th>
+          <th>Commune</th>
+          <th>Périmètre</th>
+          <th>Budget prévu (MAD)</th>
+          <th>Priorité</th>
+          <th>Statut</th>
+          {% if user.role != 'visiteur' %}<th>Actions</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for action in actions %}
+        <tr>
+          <td style="color:#aaa;font-size:11px;">{{ forloop.counter }}</td>
+          <td>
+            <div style="font-weight:600;color:#1a1a2e;">{{ action.get_type_action_display }}</div>
+            {% if action.description %}
+            <div style="font-size:11.5px;color:#888;margin-top:2px;">{{ action.description|truncatechars:60 }}</div>
+            {% endif %}
+          </td>
+          <td>{{ action.commune.nom_fr }}</td>
+          <td>{{ action.perimetre|default:"—" }}</td>
+          <td style="font-weight:600;">{{ action.budget_prevu|floatformat:0 }}</td>
+          <td>
+            <span class="badge-priorite priorite-{{ action.priorite }}">
+              {{ action.get_priorite_display }}
+            </span>
+          </td>
+          <td>
+            <span class="badge-statut-action statut-{{ action.statut }}">
+              {{ action.get_statut_display }}
+            </span>
+          </td>
+          {% if user.role != 'visiteur' %}
+          <td>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              {% if action.calendrier %}
+                {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+                <a href="{% url 'plan_action:calendrier_form' action.pk %}" class="btn-xs" style="background:#e8f5e9;color:#1e6b32;" title="Modifier le calendrier">
+                  <i class="fas fa-calendar-check"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'plan_action:calendrier_gantt' action.pk %}" class="btn-xs" style="background:#f0e8ff;color:#7b2fbe;" title="Diagramme de Gantt">
+                  <i class="fas fa-chart-gantt"></i>
+                </a>
+                <a href="{% url 'plan_action:calendrier_pert' action.pk %}" class="btn-xs" style="background:#e8f0ff;color:#1a5fa8;" title="Réseau PERT / CPM">
+                  <i class="fas fa-project-diagram"></i>
+                </a>
+                <a href="{% url 'plan_action:suivi_dashboard' action.pk %}" class="btn-xs" style="background:#e8fdf0;color:#1e6b4a;" title="Suivi d'avancement">
+                  <i class="fas fa-chart-line"></i>
+                </a>
+              {% else %}
+                {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+                <a href="{% url 'plan_action:calendrier_form' action.pk %}" class="btn-xs" style="background:#fff3cd;color:#856404;" title="Créer un calendrier">
+                  <i class="fas fa-calendar-plus"></i>
+                </a>
+                {% endif %}
+              {% endif %}
+              {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+              <a href="{% url 'plan_action:action_update' action.pk %}" class="btn-xs btn-edit"><i class="fas fa-pencil-alt"></i></a>
+              {% endif %}
+              {% if user.is_superuser or user.role == 'administrateur' %}
+              <a href="{% url 'plan_action:action_delete' action.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-table">
+    <i class="fas fa-list-ul"></i>
+    {% if filtre_type_action or filtre_statut_action or filtre_commune or filtre_priorite %}
+      Aucune action ne correspond aux filtres.
+    {% else %}
+      Aucune action dans ce plan.
+      {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+      <br><a href="{% url 'plan_action:action_create' plan.pk %}" style="color:#f0a500;font-weight:600;text-decoration:none;">+ Ajouter la première action</a>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

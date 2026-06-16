@@ -1,0 +1,376 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titre }} - HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.form-layout { display: grid; grid-template-columns: 1fr 380px; gap: 22px; align-items: start; }
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 22px; margin-bottom: 16px; }
+.card-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; display: flex; align-items: center; gap: 7px; }
+.card-title i { color: #f0a500; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+.paste-bar { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 10px; }
+.paste-box { width: 100%; min-height: 42px; border: 1.5px dashed #e0d0c0; border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: 'Inter', sans-serif; resize: vertical; }
+.paste-box:focus { outline: none; border-color: #f0a500; background: #fff8ee; }
+.btn-paste { padding: 8px 12px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-paste:hover { background: #2a2a4e; }
+.paste-feedback { min-height: 16px; font-size: 11.5px; margin-top: 4px; }
+.paste-feedback.ok { color: #1e8449; }
+.paste-feedback.err { color: #c0392b; }
+
+.monthly-table-wrap { overflow-x: auto; }
+.monthly-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 830px; }
+.monthly-table th { background: #1a1a2e; color: #fff; padding: 9px 8px; text-align: center; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.monthly-table th:first-child { text-align: left; min-width: 180px; }
+.monthly-table td { padding: 7px 5px; border-bottom: 1px solid #f5ece0; text-align: center; }
+.monthly-table td:first-child { text-align: left; font-weight: 700; color: #555; }
+.monthly-table input { width: 70px; padding: 6px 6px; border: 1.5px solid #e0d0c0; border-radius: 6px; font-size: 12px; text-align: center; }
+.monthly-table input:focus { outline: none; border-color: #f0a500; }
+.monthly-table .readonly { background: #f8f4ee; color: #1a1a2e; border-color: #ecdcc8; }
+
+.map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; position: sticky; top: 78px; }
+.map-title { background: #1a1a2e; padding: 12px 16px; font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+.map-title i { color: #f0a500; }
+.map-hint { font-size: 11px; background: #f0a50022; color: #c47d00; padding: 7px 14px; border-bottom: 1px solid #f0e8d8; }
+.map-coords { font-size: 11px; color: #f0a500; }
+#station-map { height: 360px; cursor: crosshair; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+.btn-submit { padding: 12px 32px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 12px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'besions_ressources:home' %}">Bilan</a> ›
+    <a href="{% url 'besions_ressources:station_list' %}">Stations climatiques</a> › {{ titre }}
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-thermometer-half"></i> {{ titre }}</h1>
+  </div>
+
+  <form method="post" novalidate id="station-form">
+    {% csrf_token %}
+    <input type="hidden" name="geometrie" id="id_geometrie" value="{% if station and station.geometrie %}{{ station.geometrie.wkt }}{% endif %}">
+
+    <div class="form-layout">
+      <div>
+        <div class="form-card">
+          <div class="card-title"><i class="fas fa-info-circle"></i> Informations générales</div>
+          <div class="row3">
+            <div class="form-group">
+              <label>{{ form.nom.label }} <span style="color:#c0392b">*</span></label>
+              {{ form.nom }}
+              {{ form.nom.errors }}
+            </div>
+            <div class="form-group">
+              <label>{{ form.latitude.label }} <span style="color:#c0392b">*</span></label>
+              {{ form.latitude }}
+              <div class="form-help">En degrés décimaux (ex: 31.5). Le taux d'insolation est calculé automatiquement.</div>
+              {{ form.latitude.errors }}
+            </div>
+            <div class="form-group">
+              <label>{{ form.x.label }} <span style="color:#c0392b">*</span></label>
+              {{ form.x }}
+              <div class="form-help">Coordonnée Nord Maroc en mètres (m)</div>
+              {{ form.x.errors }}
+            </div>
+          </div>
+          <div class="row3">
+            <div class="form-group">
+              <label>{{ form.y.label }} <span style="color:#c0392b">*</span></label>
+              {{ form.y }}
+              <div class="form-help">Coordonnée Nord Maroc en mètres (m)</div>
+              {{ form.y.errors }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="card-title"><i class="fas fa-sun"></i> Taux d'insolation (auto depuis latitude)</div>
+          <div class="monthly-table-wrap">
+            <table class="monthly-table" id="insol-table">
+              <thead>
+                <tr>
+                  <th>Paramètre</th>
+                  <th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+                  <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th>
+                  <th>Mai</th><th>Jui</th><th>Jul</th><th>Aoû</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>n/N (automatique)</td>
+                  <td>{{ form.insol_0 }}</td><td>{{ form.insol_1 }}</td><td>{{ form.insol_2 }}</td><td>{{ form.insol_3 }}</td>
+                  <td>{{ form.insol_4 }}</td><td>{{ form.insol_5 }}</td><td>{{ form.insol_6 }}</td><td>{{ form.insol_7 }}</td>
+                  <td>{{ form.insol_8 }}</td><td>{{ form.insol_9 }}</td><td>{{ form.insol_10 }}</td><td>{{ form.insol_11 }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="card-title"><i class="fas fa-table"></i> Données mensuelles (3 lignes × 12 colonnes)</div>
+          <div class="paste-bar">
+            <textarea id="paste-area" class="paste-box" rows="2" placeholder="Collez ici 3 lignes x 12 colonnes (Températures, P normale, P humide)"></textarea>
+            <button type="button" id="btn-paste" class="btn-paste">Coller</button>
+          </div>
+          <div id="paste-feedback" class="paste-feedback"></div>
+
+          <div class="monthly-table-wrap">
+            <table class="monthly-table" id="monthly-table">
+              <thead>
+                <tr>
+                  <th>Paramètre</th>
+                  <th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+                  <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th>
+                  <th>Mai</th><th>Jui</th><th>Jul</th><th>Aoû</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-prefix="temp">
+                  <td>T moy (°C)</td>
+                  <td>{{ form.temp_0 }}</td><td>{{ form.temp_1 }}</td><td>{{ form.temp_2 }}</td><td>{{ form.temp_3 }}</td>
+                  <td>{{ form.temp_4 }}</td><td>{{ form.temp_5 }}</td><td>{{ form.temp_6 }}</td><td>{{ form.temp_7 }}</td>
+                  <td>{{ form.temp_8 }}</td><td>{{ form.temp_9 }}</td><td>{{ form.temp_10 }}</td><td>{{ form.temp_11 }}</td>
+                </tr>
+                <tr data-prefix="pnorm">
+                  <td>P normale (mm/mois)</td>
+                  <td>{{ form.pnorm_0 }}</td><td>{{ form.pnorm_1 }}</td><td>{{ form.pnorm_2 }}</td><td>{{ form.pnorm_3 }}</td>
+                  <td>{{ form.pnorm_4 }}</td><td>{{ form.pnorm_5 }}</td><td>{{ form.pnorm_6 }}</td><td>{{ form.pnorm_7 }}</td>
+                  <td>{{ form.pnorm_8 }}</td><td>{{ form.pnorm_9 }}</td><td>{{ form.pnorm_10 }}</td><td>{{ form.pnorm_11 }}</td>
+                </tr>
+                <tr data-prefix="phumide">
+                  <td>P humide (mm/mois)</td>
+                  <td>{{ form.phumide_0 }}</td><td>{{ form.phumide_1 }}</td><td>{{ form.phumide_2 }}</td><td>{{ form.phumide_3 }}</td>
+                  <td>{{ form.phumide_4 }}</td><td>{{ form.phumide_5 }}</td><td>{{ form.phumide_6 }}</td><td>{{ form.phumide_7 }}</td>
+                  <td>{{ form.phumide_8 }}</td><td>{{ form.phumide_9 }}</td><td>{{ form.phumide_10 }}</td><td>{{ form.phumide_11 }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {% for fname, ferrors in form.errors.items %}
+            {% if fname != '__all__' %}
+            <div style="color:#c0392b;font-size:11.5px;margin-top:6px;">⚠ {{ fname }} : {{ ferrors|join:", " }}</div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        {% if form.non_field_errors %}
+        <div style="color:#c0392b;font-size:13px;margin-bottom:14px;background:#fff0f0;padding:12px;border-radius:8px;">
+          {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <a href="{% url 'besions_ressources:station_list' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Retour</a>
+          <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="map-card">
+        <div class="map-title">
+          <span><i class="fas fa-map-marker-alt"></i> Localisation station</span>
+          <span class="map-coords" id="map-coords"></span>
+        </div>
+        <div class="map-hint">Cliquez sur la carte pour remplir X/Y (Nord Maroc) et la géométrie.</div>
+        <div id="station-map"></div>
+      </div>
+    </div>
+  </form>
+
+  {{ insolation_auto|json_script:"insolation-init" }}
+  {% if geojson_station %}{{ geojson_station|json_script:"station-geojson" }}{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+<script>
+const AUTO_URL = "{% url 'besions_ressources:station_insolation_auto' %}";
+const pasteArea = document.getElementById('paste-area');
+const pasteBtn = document.getElementById('btn-paste');
+const pasteFb = document.getElementById('paste-feedback');
+const latInput = document.getElementById('id_latitude');
+const xInput = document.getElementById('id_x');
+const yInput = document.getElementById('id_y');
+const geomInput = document.getElementById('id_geometrie');
+
+proj4.defs("EPSG:26191", "+proj=lcc +lat_1=33.3 +lat_0=33.3 +lon_0=-5.4 +k_0=0.999625769 +x_0=500000 +y_0=300000 +ellps=clrk80ign +towgs84=31,146,47,0,0,0,0 +units=m +no_defs +type=crs");
+
+function toNordMaroc(lat, lng) {
+  const out = proj4("EPSG:4326", "EPSG:26191", [lng, lat]);
+  return { x: out[0], y: out[1] };
+}
+
+function toWgs84(x, y) {
+  const out = proj4("EPSG:26191", "EPSG:4326", [x, y]);
+  return { lng: out[0], lat: out[1] };
+}
+
+function setPasteFeedback(msg, type) {
+  pasteFb.textContent = msg;
+  pasteFb.className = 'paste-feedback ' + (type || '');
+}
+
+function parse3x12(text) {
+  const rows = text.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+  const extracted = [];
+  for (const row of rows) {
+    const tokens = row.split(/\t|;|\s{2,}/).map(t => t.trim()).filter(Boolean);
+    const nums = tokens.map(t => parseFloat(t.replace(',', '.'))).filter(v => !isNaN(v));
+    if (nums.length >= 12) extracted.push(nums.slice(0, 12));
+    if (extracted.length === 3) break;
+  }
+  if (extracted.length < 3) {
+    const allNums = (text.match(/-?\d+(?:[.,]\d+)?/g) || []).map(t => parseFloat(t.replace(',', '.'))).filter(v => !isNaN(v));
+    if (allNums.length >= 36) {
+      return [allNums.slice(0, 12), allNums.slice(12, 24), allNums.slice(24, 36)];
+    }
+  }
+  return extracted;
+}
+
+function apply3x12(values) {
+  if (values.length !== 3 || values.some(r => r.length !== 12)) {
+    setPasteFeedback('Collage invalide: 3 lignes x 12 colonnes requises.', 'err');
+    return;
+  }
+  const prefixes = ['temp', 'pnorm', 'phumide'];
+  prefixes.forEach((prefix, r) => {
+    for (let i = 0; i < 12; i++) {
+      const el = document.getElementById(`id_${prefix}_${i}`);
+      if (el) el.value = values[r][i];
+    }
+  });
+  setPasteFeedback('3 lignes x 12 colonnes collées avec succès.', 'ok');
+}
+
+pasteBtn.addEventListener('click', () => {
+  const txt = pasteArea.value || '';
+  if (!txt.trim()) {
+    setPasteFeedback('Collez d\'abord les données dans la zone.', 'err');
+    return;
+  }
+  apply3x12(parse3x12(txt));
+});
+
+pasteArea.addEventListener('paste', (e) => {
+  const txt = (e.clipboardData || window.clipboardData).getData('text');
+  if (!txt) return;
+  e.preventDefault();
+  pasteArea.value = txt;
+  apply3x12(parse3x12(txt));
+});
+
+function updateInsolation(values) {
+  for (let i = 0; i < 12; i++) {
+    const el = document.getElementById(`id_insol_${i}`);
+    if (el) el.value = (values[i] ?? 0).toFixed(2);
+  }
+}
+
+const initVals = JSON.parse(document.getElementById('insolation-init').textContent || '[]');
+updateInsolation(initVals);
+
+document.querySelectorAll('#station-form input:not([type=hidden]), #station-form select').forEach(el => {
+  if (!el.classList.contains('monthly-input')) el.classList.add('form-control');
+});
+document.querySelectorAll('[id^="id_insol_"]').forEach(el => el.classList.add('readonly'));
+
+latInput.addEventListener('change', () => {
+  const lat = (latInput.value || '').trim().replace(',', '.');
+  if (!lat) return;
+  fetch(`${AUTO_URL}?latitude=${encodeURIComponent(lat)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.insolation) {
+        updateInsolation(data.insolation);
+        setPasteFeedback('Insolation recalculée automatiquement depuis la latitude.', 'ok');
+      } else if (data.error) {
+        setPasteFeedback(data.error, 'err');
+      }
+    })
+    .catch(() => setPasteFeedback('Erreur lors du calcul automatique de l\'insolation.', 'err'));
+});
+
+const map = L.map('station-map').setView([30.0, -6.0], 6);
+const basemaps = {
+    'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+    'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+    'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+    'ESRI Streets':       L.esri.basemapLayer('Streets'),
+};
+basemaps['OpenStreetMap'].addTo(map);
+L.control.layers(basemaps, {}, { collapsed: true }).addTo(map);
+let marker = null;
+
+function placeMarker(latlng, zoomTo = true) {
+  if (marker) map.removeLayer(marker);
+  marker = L.circleMarker(latlng, {
+    radius: 9, color: '#1e8449', fillColor: '#27ae60', fillOpacity: 0.85, weight: 2
+  }).addTo(map);
+  if (zoomTo) map.setView(latlng, Math.max(map.getZoom(), 12));
+
+  const nord = toNordMaroc(latlng.lat, latlng.lng);
+  xInput.value = nord.x.toFixed(3);
+  yInput.value = nord.y.toFixed(3);
+  geomInput.value = `POINT (${latlng.lng.toFixed(6)} ${latlng.lat.toFixed(6)})`;
+  document.getElementById('map-coords').textContent = `X:${nord.x.toFixed(1)}  Y:${nord.y.toFixed(1)}`;
+}
+
+map.on('click', e => placeMarker(e.latlng));
+
+function syncFromNordCoords() {
+  const x = parseFloat((xInput.value || '').replace(',', '.'));
+  const y = parseFloat((yInput.value || '').replace(',', '.'));
+  if (isNaN(x) || isNaN(y)) return;
+  const wgs = toWgs84(x, y);
+  if (isFinite(wgs.lat) && isFinite(wgs.lng)) {
+    placeMarker(L.latLng(wgs.lat, wgs.lng), false);
+  }
+}
+xInput.addEventListener('change', syncFromNordCoords);
+yInput.addEventListener('change', syncFromNordCoords);
+
+const stationGeoNode = document.getElementById('station-geojson');
+if (stationGeoNode) {
+  const gj = JSON.parse(stationGeoNode.textContent);
+  const layer = L.geoJSON(gj, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 9, color: '#1e8449', fillColor: '#27ae60', fillOpacity: 0.85, weight: 2 })
+  }).addTo(map);
+  map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+  if (gj.type === 'Point') {
+    const [lng, lat] = gj.coordinates;
+    placeMarker(L.latLng(lat, lng), false);
+  }
+} else {
+  syncFromNordCoords();
+}
+</script>
+{% endblock %}

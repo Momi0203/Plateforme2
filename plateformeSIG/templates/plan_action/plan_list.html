@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Plans d'aménagement PMH — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.filter-bar { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 14px 18px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.filter-bar select, .filter-bar input { padding: 8px 11px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; }
+.filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: #f0a500; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11.5px; font-weight: 600; color: #888; }
+.btn-filter { padding: 8px 16px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 5px; align-self: flex-end; }
+.btn-filter:hover { background: #2a2a4e; }
+.btn-reset { padding: 8px 12px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif; align-self: flex-end; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.btn-reset:hover { background: #ead8c5; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+
+.plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+
+.plan-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 20px; transition: border-color .2s, box-shadow .2s; }
+.plan-card:hover { border-color: #f0a500; box-shadow: 0 4px 16px rgba(240,165,0,.12); }
+
+.plan-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.plan-annee { font-size: 28px; font-weight: 800; color: #f0a500; line-height: 1; }
+.plan-statut { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.statut-en_preparation { background: #fff3cd; color: #856404; }
+.statut-publie          { background: #d1f7e0; color: #156b3c; }
+.statut-archive         { background: #f0f0f0; color: #666; }
+
+.plan-titre { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; }
+
+.plan-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.kpi { background: #fdf8f0; border-radius: 8px; padding: 8px 10px; }
+.kpi-label { font-size: 10.5px; color: #999; margin-bottom: 2px; }
+.kpi-value { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+
+.progress-wrap { margin-bottom: 14px; }
+.progress-header { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 5px; }
+.progress-bar-bg { background: #f0e8d8; border-radius: 10px; height: 8px; overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #f0a500, #ffd989); transition: width .5s; }
+
+.plan-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-view   { background: #1a1a2e; color: #fff; }
+.btn-view:hover { background: #2a2a4e; }
+.btn-edit   { background: #e8f4fd; color: #1a6fa8; }
+.btn-edit:hover { background: #d1eaf9; }
+.btn-del    { background: #fde8e8; color: #c0392b; }
+.btn-del:hover  { background: #f9cfcf; }
+
+.empty-state { text-align: center; padding: 60px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+
+.pagination { display: flex; gap: 6px; justify-content: center; margin-top: 28px; align-items: center; }
+.page-btn { padding: 7px 13px; border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; border: 1.5px solid #e0d0c0; color: #1a1a2e; background: #fff; }
+.page-btn:hover { background: #fdf8f0; border-color: #f0a500; }
+.page-btn.active { background: #f0a500; border-color: #f0a500; color: #1a1a2e; }
+.page-btn.disabled { opacity: .45; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> › Plans d'aménagement PMH
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-clipboard-list"></i> Plans d'aménagement PMH</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="{% url 'plan_action:suivi_global' %}" class="btn-sm" style="background:#1a1a2e;color:#fff;">
+        <i class="fas fa-globe"></i> Suivi global
+      </a>
+      {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+      <a href="{% url 'plan_action:plan_create' %}" class="btn-sm btn-accent">
+        <i class="fas fa-plus"></i> Nouveau plan
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Barre de filtres -->
+  <form method="get" class="filter-bar">
+    <div class="filter-group">
+      <label>Année</label>
+      <select name="annee">
+        <option value="">Toutes</option>
+        {% for a in annees_dispo %}
+        <option value="{{ a }}" {% if filtre_annee == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Statut</label>
+      <select name="statut">
+        <option value="">Tous</option>
+        <option value="en_preparation" {% if filtre_statut == 'en_preparation' %}selected{% endif %}>En préparation</option>
+        <option value="publie"         {% if filtre_statut == 'publie' %}selected{% endif %}>Publié</option>
+        <option value="archive"        {% if filtre_statut == 'archive' %}selected{% endif %}>Archivé</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Recherche</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Titre, description…" style="width:220px;">
+    </div>
+    <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Filtrer</button>
+    {% if filtre_annee or filtre_statut or q %}
+    <a href="{% url 'plan_action:plan_list' %}" class="btn-reset"><i class="fas fa-times"></i> Réinit.</a>
+    {% endif %}
+  </form>
+
+  {% if page_obj.object_list %}
+  <div class="plans-grid">
+    {% for plan in page_obj %}
+    {% with taux=plan.taux_realisation %}
+    <div class="plan-card">
+      <div class="plan-card-header">
+        <div class="plan-annee">{{ plan.annee }}</div>
+        <span class="plan-statut statut-{{ plan.statut }}">{{ plan.get_statut_display }}</span>
+      </div>
+      <div class="plan-titre">{{ plan.titre }}</div>
+
+      <div class="plan-kpis">
+        <div class="kpi">
+          <div class="kpi-label">Actions</div>
+          <div class="kpi-value">{{ plan.nb_actions }}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Budget prévu</div>
+          <div class="kpi-value" style="font-size:12px;">{{ plan.budget_total|floatformat:0 }} MAD</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span>Réalisation</span>
+          <span><b>{{ taux }}%</b></span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:{{ taux }}%;"></div>
+        </div>
+      </div>
+
+      <div class="plan-actions">
+        <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-xs btn-view"><i class="fas fa-eye"></i> Détail</a>
+        {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+        <a href="{% url 'plan_action:plan_update' plan.pk %}" class="btn-xs btn-edit"><i class="fas fa-pencil-alt"></i> Modifier</a>
+        {% endif %}
+        {% if user.is_superuser or user.role == 'administrateur' %}
+        <a href="{% url 'plan_action:plan_delete' plan.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&annee={{ filtre_annee }}&statut={{ filtre_statut }}&q={{ q }}" class="page-btn">
+      <i class="fas fa-chevron-left"></i>
+    </a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+        <span class="page-btn active">{{ num }}</span>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}&annee={{ filtre_annee }}&statut={{ filtre_statut }}&q={{ q }}" class="page-btn">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&annee={{ filtre_annee }}&statut={{ filtre_statut }}&q={{ q }}" class="page-btn">
+      <i class="fas fa-chevron-right"></i>
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-clipboard-list"></i>
+    {% if filtre_annee or filtre_statut or q %}
+      Aucun plan ne correspond aux filtres appliqués.
+    {% else %}
+      Aucun plan d'aménagement enregistré.<br>
+      {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+      <a href="{% url 'plan_action:plan_create' %}" style="color:#f0a500;font-weight:600;text-decoration:none;">+ Créer le premier plan</a>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

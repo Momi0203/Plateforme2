@@ -1,0 +1,626 @@
+{% extends 'base.html' %}
+
+{% block title %}Ouvrages de tête — {{ perimetre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+    /* ============== Layout ============== */
+    .page-wrapper { max-width: 1240px; margin: 24px auto 48px; padding: 0 24px; }
+
+    /* ============== Leaflet map panel ============== */
+    #map-ouvrages { height: 480px; border-radius: 10px; border: 1px solid #f0e9dc; }
+    .map-legend {
+        background: #fff; border-radius: 10px; border: 1px solid #f0e9dc;
+        padding: 14px 18px; margin-top: 14px;
+        display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+    }
+    .map-legend .leg-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #444; font-weight: 500; }
+    .leg-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .leg-line { width: 24px; height: 4px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+    /* ============== Hero header ============== */
+    .page-hero {
+        background: linear-gradient(135deg, #1a1a2e 0%, #232347 100%);
+        border-radius: 14px;
+        padding: 24px 28px;
+        margin-bottom: 20px;
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 18px;
+        box-shadow: 0 6px 22px rgba(26, 26, 46, .15);
+    }
+    .hero-title { display: flex; align-items: center; gap: 14px; }
+    .hero-icon {
+        width: 46px; height: 46px; border-radius: 12px;
+        background: rgba(240, 165, 0, .15);
+        display: flex; align-items: center; justify-content: center;
+        color: #f0a500; font-size: 20px;
+    }
+    .hero-text h1 { margin: 0; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: .2px; }
+    .hero-text p { margin: 4px 0 0; font-size: 12.5px; color: rgba(255,255,255,.6); }
+    .hero-text p i { margin-right: 4px; opacity: .8; }
+    .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    /* ============== Buttons ============== */
+    .btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 14px; border-radius: 8px;
+        font-size: 13px; font-weight: 600;
+        text-decoration: none; cursor: pointer; border: none;
+        font-family: inherit;
+        transition: transform .12s, background .15s; white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: #f0a500; color: #1a1a2e; }
+    .btn-primary:hover { background: #d4920a; }
+    .btn-ghost { background: rgba(255,255,255,.1); color: #fff; }
+    .btn-ghost:hover { background: rgba(255,255,255,.18); }
+    .btn-dark { background: #1a1a2e; color: #fff; }
+    .btn-dark:hover { background: #2a2a4a; }
+    .btn-soft {
+        background: #f1ece1; color: #4a3f2a;
+        padding: 8px 12px; font-size: 12.5px;
+    }
+    .btn-soft:hover { background: #e8e0cd; }
+
+    .btn-icon {
+        width: 32px; height: 32px; padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 7px; font-size: 12px;
+        text-decoration: none; border: none; cursor: pointer;
+        transition: transform .12s, background .15s;
+    }
+    .btn-icon:hover { transform: translateY(-1px); }
+    .btn-edit    { background: #fdf1e3; color: #d97706; }
+    .btn-edit:hover    { background: #fbe2c7; }
+    .btn-success { background: #e0f5e9; color: #1e8449; }
+    .btn-success:hover { background: #c9ecd6; }
+    .btn-revert  { background: #e8f1fa; color: #2980b9; }
+    .btn-revert:hover  { background: #d3e6f5; }
+    .btn-danger  { background: #fdecea; color: #c0392b; }
+    .btn-danger:hover  { background: #fad5d0; }
+
+    /* ============== Périmètre summary card ============== */
+    .perimetre-card {
+        background: #fff; border-radius: 12px;
+        border: 1px solid #f0e9dc;
+        box-shadow: 0 2px 10px rgba(0,0,0,.05);
+        padding: 18px 22px;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 18px;
+    }
+    .info-item { display: flex; align-items: center; gap: 12px; }
+    .info-item .ic {
+        width: 38px; height: 38px; border-radius: 10px;
+        background: #fff7e6; color: #f0a500;
+        display: flex; align-items: center; justify-content: center; font-size: 14px;
+        flex-shrink: 0;
+    }
+    .info-item .lbl { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+    .info-item .val { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
+
+    /* ============== Tabs ============== */
+    .tabs-nav {
+        display: flex; gap: 4px; margin-bottom: 18px;
+        background: #fff; border-radius: 10px;
+        padding: 6px; border: 1px solid #f0e9dc;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04);
+        overflow-x: auto; flex-wrap: nowrap;
+    }
+    .tab-btn {
+        padding: 9px 14px; border: none; border-radius: 7px;
+        font-size: 12.5px; font-weight: 600;
+        cursor: pointer; background: transparent; color: #666;
+        font-family: inherit;
+        transition: all .15s;
+        white-space: nowrap; display: flex; align-items: center; gap: 7px;
+    }
+    .tab-btn:hover:not(.active) { background: #faf5ec; color: #1a1a2e; }
+    .tab-btn.active { background: #f0a500; color: #1a1a2e; }
+    .tab-btn .count {
+        background: rgba(0,0,0,.1); border-radius: 20px;
+        padding: 1px 8px; font-size: 11px; font-variant-numeric: tabular-nums;
+    }
+    .tab-btn.active .count { background: rgba(26,26,46,.18); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn .2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* ============== Table card ============== */
+    .table-card {
+        background: #fff; border-radius: 12px;
+        border: 1px solid #f0e9dc;
+        box-shadow: 0 2px 12px rgba(0,0,0,.05);
+        overflow: hidden;
+    }
+    .table-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid #f5ede0;
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 10px;
+    }
+    .table-header h3 {
+        font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 0;
+        display: flex; align-items: center; gap: 9px;
+    }
+    .table-header h3 i { color: #f0a500; }
+    .table-header .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .table-scroll { overflow-x: auto; }
+    .table-card table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .table-card thead { background: #faf5ec; }
+    .table-card th {
+        padding: 12px 16px; font-size: 11px; font-weight: 600;
+        color: #7a6c54; text-transform: uppercase; letter-spacing: .6px;
+        text-align: left; border-bottom: 1px solid #f0e2c8;
+        white-space: nowrap;
+    }
+    .table-card td {
+        padding: 13px 16px; font-size: 13px; color: #2c2c3e;
+        border-top: 1px solid #f7f1e6; vertical-align: middle;
+    }
+    .table-card tbody tr { transition: background .15s; }
+    .table-card tbody tr:hover td { background: #fffbf2; }
+
+    .name-cell strong { color: #1a1a2e; }
+    .name-cell small { display: block; color: #999; font-size: 11.5px; margin-top: 2px; }
+    .defaut {
+        display: block; margin-top: 4px;
+        color: #c0392b; font-size: 11.5px;
+    }
+    .defaut i { margin-right: 3px; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; color: #444; }
+    .date-c { color: #777; font-size: 12px; white-space: nowrap; }
+
+    .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .badge-brouillon { background: #fff3cd; color: #856404; }
+    .badge-valide    { background: #d4edda; color: #155724; }
+
+    .actions-cell { display: flex; gap: 5px; flex-wrap: nowrap; justify-content: flex-end; }
+
+    /* ============== Empty row ============== */
+    .empty-row td {
+        text-align: center; padding: 40px 20px;
+        color: #888; font-size: 13px;
+    }
+    .empty-row i.empty-ic {
+        display: block; font-size: 28px; color: #d8c7a3; margin-bottom: 10px;
+    }
+    .empty-row a { color: #f0a500; font-weight: 600; text-decoration: none; }
+    .empty-row a:hover { text-decoration: underline; }
+
+    @media (max-width: 720px) {
+        .page-hero { flex-direction: column; align-items: stretch; }
+        .hero-actions { justify-content: flex-start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- HERO -->
+    <div class="page-hero">
+        <div class="hero-title">
+            <div class="hero-icon"><i class="fas fa-tools"></i></div>
+            <div class="hero-text">
+                <h1>Diagnostic des ouvrages de tête — {{ perimetre }}</h1>
+                <p>
+                    <i class="fas fa-map-marker-alt"></i>{{ perimetre.commune_territoriale }}
+                    <span style="margin: 0 6px; opacity:.4;">•</span>
+                    {{ perimetre.province }}
+                </p>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <a href="{% url 'diagnostic:perimetre_edit' pk=perimetre.pk %}" class="btn btn-ghost">
+                <i class="fas fa-edit"></i> Modifier le périmètre
+            </a>
+            <a href="{% url 'diagnostic:perimetre_list' %}" class="btn btn-ghost">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- INFOS PÉRIMÈTRE -->
+    <div class="perimetre-card">
+        <div class="info-item">
+            <div class="ic"><i class="fas fa-ruler-combined"></i></div>
+            <div>
+                <div class="lbl">Superficie totale</div>
+                <div class="val">{{ perimetre.superficie_totale }} ha</div>
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="ic"><i class="fas fa-tint"></i></div>
+            <div>
+                <div class="lbl">Superficie irriguée</div>
+                <div class="val">{{ perimetre.superficie_irriguee }} ha</div>
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="ic"><i class="fas fa-users"></i></div>
+            <div>
+                <div class="lbl">Bénéficiaires</div>
+                <div class="val">{{ perimetre.nombre_beneficiaires }}</div>
+            </div>
+        </div>
+        <div class="info-item">
+            <div class="ic"><i class="fas fa-home"></i></div>
+            <div>
+                <div class="lbl">Ménages</div>
+                <div class="val">{{ perimetre.nombre_menages }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="showTab('seuils', this)"><i class="fas fa-water"></i> Seuils <span class="count">{{ seuils.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('murs', this)"><i class="fas fa-shield-alt"></i> Murs <span class="count">{{ murs.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('barrages', this)"><i class="fas fa-mountain"></i> Barrages <span class="count">{{ barrages.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('khettaras', this)"><i class="fas fa-project-diagram"></i> Khettaras <span class="count">{{ khettaras.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('forages', this)"><i class="fas fa-dot-circle"></i> Forages/Puits <span class="count">{{ forages.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('prises', this)"><i class="fas fa-tint"></i> Prises locales <span class="count">{{ prises.count }}</span></button>
+        <button class="tab-btn" onclick="showTab('seguias', this)"><i class="fas fa-stream"></i> Séguias <span class="count">{{ seguias.count }}</span></button>
+    </div>
+
+    <!-- =================== SEUILS =================== -->
+    <div id="tab-seuils" class="tab-panel active">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-water"></i> Seuils hydrauliques</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:seuil_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom</th><th>Nature / Type</th><th>Débit (l/s)</th><th>L×l×H (m)</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for s in seuils %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ s.nom_du_seuil }}</strong>
+                            <small>{{ s.localisation_du_seuil }}</small>
+                            {% if s.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ s.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td>{{ s.nature_du_seuil }} / {{ s.type_du_seuil }}</td>
+                        <td class="num">{{ s.debit_mobilise }}</td>
+                        <td class="num">{{ s.longueur }}×{{ s.largeur_de_base }}×{{ s.hauteur }}</td>
+                        <td class="date-c">{{ s.date_diagnostic }}</td>
+                        <td>{{ s.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:seuil_edit' pk=s.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:seuil_delete' pk=s.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">
+                        <i class="fas fa-water empty-ic"></i>
+                        Aucun seuil enregistré.
+                        <a href="{% url 'diagnostic:seuil_create' perimetre_pk=perimetre.pk %}">Ajouter le premier seuil</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== MURS =================== -->
+    <div id="tab-murs" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-shield-alt"></i> Murs de protection</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:mur_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Rive / Position</th><th>Nature</th><th>L×H (m)</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for m in murs %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ m.get_rive_display }}</strong> — {{ m.get_position_display }}
+                            {% if m.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ m.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td>{{ m.nature_materiaux }}</td>
+                        <td class="num">{{ m.longueur }}×{{ m.hauteur }}</td>
+                        <td class="date-c">{{ m.date_diagnostic }}</td>
+                        <td>{{ m.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:mur_edit' pk=m.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:mur_delete' pk=m.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="6">
+                        <i class="fas fa-shield-alt empty-ic"></i>
+                        Aucun mur enregistré.
+                        <a href="{% url 'diagnostic:mur_create' perimetre_pk=perimetre.pk %}">Ajouter le premier mur</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== BARRAGES =================== -->
+    <div id="tab-barrages" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-mountain"></i> Barrages de retenue / Lacs collinaires</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:barrage_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom</th><th>Capacité (m³)</th><th>Débit dérivé (l/s)</th><th>L×l×H (m)</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for b in barrages %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ b.nom }}</strong>
+                            {% if b.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ b.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td class="num">{{ b.capacite_retenue }}</td>
+                        <td class="num">{{ b.debit_derive }}</td>
+                        <td class="num">{{ b.longueur }}×{{ b.largeur }}×{{ b.hauteur }}</td>
+                        <td class="date-c">{{ b.date_diagnostic }}</td>
+                        <td>{{ b.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:barrage_edit' pk=b.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:barrage_delete' pk=b.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">
+                        <i class="fas fa-mountain empty-ic"></i>
+                        Aucun barrage enregistré.
+                        <a href="{% url 'diagnostic:barrage_create' perimetre_pk=perimetre.pk %}">Ajouter le premier barrage</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== KHETTARAS =================== -->
+    <div id="tab-khettaras" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-project-diagram"></i> Khettaras</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:khettara_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom</th><th>Débit (l/s)</th><th>Longueur (m)</th><th>Matériaux</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for k in khettaras %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ k.nom }}</strong>
+                            {% if k.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ k.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td class="num">{{ k.debit }}</td>
+                        <td class="num">{{ k.longueur }}</td>
+                        <td>{{ k.materiaux_de_construction }}</td>
+                        <td class="date-c">{{ k.date_diagnostic }}</td>
+                        <td>{{ k.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:khettara_edit' pk=k.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:khettara_delete' pk=k.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">
+                        <i class="fas fa-project-diagram empty-ic"></i>
+                        Aucune khettara enregistrée.
+                        <a href="{% url 'diagnostic:khettara_create' perimetre_pk=perimetre.pk %}">Ajouter la première khettara</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== FORAGES / PUITS =================== -->
+    <div id="tab-forages" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-dot-circle"></i> Forages / Puits d'irrigation</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:forage_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom</th><th>Débit (m³/h)</th><th>Prof./Diam. (m)</th><th>Énergie</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for f in forages %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ f.nom }}</strong>
+                            {% if f.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ f.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td class="num">{{ f.debit }}</td>
+                        <td class="num">{{ f.profondeur }} / {{ f.diametre }}</td>
+                        <td>{{ f.get_source_energie_pompage_display }}</td>
+                        <td class="date-c">{{ f.date_diagnostic }}</td>
+                        <td>{{ f.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:forage_edit' pk=f.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:forage_delete' pk=f.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">
+                        <i class="fas fa-dot-circle empty-ic"></i>
+                        Aucun forage / puits enregistré.
+                        <a href="{% url 'diagnostic:forage_create' perimetre_pk=perimetre.pk %}">Ajouter le premier forage</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== PRISES =================== -->
+    <div id="tab-prises" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-tint"></i> Prises locales</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:prise_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom</th><th>Forme pertuis</th><th>Dimensions (m)</th><th>État</th>
+                    <th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for p in prises %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ p.nom }}</strong>
+                            {% if p.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ p.defaut_ouvrage|truncatechars:60 }}</span>{% endif %}
+                        </td>
+                        <td>{{ p.get_forme_pertuis_display }}</td>
+                        <td class="num">
+                            {% if p.forme_pertuis == 'circulaire' %}
+                                Ø {{ p.diametre|default:"—" }}
+                            {% else %}
+                                l={{ p.largeur_au_miroir|default:"—" }} h={{ p.hauteur_pertuis|default:"—" }} f={{ p.fruit_pente|default:"—" }}
+                            {% endif %}
+                        </td>
+                        <td><small style="color:#666;">{{ p.etat_fonctionnement|default:"—"|truncatechars:40 }}</small></td>
+                        <td class="date-c">{{ p.date_diagnostic }}</td>
+                        <td>{{ p.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:prise_edit' pk=p.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:prise_delete' pk=p.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="7">
+                        <i class="fas fa-tint empty-ic"></i>
+                        Aucune prise locale enregistrée.
+                        <a href="{% url 'diagnostic:prise_create' perimetre_pk=perimetre.pk %}">Ajouter la première prise</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================== SÉGUIAS =================== -->
+    <div id="tab-seguias" class="tab-panel">
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-stream"></i> Diagnostic du réseau séguia</h3>
+                <div class="actions">
+                    <a href="{% url 'diagnostic:seguia_create' perimetre_pk=perimetre.pk %}" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</a>
+                </div>
+            </div>
+            <div class="table-scroll">
+            <table>
+                <thead><tr>
+                    <th>Nom / Tronçon</th><th>Type</th><th>Nature</th><th>Long. (m)</th><th>Débit (l/s)</th>
+                    <th>État</th><th>Date diag.</th><th>Saisi par</th><th style="text-align:right;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for sg in seguias %}
+                    <tr>
+                        <td class="name-cell">
+                            <strong>{{ sg.nom_de_la_seguia }}</strong>
+                            {% if sg.troncon %}<small>Tronçon : {{ sg.troncon }}</small>{% endif %}
+                            {% if sg.defaut_ouvrage %}<span class="defaut"><i class="fas fa-exclamation-triangle"></i>{{ sg.defaut_ouvrage|truncatechars:50 }}</span>{% endif %}
+                        </td>
+                        <td>{{ sg.get_type_deguia_display }}</td>
+                        <td>{{ sg.get_nature_display }}</td>
+                        <td class="num">{{ sg.longueur }}</td>
+                        <td class="num">{{ sg.debit }}</td>
+                        <td><small style="color:#666;">{{ sg.etat|default:"—"|truncatechars:40 }}</small></td>
+                        <td class="date-c">{{ sg.date_diagnostic }}</td>
+                        <td>{{ sg.saisi_par|default:"—" }}</td>
+                        <td><div class="actions-cell">
+                            <a href="{% url 'diagnostic:seguia_edit' pk=sg.pk %}" class="btn-icon btn-edit" title="Modifier"><i class="fas fa-edit"></i></a>
+                            {% if user.role == 'operateur' or user.role == 'administrateur' %}
+                                <a href="{% url 'diagnostic:seguia_delete' pk=sg.pk %}" class="btn-icon btn-danger" title="Supprimer"><i class="fas fa-trash"></i></a>
+                            {% endif %}
+                        </div></td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row"><td colspan="9">
+                        <i class="fas fa-stream empty-ic"></i>
+                        Aucune séguia enregistrée.
+                        <a href="{% url 'diagnostic:seguia_create' perimetre_pk=perimetre.pk %}">Ajouter la première séguia</a>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}

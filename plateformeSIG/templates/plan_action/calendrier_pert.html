@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}PERT — {{ action }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.css">
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* ── En-tête ── */
+.pert-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.pert-header-left h1 { font-size: 19px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.pert-header-left h1 i { color: #f0a500; }
+.pert-meta { font-size: 13px; color: #666; margin-top: 6px; }
+.pert-meta b { color: #1a1a2e; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-outline { background: #fff; color: #1a1a2e; border: 1.5px solid #e0d0c0; }
+.btn-outline:hover { background: #fdf8f0; }
+
+/* ── KPI strip ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 14px 16px; }
+.kpi-card .kpi-icon { font-size: 18px; color: #f0a500; margin-bottom: 6px; }
+.kpi-card .kpi-val { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+.kpi-card .kpi-lbl { font-size: 11px; color: #999; margin-top: 2px; }
+
+/* ── Barre d'outils ── */
+.pert-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: #fff; border: 1.5px solid #f0e8d8; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+.toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.toolbar-right { display: flex; gap: 8px; align-items: center; }
+.btn-tool { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border: 1.5px solid #e0d0c0; border-radius: 7px; font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; cursor: pointer; transition: all .2s; }
+.btn-tool:hover { border-color: #f0a500; color: #f0a500; }
+.btn-export-img { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif; background: #e74c3c; color: #fff; border: none; cursor: pointer; transition: background .2s; }
+.btn-export-img:hover { background: #c0392b; }
+
+/* ── Légende ── */
+.legend-bar { display: flex; flex-wrap: wrap; gap: 12px; }
+.legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #444; }
+.legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.ld-non_demarree { background: #ecf0f1; border: 1.5px solid #b0bec5; }
+.ld-en_cours      { background: #fff8e1; border: 1.5px solid #f0a500; }
+.ld-terminee      { background: #e8f5e9; border: 1.5px solid #27ae60; }
+.ld-bloquee       { background: #fde8e8; border: 1.5px solid #e74c3c; }
+.ld-critical      { background: #fff0f0; border: 3px solid #c0392b; }
+
+/* ── Conteneur PERT ── */
+.pert-container-wrap { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+#pert-network { width: 100%; height: 620px; }
+#pert-loading { display: flex; align-items: center; justify-content: center; gap: 12px; height: 620px; color: #aaa; font-size: 14px; }
+#pert-loading i { font-size: 22px; color: #f0a500; animation: spin .8s linear infinite; }
+#pert-error { display: none; align-items: center; justify-content: center; height: 200px; font-size: 14px; color: #e74c3c; gap: 10px; }
+#pert-empty { display: none; align-items: center; justify-content: center; height: 200px; color: #aaa; font-size: 14px; flex-direction: column; gap: 8px; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ── Panneau chemin critique ── */
+.critical-path-panel { background: #fff0f0; border: 1.5px solid #e74c3c; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: none; }
+.critical-path-panel h4 { font-size: 13px; font-weight: 700; color: #c0392b; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.critical-path-nodes { display: flex; flex-wrap: wrap; gap: 8px; }
+.crit-node-badge { display: inline-flex; align-items: center; gap: 5px; background: #c0392b; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 15px; }
+.crit-arrow { color: #c0392b; font-weight: 700; align-self: center; }
+
+/* ── Tooltip vis.js ── */
+div.vis-tooltip {
+  background: #1a1a2e !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  border: 1.5px solid #f0a500 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 6px 22px rgba(0,0,0,.25) !important;
+  max-width: 260px !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    PERT — {{ action.get_type_action_display }}
+  </div>
+
+  <!-- En-tête -->
+  <div class="pert-header">
+    <div class="pert-header-left">
+      <h1>
+        <i class="fas fa-project-diagram"></i>
+        Réseau PERT / CPM
+      </h1>
+      <div class="pert-meta">
+        Action : <b>{{ action.get_type_action_display }}</b> — {{ action.commune.nom_fr }}
+        &nbsp;·&nbsp; Plan PMH <b>{{ plan.annee }}</b>
+        {% if calendrier.statut_calendrier == 'valide' %}
+        &nbsp;·&nbsp; <span style="background:#d1f7e0;color:#156b3c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">
+          <i class="fas fa-lock"></i> Validé
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'plan_action:calendrier_gantt' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-chart-gantt"></i> Gantt
+      </a>
+      <a href="{% url 'plan_action:calendrier_form' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-calendar-alt"></i> Calendrier
+      </a>
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Retour au plan
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip" id="kpi-strip" style="display:none;">
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-circle-nodes"></i></div>
+      <div class="kpi-val" id="kpi-nb-taches">—</div>
+      <div class="kpi-lbl">Tâches (nœuds)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-fire" style="color:#e74c3c;"></i></div>
+      <div class="kpi-val" id="kpi-nb-critiques" style="color:#e74c3c;">—</div>
+      <div class="kpi-lbl">Tâches critiques</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-calendar-days" style="color:#1a6fa8;"></i></div>
+      <div class="kpi-val" id="kpi-duree-projet">—</div>
+      <div class="kpi-lbl">Durée totale projet (j)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-diagram-project"></i></div>
+      <div class="kpi-val" id="kpi-nb-arcs">—</div>
+      <div class="kpi-lbl">Dépendances (arcs)</div>
+    </div>
+  </div>
+
+  <!-- Barre d'outils -->
+  <div class="pert-toolbar">
+    <div class="toolbar-left">
+      <div style="font-size:12.5px;font-weight:700;color:#1a1a2e;"><i class="fas fa-sliders" style="color:#f0a500;margin-right:5px;"></i>Contrôles</div>
+      <button class="btn-tool" onclick="pertFit()"><i class="fas fa-compress-arrows-alt"></i> Recadrer</button>
+      <button class="btn-tool" onclick="pertZoomIn()"><i class="fas fa-search-plus"></i> Zoom +</button>
+      <button class="btn-tool" onclick="pertZoomOut()"><i class="fas fa-search-minus"></i> Zoom −</button>
+      <button class="btn-tool" onclick="togglePhysics()" id="physics-btn"><i class="fas fa-atom"></i> Physique ON</button>
+    </div>
+    <div class="toolbar-right">
+      <!-- Légende -->
+      <div class="legend-bar">
+        <span class="legend-item"><span class="legend-dot ld-non_demarree"></span>Non démarrée</span>
+        <span class="legend-item"><span class="legend-dot ld-en_cours"></span>En cours</span>
+        <span class="legend-item"><span class="legend-dot ld-terminee"></span>Terminée</span>
+        <span class="legend-item"><span class="legend-dot ld-bloquee"></span>Bloquée</span>
+        <span class="legend-item"><span class="legend-dot ld-critical"></span>Critique</span>
+      </div>
+      <button class="btn-export-img" onclick="exportPertImage()">
+        <i class="fas fa-image"></i> Export PNG
+      </button>
+    </div>
+  </div>
+
+  <!-- Panneau chemin critique -->
+  <div class="critical-path-panel" id="critical-panel">
+    <h4><i class="fas fa-fire"></i> Chemin critique — Durée totale : <span id="critical-duration">—</span> jours</h4>
+    <div class="critical-path-nodes" id="critical-nodes"></div>
+  </div>
+
+  <!-- Zone PERT -->
+  <div class="pert-container-wrap">
+    <div id="pert-loading"><i class="fas fa-spinner"></i> Calcul CPM et rendu du réseau…</div>
+    <div id="pert-error"><i class="fas fa-exclamation-triangle"></i> <span id="pert-error-msg"></span></div>
+    <div id="pert-empty"><i class="fas fa-project-diagram" style="font-size:36px;color:#ddd;"></i><span>Aucune tâche dans ce calendrier.</span></div>
+    <div id="pert-network" style="display:none;"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<script>
+const PERT_DATA_URL = "{% url 'plan_action:pert_data' action.pk %}";
+let network = null;
+let physicsEnabled = false;
+
+// ── Palettes couleurs par statut ──────────────────────────────────────────────
+const STATUT_COLORS = {
+  non_demarree: { bg: '#ecf0f1', border: '#90a4ae', text: '#546e7a' },
+  en_cours:     { bg: '#fff8e1', border: '#f0a500', text: '#7d5700' },
+  terminee:     { bg: '#e8f5e9', border: '#43a047', text: '#1b5e20' },
+  bloquee:      { bg: '#fde8e8', border: '#e53935', text: '#7f0000' },
+};
+const CRIT_BORDER = '#c0392b';
+const CRIT_BG_TINT = '#fff0f0';
+
+// ── Construction des nœuds vis.js ─────────────────────────────────────────────
+function buildVisNodes(nodes) {
+  return nodes.map(n => {
+    const sc = STATUT_COLORS[n.statut] || STATUT_COLORS.non_demarree;
+    const cpm = n.cpm;
+    const isCrit = n.is_critical;
+
+    const nom20 = n.nom.length > 24 ? n.nom.substring(0, 24) + '…' : n.nom;
+
+    const label =
+      n.code + '\n' +
+      nom20 + '\n' +
+      'D: ' + n.duree + 'j  |  M: ' + cpm.marge + 'j\n' +
+      'ES:' + cpm.ES + '  EF:' + cpm.EF + '\n' +
+      'LS:' + cpm.LS + '  LF:' + cpm.LF;
+
+    const tooltipStyle = 'font-family:Inter,sans-serif;line-height:1.6;';
+    const critBadge = isCrit
+      ? '<div style="margin-top:8px;background:#e74c3c;color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;display:inline-block;">⚠ Chemin critique</div>'
+      : '';
+    const title =
+      '<div style="' + tooltipStyle + '">' +
+      '<div style="font-weight:700;font-size:13px;color:#f0a500;margin-bottom:6px;">' + n.code + ' — ' + n.nom + '</div>' +
+      '<div style="color:#ccc;font-size:11.5px;">' +
+      '📏 Durée : <b>' + n.duree + 'j</b><br>' +
+      '👤 ' + n.responsable + '<br>' +
+      '⚡ ' + n.statut_label + '<br>' +
+      '<hr style="border-color:#333;margin:6px 0;">' +
+      '<table style="font-size:12px;color:#ddd;width:100%;">' +
+      '<tr><td>ES :</td><td><b>' + cpm.ES + '</b></td><td>EF :</td><td><b>' + cpm.EF + '</b></td></tr>' +
+      '<tr><td>LS :</td><td><b>' + cpm.LS + '</b></td><td>LF :</td><td><b>' + cpm.LF + '</b></td></tr>' +
+      '<tr><td>Marge :</td><td colspan="3"><b>' + cpm.marge + 'j</b></td></tr>' +
+      '</table>' +
+      critBadge +
+      '</div></div>';
+
+    return {
+      id: n.id,
+      label: label,
+      title: title,
+      shape: 'box',
+      margin: { top: 8, bottom: 8, left: 12, right: 12 },
+      color: {
+        background: isCrit ? CRIT_BG_TINT : sc.bg,
+        border: isCrit ? CRIT_BORDER : sc.border,
+        highlight: { background: isCrit ? CRIT_BG_TINT : sc.bg, border: isCrit ? CRIT_BORDER : sc.border },
+        hover: { background: isCrit ? CRIT_BG_TINT : sc.bg, border: isCrit ? CRIT_BORDER : sc.border },
+      },
+      borderWidth: isCrit ? 3 : 1.5,
+      font: {
+        color: isCrit ? '#8b0000' : sc.text,
+        size: 11,
+        face: 'Inter, sans-serif',
+        align: 'center',
+      },
+      shadow: isCrit ? { enabled: true, color: 'rgba(192,57,43,0.25)', size: 8, x: 0, y: 2 } : false,
+    };
+  });
+}
+
+// ── Construction des arcs vis.js ──────────────────────────────────────────────
+function buildVisEdges(edges) {
+  return edges.map((e, i) => ({
+    id: i,
+    from: e.from,
+    to: e.to,
+    arrows: { to: { enabled: true, scaleFactor: 0.75, type: 'arrow' } },
+    color: e.is_critical
+      ? { color: '#e74c3c', highlight: '#c0392b', hover: '#c0392b', opacity: 1 }
+      : { color: '#b0bec5', highlight: '#90a4ae', hover: '#90a4ae', opacity: 0.9 },
+    width: e.is_critical ? 3 : 1.5,
+    smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 },
+    dashes: false,
+    shadow: e.is_critical ? { enabled: true, color: 'rgba(192,57,43,0.2)', size: 5, x: 0, y: 1 } : false,
+  }));
+}
+
+// ── Rendu vis.js Network ──────────────────────────────────────────────────────
+function renderPert(data) {
+  document.getElementById('pert-loading').style.display = 'none';
+
+  if (!data.nodes.length) {
+    document.getElementById('pert-empty').style.display = 'flex';
+    return;
+  }
+
+  document.getElementById('pert-network').style.display = 'block';
+
+  // KPI
+  document.getElementById('kpi-nb-taches').textContent    = data.nb_taches;
+  document.getElementById('kpi-nb-critiques').textContent = data.nb_critiques;
+  document.getElementById('kpi-duree-projet').textContent = data.project_duration;
+  document.getElementById('kpi-nb-arcs').textContent      = data.edges.length;
+  document.getElementById('kpi-strip').style.display      = 'grid';
+
+  // Panneau chemin critique
+  if (data.nb_critiques > 0) {
+    const critNodes = data.nodes.filter(n => n.is_critical);
+    document.getElementById('critical-duration').textContent = data.project_duration;
+    const container = document.getElementById('critical-nodes');
+    let html = '';
+    critNodes.forEach((n, idx) => {
+      if (idx > 0) html += '<span class="crit-arrow">→</span>';
+      html += `<span class="crit-node-badge"><i class="fas fa-fire"></i> ${n.code}</span>`;
+    });
+    container.innerHTML = html;
+    document.getElementById('critical-panel').style.display = 'block';
+  }
+
+  // Datasets vis.js
+  const visNodes = new vis.DataSet(buildVisNodes(data.nodes));
+  const visEdges = new vis.DataSet(buildVisEdges(data.edges));
+
+  const options = {
+    layout: {
+      hierarchical: {
+        enabled: true,
+        direction: 'LR',
+        sortMethod: 'directed',
+        levelSeparation: 210,
+        nodeSpacing: 120,
+        treeSpacing: 160,
+        blockShifting: true,
+        edgeMinimization: true,
+        parentCentralization: true,
+      },
+    },
+    physics: {
+      enabled: false,
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 150,
+      navigationButtons: false,
+      keyboard: { enabled: true, bindToWindow: false },
+      zoomView: true,
+      dragView: true,
+    },
+    nodes: {
+      widthConstraint: { minimum: 110, maximum: 180 },
+    },
+    edges: {
+      hoverWidth: 2.5,
+    },
+  };
+
+  network = new vis.Network(
+    document.getElementById('pert-network'),
+    { nodes: visNodes, edges: visEdges },
+    options,
+  );
+
+  // Adapter la hauteur au nombre de nœuds
+  const dynHeight = Math.max(620, data.nb_taches * 90);
+  document.getElementById('pert-network').style.height = dynHeight + 'px';
+  network.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+}
+
+// ── Contrôles ────────────────────────────────────────────────────────────────
+function pertFit() {
+  if (network) network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+}
+function pertZoomIn() {
+  if (network) { const s = network.getScale(); network.moveTo({ scale: s * 1.25 }); }
+}
+function pertZoomOut() {
+  if (network) { const s = network.getScale(); network.moveTo({ scale: s * 0.8 }); }
+}
+function togglePhysics() {
+  physicsEnabled = !physicsEnabled;
+  if (network) network.setOptions({ physics: { enabled: physicsEnabled } });
+  const btn = document.getElementById('physics-btn');
+  btn.innerHTML = physicsEnabled
+    ? '<i class="fas fa-atom"></i> Physique ON'
+    : '<i class="fas fa-atom"></i> Physique OFF';
+  btn.style.borderColor = physicsEnabled ? '#f0a500' : '';
+  btn.style.color       = physicsEnabled ? '#f0a500' : '';
+}
+
+// ── Export PNG ────────────────────────────────────────────────────────────────
+function exportPertImage() {
+  if (!network) return;
+  const canvas = document.querySelector('#pert-network canvas');
+  if (!canvas) return;
+  const link = document.createElement('a');
+  link.download = 'PERT_{{ plan.annee }}_{{ action.pk }}.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// ── Chargement initial ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  fetch(PERT_DATA_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById('pert-loading').style.display  = 'none';
+        document.getElementById('pert-error-msg').textContent  = data.error;
+        document.getElementById('pert-error').style.display    = 'flex';
+        return;
+      }
+      renderPert(data);
+    })
+    .catch(() => {
+      document.getElementById('pert-loading').innerHTML =
+        '<i class="fas fa-exclamation-circle" style="color:#e74c3c;"></i> Erreur de chargement des données.';
+    });
+});
+</script>
+{% endblock %}

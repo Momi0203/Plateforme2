@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Coefficients Montana — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.btn-add { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; background: #f0a500; color: #1a1a2e; transition: background .2s; }
+.btn-add:hover { background: #d4920a; }
+.table-card { background: #fff; border-radius: 12px; border: 1px solid #f0e8d8; overflow: hidden; }
+.table-card table { width: 100%; border-collapse: collapse; }
+.table-card th { background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; padding: 11px 14px; text-align: center; }
+.table-card th:first-child { text-align: left; }
+.table-card td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid #f5ece0; text-align: center; }
+.table-card td:first-child { text-align: left; }
+.table-card tr:last-child td { border-bottom: none; }
+.table-card tr:hover td { background: #fffbf5; }
+.coef-a { background: #fff3cd; color: #856404; font-weight: 700; border-radius: 5px; padding: 2px 7px; font-size: 12px; }
+.coef-b { background: #d1ecf1; color: #0c5560; font-weight: 700; border-radius: 5px; padding: 2px 7px; font-size: 12px; }
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-edit { background: #e8f4fd; color: #1a6fa8; } .btn-edit:hover { background: #d1eaf9; }
+.btn-del  { background: #fde8e8; color: #c0392b; } .btn-del:hover { background: #f9cfcf; }
+.empty-state { text-align: center; padding: 50px; color: #aaa; }
+.empty-state i { font-size: 36px; color: #ddd; display: block; margin-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> › Coefficients Montana
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-calculator"></i> Coefficients Montana</h1>
+    <a href="{% url 'creer_coefficient' %}" class="btn-add"><i class="fas fa-plus"></i> Nouveau</a>
+  </div>
+
+  <div class="table-card">
+    {% if coefficients %}
+    <table>
+      <thead>
+        <tr>
+          <th>Station pluviométrique</th>
+          <th>a T=10</th><th>b T=10</th>
+          <th>a T=20</th><th>b T=20</th>
+          <th>a T=50</th><th>b T=50</th>
+          <th>a T=100</th><th>b T=100</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in coefficients %}
+        <tr>
+          <td><b>{{ c.station.nom }}</b></td>
+          <td><span class="coef-a">{{ c.a10|default:"—" }}</span></td>
+          <td><span class="coef-b">{{ c.b10|default:"—" }}</span></td>
+          <td><span class="coef-a">{{ c.a20|default:"—" }}</span></td>
+          <td><span class="coef-b">{{ c.b20|default:"—" }}</span></td>
+          <td><span class="coef-a">{{ c.a50|default:"—" }}</span></td>
+          <td><span class="coef-b">{{ c.b50|default:"—" }}</span></td>
+          <td><span class="coef-a">{{ c.a100|default:"—" }}</span></td>
+          <td><span class="coef-b">{{ c.b100|default:"—" }}</span></td>
+          <td style="display:flex;gap:6px;">
+            <a href="{% url 'modifier_coefficient' c.pk %}" class="btn-xs btn-edit"><i class="fas fa-pencil-alt"></i></a>
+            <a href="{% url 'supprimer_coefficient' c.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <i class="fas fa-calculator"></i>
+      Aucun coefficient Montana enregistré.<br>
+      <a href="{% url 'creer_coefficient' %}" style="color:#f0a500;font-weight:600;text-decoration:none;">+ Créer le premier</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

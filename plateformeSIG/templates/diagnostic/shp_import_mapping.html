@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-hero { background: linear-gradient(135deg,#1a1a2e 0%,#232347 100%); padding: 24px 32px; }
+.form-hero h1 { font-size: 17px; font-weight: 700; color: #fff; margin: 0; }
+.form-hero .sub { font-size: 12.5px; color: rgba(255,255,255,.6); margin-top: 4px; }
+.form-body { max-width: 820px; margin: 32px auto; padding: 0 24px; }
+
+/* Wizard steps */
+.wizard-steps { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+.wizard-step { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; }
+.wizard-step.active  { background: #f0a500; color: #1a1a2e; }
+.wizard-step.done    { background: #e0f5e9; color: #1e8449; }
+.wizard-step.pending { background: #f3f3f3; color: #bbb; }
+.wizard-sep { flex: 1; height: 2px; background: #e0e0e0; margin: 0 6px; }
+
+/* Summary card */
+.summary-card { background: #fff; border-radius: 12px; padding: 16px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06); margin-bottom: 20px;
+    display: flex; flex-wrap: wrap; gap: 24px; border-left: 4px solid #f0a500; }
+.sum-item { display: flex; flex-direction: column; gap: 2px; }
+.sum-item .lbl { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .6px; }
+.sum-item .val { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.sum-item .val.count { color: #f0a500; font-size: 18px; }
+
+/* Mapping card */
+.map-card { background: #fff; border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08); overflow: hidden; }
+.map-card-header { padding: 16px 22px; background: #faf5ec; display: flex;
+    align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.map-card-header h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin: 0; }
+.btn-suggest { background: #eef5ff; color: #1d4f9e; border: 1.5px solid #c8dafe; border-radius: 8px;
+    padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 6px; }
+.btn-suggest:hover { background: #dde9fc; }
+
+.map-table { width: 100%; border-collapse: collapse; }
+.map-table thead { background: #f7f2eb; }
+.map-table th { padding: 10px 18px; font-size: 11.5px; font-weight: 600; color: #7a6c54;
+    text-transform: uppercase; letter-spacing: .6px; text-align: left;
+    border-bottom: 1px solid #f0e2c8; }
+.map-table td { padding: 10px 18px; border-top: 1px solid #f5eee2; vertical-align: middle; }
+.map-table tr:hover td { background: #fffbf4; }
+.col-shp code { background: #f3f3f3; border-radius: 4px; padding: 2px 7px; font-size: 12px;
+    color: #444; font-family: monospace; }
+.col-arrow { color: #ddd; font-size: 13px; text-align: center; width: 28px; }
+.map-select { width: 100%; padding: 7px 10px; border: 1.5px solid #e0d0c0; border-radius: 8px;
+    font-size: 12.5px; font-family: 'Inter', sans-serif; background: #fff; }
+.map-select:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.map-select.auto-filled { border-color: #4caf50; background: #f4fff6; }
+.badge-auto { display: inline-flex; align-items: center; gap: 4px; background: #e0f5e9;
+    color: #1a7035; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 600; }
+.badge-skip { display: inline-flex; align-items: center; gap: 4px; background: #f5f5f5;
+    color: #bbb; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 600; }
+
+/* Actions */
+.form-actions { padding: 18px 22px; background: #f9f3ea; display: flex;
+    gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn-submit { background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; padding: 11px 24px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px; }
+.btn-submit:hover { background: #d4920a; }
+.btn-back { background: #eee; color: #444; border: none; border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+    font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; }
+.btn-back:hover { background: #ddd; }
+.hint-skip { font-size: 11.5px; color: #999; margin-left: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1><i class="fas fa-exchange-alt" style="color:#f0a500;margin-right:10px;"></i>Correspondance des colonnes</h1>
+    <div class="sub">Associez chaque colonne du shapefile à un champ du modèle Django</div>
+</div>
+
+<div class="form-body">
+
+    <!-- Indicateur d'étapes -->
+    <div class="wizard-steps">
+        <div class="wizard-step done"><i class="fas fa-check"></i> Étape 1 — Upload</div>
+        <div class="wizard-sep"></div>
+        <div class="wizard-step active"><i class="fas fa-exchange-alt"></i> Étape 2 — Correspondance</div>
+    </div>
+
+    <!-- Récapitulatif de l'étape 1 -->
+    <div class="summary-card">
+        <div class="sum-item">
+            <span class="lbl">Type d'objet</span>
+            <span class="val">{{ type_label }}</span>
+        </div>
+        {% if perimetre_label %}
+        <div class="sum-item">
+            <span class="lbl">Périmètre</span>
+            <span class="val">{{ perimetre_label }}</span>
+        </div>
+        {% endif %}
+        <div class="sum-item">
+            <span class="lbl">Entités à importer</span>
+            <span class="val count">{{ feature_count }}</span>
+        </div>
+        <div class="sum-item">
+            <span class="lbl">Colonnes SHP</span>
+            <span class="val">{{ columns_data|length }}</span>
+        </div>
+    </div>
+
+    <!-- Table de mapping -->
+    <div class="map-card">
+        <div class="map-card-header">
+            <h2><i class="fas fa-table" style="color:#f0a500;margin-right:8px;"></i>Association des colonnes</h2>
+            <button type="button" class="btn-suggest" id="btn-suggest">
+                <i class="fas fa-magic"></i> Correspondance recommandée
+            </button>
+        </div>
+
+        <form method="post" id="mapping-form">
+            {% csrf_token %}
+
+            {% if columns_data %}
+            <table class="map-table">
+                <thead>
+                    <tr>
+                        <th>Colonne SHP</th>
+                        <th class="col-arrow"></th>
+                        <th>Champ modèle</th>
+                        <th style="width:110px;text-align:center;">Auto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in columns_data %}
+                <tr>
+                    <td class="col-shp"><code>{{ item.col }}</code></td>
+                    <td class="col-arrow"><i class="fas fa-arrow-right"></i></td>
+                    <td>
+                        <select name="map_{{ item.col }}"
+                                id="sel_{{ item.col }}"
+                                class="map-select{% if item.auto_field %} auto-filled{% endif %}"
+                                data-auto="{{ item.auto_field }}">
+                            <option value="">— ignorer —</option>
+                            {% for field in available_fields %}
+                            <option value="{{ field }}"
+                                {% if item.auto_field == field %}selected{% endif %}>
+                                {{ field }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="text-align:center;">
+                        {% if item.auto_field %}
+                            <span class="badge-auto"><i class="fas fa-check"></i> auto</span>
+                        {% else %}
+                            <span class="badge-skip">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding:40px 24px;text-align:center;color:#999;font-size:13px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:24px;color:#f0a500;display:block;margin-bottom:10px;"></i>
+                Aucune colonne attributaire détectée dans ce shapefile.
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-file-import"></i>
+                    Importer {{ feature_count }} entité{{ feature_count|pluralize }}
+                </button>
+                <a href="{% url 'diagnostic:shp_import_unified' %}" class="btn-back">
+                    <i class="fas fa-arrow-left"></i> Retour — Étape 1
+                </a>
+                <span class="hint-skip">Les colonnes sans correspondance seront ignorées.</span>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const AUTO = {{ auto_mapping_json|safe }};
+
+    document.getElementById('btn-suggest').addEventListener('click', function () {
+        document.querySelectorAll('.map-select').forEach(function (sel) {
+            const col = sel.dataset.auto;
+            if (col) {
+                sel.value = col;
+                sel.classList.add('auto-filled');
+            }
+        });
+    });
+
+    document.querySelectorAll('.map-select').forEach(function (sel) {
+        sel.addEventListener('change', function () {
+            this.classList.toggle('auto-filled', this.value !== '');
+        });
+    });
+})();
+</script>
+{% endblock %}

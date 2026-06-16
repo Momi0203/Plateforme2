@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Comparaison inter-plans — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 9px; }
+.page-header h1 i { color: #f0a500; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-dark  { background: #1a1a2e; color: #fff; }
+.btn-dark:hover  { background: #2a2a4e; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+
+/* ── Sélecteur de plans ── */
+.selector-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #f0e8d8;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+}
+.selector-card h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.selector-card h2 i { color: #f0a500; }
+.plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.plan-check { display: flex; align-items: center; gap: 9px; background: #fdf8f0; border: 1.5px solid #f0e8d8; border-radius: 9px; padding: 10px 13px; cursor: pointer; transition: border-color .2s; }
+.plan-check:has(input:checked) { border-color: #f0a500; background: #fff8e1; }
+.plan-check input { accent-color: #f0a500; width: 15px; height: 15px; }
+.plan-check label { font-size: 13px; font-weight: 600; color: #1a1a2e; cursor: pointer; }
+.plan-check span { font-size: 11px; color: #888; display: block; }
+
+/* ── Zone graphique ── */
+.chart-zone {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #f0e8d8;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+}
+.chart-zone h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.chart-zone h2 i { color: #f0a500; }
+.chart-zone p { font-size: 12px; color: #888; margin-bottom: 18px; }
+.chart-wrap { position: relative; height: 360px; }
+
+/* ── Tableau de synthèse ── */
+.comp-table-wrap { overflow-x: auto; border-radius: 12px; border: 1.5px solid #f0e8d8; margin-top: 24px; }
+table.comp { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.comp th { background: #1a1a2e; color: #fff; padding: 11px 14px; text-align: center; font-size: 12px; font-weight: 600; }
+table.comp td { padding: 10px 14px; border-bottom: 1px solid #f0e8d8; text-align: right; }
+table.comp td.td-plan { text-align: left; font-weight: 600; color: #1a1a2e; background: #fdf8f0; }
+table.comp tr:last-child td { border-bottom: none; }
+table.comp .taux-ok   { color: #27ae60; font-weight: 700; }
+table.comp .taux-mid  { color: #f0a500; font-weight: 700; }
+table.comp .taux-low  { color: #e74c3c; font-weight: 700; }
+
+.empty-state { text-align: center; padding: 48px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+
+.legend-bar { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #555; }
+.legend-swatch { width: 18px; height: 12px; border-radius: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    Comparaison inter-plans
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-balance-scale"></i> Comparaison inter-plans PMH</h1>
+    <a href="{% url 'plan_action:plan_list' %}" class="btn-sm btn-dark">
+      <i class="fas fa-arrow-left"></i> Retour aux plans
+    </a>
+  </div>
+
+  <!-- Sélecteur de plans -->
+  <div class="selector-card">
+    <h2><i class="fas fa-filter"></i> Sélectionner les plans à comparer</h2>
+    <form method="get" action="">
+      <div class="plans-grid">
+        {% for p in all_plans %}
+        <label class="plan-check">
+          <input type="checkbox" name="plans" value="{{ p.pk }}"
+                 {% if p.pk in selected_ids %}checked{% endif %}>
+          <div>
+            <label for="" style="pointer-events:none;">{{ p.annee }} — {{ p.titre|truncatechars:28 }}</label>
+            <span>{{ p.budget_total|floatformat:0 }} MAD · {{ p.get_statut_display }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn-sm btn-accent">
+        <i class="fas fa-chart-bar"></i> Afficher la comparaison
+      </button>
+    </form>
+  </div>
+
+  {% if comp_data %}
+
+  <!-- Graphique G3 — Bar groupée prévu / réalisé / en cours -->
+  <div class="chart-zone">
+    <h2><i class="fas fa-chart-bar"></i> Comparaison budget prévu · réalisé · en cours</h2>
+    <p>Axe Y : budget en MAD — une colonne par plan sélectionné, trois séries.</p>
+    <div class="legend-bar">
+      <span class="legend-item"><span class="legend-swatch" style="background:#1a1a2e;"></span> Budget prévu</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#27ae60;"></span> Réalisé</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#f0a500;"></span> En cours</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartComparaison"></canvas>
+    </div>
+  </div>
+
+  <!-- Tableau récapitulatif -->
+  <div class="chart-zone" style="padding-bottom:4px;">
+    <h2><i class="fas fa-table"></i> Tableau récapitulatif</h2>
+    <div class="comp-table-wrap">
+      <table class="comp">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Plan</th>
+            <th>Budget prévu (MAD)</th>
+            <th>Réalisé (MAD)</th>
+            <th>En cours (MAD)</th>
+            <th>Taux réalisation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in comp_data %}
+          <tr>
+            <td class="td-plan">{{ row.annee }} — {{ row.titre|truncatechars:32 }}</td>
+            <td>{{ row.prevu|floatformat:0 }}</td>
+            <td>{{ row.realise|floatformat:0 }}</td>
+            <td>{{ row.en_cours|floatformat:0 }}</td>
+            <td class="{% if row.taux >= 80 %}taux-ok{% elif row.taux >= 40 %}taux-mid{% else %}taux-low{% endif %}">
+              {{ row.taux }} %
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% elif selected_ids %}
+  <div class="empty-state">
+    <i class="fas fa-exclamation-circle"></i>
+    Aucune donnée budgétaire trouvée pour les plans sélectionnés.
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-balance-scale"></i>
+    Sélectionnez au moins un plan ci-dessus pour afficher la comparaison.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if comp_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const COMP_DATA = {{ comp_data|safe }};
+
+const labels  = COMP_DATA.map(r => r.annee);
+const prevu   = COMP_DATA.map(r => r.prevu);
+const realise = COMP_DATA.map(r => r.realise);
+const enCours = COMP_DATA.map(r => r.en_cours);
+
+new Chart(document.getElementById('chartComparaison'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Budget prévu',
+        data: prevu,
+        backgroundColor: '#1a1a2e',
+        borderRadius: 5,
+      },
+      {
+        label: 'Réalisé',
+        data: realise,
+        backgroundColor: '#27ae60',
+        borderRadius: 5,
+      },
+      {
+        label: 'En cours',
+        data: enCours,
+        backgroundColor: '#f0a500',
+        borderRadius: 5,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { font: { size: 12, family: 'Inter' }, boxWidth: 14, padding: 12 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-MA')} MAD`
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 12, family: 'Inter' } } },
+      y: {
+        grid: { color: '#f0e8d8' },
+        ticks: {
+          font: { size: 11, family: 'Inter' },
+          callback: v => (v / 1_000_000).toLocaleString('fr-MA') + ' M'
+        }
+      }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

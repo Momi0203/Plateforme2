@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Suivi — {{ action }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.dash-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.dash-header-left h1 { font-size: 19px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.dash-header-left h1 i { color: #f0a500; }
+.dash-meta { font-size: 13px; color: #666; margin-top: 6px; }
+.dash-meta b { color: #1a1a2e; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-outline { background: #fff; color: #1a1a2e; border: 1.5px solid #e0d0c0; }
+.btn-outline:hover { background: #fdf8f0; }
+
+/* KPI strip */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+
+/* Courbe S */
+.courbe-card { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 20px 22px; margin-bottom: 22px; }
+.courbe-card h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.courbe-card h3 i { color: #f0a500; }
+.courbe-legend { display: flex; gap: 18px; margin-bottom: 12px; flex-wrap: wrap; }
+.courbe-legend-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #444; }
+.courbe-legend-line { width: 26px; height: 3px; border-radius: 2px; }
+.retard-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 10px; }
+.retard-chip.ok    { background: #d1f7e0; color: #156b3c; }
+.retard-chip.warn  { background: #fff3cd; color: #7d5700; }
+.retard-chip.alert { background: #fde8e8; color: #c0392b; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 14px 16px; }
+.kpi-card .kpi-icon { font-size: 18px; color: #f0a500; margin-bottom: 6px; }
+.kpi-card .kpi-val { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+.kpi-card .kpi-lbl { font-size: 11px; color: #999; margin-top: 2px; }
+
+/* Table */
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+.table-wrap { overflow-x: auto; border-radius: 12px; border: 1.5px solid #f0e8d8; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #1a1a2e; color: #fff; padding: 10px 14px; text-align: left; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+td { padding: 11px 14px; border-bottom: 1px solid #f0e8d8; vertical-align: middle; }
+tr:hover td { background: #fdf8f0; }
+
+/* Barres avancement */
+.prog-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
+.prog-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; }
+.prog-bar-bg { background: #f0e8d8; border-radius: 6px; height: 8px; overflow: hidden; }
+.prog-bar-reel { height: 100%; border-radius: 6px; transition: width .5s; }
+.prog-bar-theo { height: 4px; border-radius: 3px; background: #b0bec5; margin-top: 2px; }
+
+/* Badges */
+.badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 12px; white-space: nowrap; }
+.badge-conforme { background: #d1f7e0; color: #156b3c; }
+.badge-retard    { background: #fff3cd; color: #856404; }
+.badge-bloque    { background: #fde8e8; color: #c0392b; }
+.badge-termine   { background: #d1f7e0; color: #0d4c26; }
+
+.badge-statut-non_demarree { background: #ecf0f1; color: #546e7a; }
+.badge-statut-en_cours     { background: #fff3cd; color: #7d5700; }
+.badge-statut-terminee     { background: #d1f7e0; color: #156b3c; }
+.badge-statut-bloquee      { background: #fde8e8; color: #c0392b; }
+
+/* Alerte retard */
+.badge-retard-alerte { background: #e74c3c; color: #fff; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+/* Boutons action */
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-rapport   { background: #f0a500; color: #1a1a2e; }
+.btn-rapport:hover  { background: #d4920a; }
+.btn-historique { background: #e8f4fd; color: #1a6fa8; }
+.btn-historique:hover { background: #d1eaf9; }
+.btn-disabled { background: #f0f0f0; color: #aaa; cursor: not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    Suivi — {{ action.get_type_action_display }}
+  </div>
+
+  <div class="dash-header">
+    <div class="dash-header-left">
+      <h1><i class="fas fa-chart-line"></i> Tableau de bord suivi</h1>
+      <div class="dash-meta">
+        Action : <b>{{ action.get_type_action_display }}</b> — {{ action.commune.nom_fr }}
+        &nbsp;·&nbsp; Plan PMH <b>{{ plan.annee }}</b>
+        &nbsp;·&nbsp; Calendrier :
+        <b>{{ calendrier.date_debut_prevue|date:"d/m/Y" }} → {{ calendrier.date_fin_prevue|date:"d/m/Y" }}</b>
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'plan_action:calendrier_gantt' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-chart-gantt"></i> Gantt
+      </a>
+      <a href="{% url 'plan_action:calendrier_pert' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-project-diagram"></i> PERT
+      </a>
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Retour
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
+      <div class="kpi-val">{{ nb_total }}</div>
+      <div class="kpi-lbl">Tâches totales</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+      <div class="kpi-val" style="color:{% if av_moyen >= 80 %}#27ae60{% elif av_moyen >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">
+        {{ av_moyen }}%
+      </div>
+      <div class="kpi-lbl">Avancement moyen</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-check-circle" style="color:#27ae60;"></i></div>
+      <div class="kpi-val">{{ nb_terminees }}</div>
+      <div class="kpi-lbl">Terminées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i></div>
+      <div class="kpi-val" style="color:#e74c3c;">{{ nb_retard }}</div>
+      <div class="kpi-lbl">En retard</div>
+    </div>
+  </div>
+
+  <!-- Courbe S — F-A3-05 -->
+  {% if nb_total > 0 %}
+  <div class="courbe-card">
+    <h3>
+      <i class="fas fa-chart-area"></i>
+      Courbe S — Avancement prévu vs réel
+      <span id="retard-chip" class="retard-chip" style="margin-left:8px;display:none;"></span>
+    </h3>
+    <div class="courbe-legend">
+      <div class="courbe-legend-item">
+        <div class="courbe-legend-line" style="background:#1a6fa8;border-top:2px dashed #1a6fa8;"></div>
+        Prévu (théorique)
+      </div>
+      <div class="courbe-legend-item">
+        <div class="courbe-legend-line" style="background:#f0a500;"></div>
+        Réel (rapports)
+      </div>
+      <div class="courbe-legend-item">
+        <div class="courbe-legend-line" style="background:#e74c3c;border-top:2px dashed #e74c3c;"></div>
+        Aujourd'hui
+      </div>
+    </div>
+    <div style="position:relative;height:260px;">
+      <canvas id="courbe-s-chart"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Table tâches -->
+  <div class="section-title">
+    <i class="fas fa-list-check"></i> Tâches du calendrier
+    <span style="font-size:12px;font-weight:400;color:#aaa;">({{ today|date:"d/m/Y" }})</span>
+  </div>
+
+  {% if taches_data %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Nom de la tâche</th>
+          <th>Responsable</th>
+          <th>Dates prévues</th>
+          <th style="min-width:180px;">Avancement réel / théorique</th>
+          <th>État</th>
+          <th>Statut</th>
+          <th>Rapports</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for td in taches_data %}
+        <tr>
+          <td style="font-weight:700;color:#f0a500;">{{ td.tache.code_tache }}</td>
+          <td>
+            <div style="font-weight:600;color:#1a1a2e;">{{ td.tache.nom_tache }}</div>
+            {% if td.en_retard %}
+            <span class="badge-retard-alerte"><i class="fas fa-exclamation-triangle"></i> En retard</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;">{{ td.tache.responsable.get_full_name|default:td.tache.responsable.username }}</td>
+          <td style="font-size:12px;white-space:nowrap;">
+            {{ td.tache.date_debut_prevue|date:"d/m/Y" }}<br>
+            <span style="color:#aaa;">→</span> {{ td.tache.date_fin_prevue|date:"d/m/Y" }}
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-label">
+                <span>Réel : <b>{{ td.av_reel }}%</b></span>
+                <span style="color:#b0bec5;">Théo : {{ td.av_theo }}%</span>
+              </div>
+              <div class="prog-bar-bg">
+                <div class="prog-bar-reel" style="width:{{ td.av_reel }}%;background:{% if td.en_retard %}#e74c3c{% elif td.av_reel >= 100 %}#27ae60{% else %}#f0a500{% endif %};"></div>
+              </div>
+              <div class="prog-bar-bg" style="background:transparent;">
+                <div class="prog-bar-theo" style="width:{{ td.av_theo }}%;"></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if td.latest %}
+            <span class="badge badge-{{ td.latest.etat_bloc }}">{{ td.latest.get_etat_bloc_display }}</span>
+            {% else %}
+            <span style="color:#ccc;font-size:12px;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge badge-statut-{{ td.tache.statut_tache }}">{{ td.tache.get_statut_tache_display }}</span>
+          </td>
+          <td style="text-align:center;font-weight:700;color:{% if td.nb_suivis > 0 %}#1a1a2e{% else %}#ccc{% endif %};">
+            {{ td.nb_suivis }}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              {% if td.is_responsable %}
+              <a href="{% url 'plan_action:suivi_form' td.tache.pk %}" class="btn-xs btn-rapport" title="Saisir un rapport">
+                <i class="fas fa-plus"></i> Rapport
+              </a>
+              {% endif %}
+              <a href="{% url 'plan_action:suivi_historique' td.tache.pk %}" class="btn-xs btn-historique" title="Historique">
+                <i class="fas fa-history"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:#aaa;">
+    <i class="fas fa-list-check" style="font-size:36px;color:#ddd;display:block;margin-bottom:12px;"></i>
+    Aucune tâche dans ce calendrier.
+    <br><a href="{% url 'plan_action:calendrier_form' action.pk %}" style="color:#f0a500;text-decoration:none;font-weight:600;">Ajouter des tâches</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if nb_total > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const COURBE_URL = "{% url 'plan_action:courbe_s_data' action.pk %}";
+
+// Plugin inline pour la ligne « aujourd'hui »
+const todayLinePlugin = {
+  id: 'todayLine',
+  afterDraw(chart, args, opts) {
+    const todayLabel = opts.todayLabel;
+    if (!todayLabel) return;
+    const labels = chart.data.labels;
+    const idx = labels.indexOf(todayLabel);
+    if (idx < 0) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta.data[idx]) return;
+    const x = meta.data[idx].x;
+    const { top, bottom } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.stroke();
+    // Label « Aujourd'hui »
+    ctx.fillStyle = '#e74c3c';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("Auj.", x, top - 4);
+    ctx.restore();
+  },
+};
+
+fetch(COURBE_URL, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.labels.length) return;
+
+    // Calculer le retard courant
+    const todayIdx = data.labels.indexOf(data.today);
+    let chip = null;
+    if (todayIdx >= 0) {
+      const planned = data.planned[todayIdx];
+      const actual  = data.actual[todayIdx];
+      if (actual !== null && planned !== null) {
+        const diff = actual - planned;
+        const chipEl = document.getElementById('retard-chip');
+        chipEl.style.display = 'inline-flex';
+        if (diff >= 0) {
+          chipEl.className = 'retard-chip ok';
+          chipEl.innerHTML = `<i class="fas fa-check"></i> En avance (+${diff.toFixed(1)}%)`;
+        } else if (diff >= -10) {
+          chipEl.className = 'retard-chip warn';
+          chipEl.innerHTML = `<i class="fas fa-clock"></i> Léger retard (${diff.toFixed(1)}%)`;
+        } else {
+          chipEl.className = 'retard-chip alert';
+          chipEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Retard significatif (${diff.toFixed(1)}%)`;
+        }
+      }
+    }
+
+    const ctx = document.getElementById('courbe-s-chart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          {
+            label: 'Prévu',
+            data: data.planned,
+            borderColor: '#1a6fa8',
+            borderDash: [6, 3],
+            borderWidth: 2,
+            fill: false,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          },
+          {
+            label: 'Réel',
+            data: data.actual,
+            borderColor: '#f0a500',
+            backgroundColor: 'rgba(240,165,0,0.08)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            spanGaps: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 35,
+              maxTicksLimit: 10,
+              font: { size: 11, family: 'Inter, sans-serif' },
+              color: '#888',
+            },
+            grid: { color: '#f0e8d8' },
+          },
+          y: {
+            min: 0, max: 100,
+            ticks: {
+              stepSize: 20,
+              callback: v => v + '%',
+              font: { size: 11, family: 'Inter, sans-serif' },
+              color: '#888',
+            },
+            grid: { color: '#f0e8d8' },
+            title: { display: true, text: 'Avancement (%)', color: '#aaa', font: { size: 11 } },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,  // légende gérée manuellement
+          },
+          tooltip: {
+            backgroundColor: '#1a1a2e',
+            titleFont: { size: 12, family: 'Inter, sans-serif' },
+            bodyFont: { size: 12, family: 'Inter, sans-serif' },
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label} : ${ctx.raw !== null ? ctx.raw + '%' : '—'}`,
+            },
+          },
+          todayLine: { todayLabel: data.today },
+        },
+      },
+      plugins: [todayLinePlugin],
+    });
+  })
+  .catch(() => {
+    // Silencieux si l'endpoint échoue (pas de tâches, etc.)
+  });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Calendrier — {{ action }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* ── Carte en-tête ── */
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 24px; margin-bottom: 24px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+.non-field-error { background: #fde8e8; border-left: 3px solid #c0392b; padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #c0392b; margin-bottom: 14px; }
+
+/* ── Tâches formset ── */
+.taches-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.taches-section-header h3 { font-size: 15px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.taches-section-header h3 i { color: #f0a500; }
+
+.tache-form { background: #fff; border-radius: 12px; border: 1.5px solid #e8e0d0; padding: 18px; margin-bottom: 14px; position: relative; transition: border-color .2s; }
+.tache-form:hover { border-color: #f0a500; }
+.tache-form.to-delete { opacity: .45; border-color: #f9a8a8; background: #fff8f8; }
+
+.tache-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.tache-num { font-size: 12px; font-weight: 700; color: #f0a500; text-transform: uppercase; letter-spacing: .8px; }
+.btn-del-tache { background: #fde8e8; color: #c0392b; border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 4px; }
+.btn-del-tache:hover { background: #f9cfcf; }
+
+/* Antérieures */
+.anterieures-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e0d0c0; }
+.anterieures-label { font-size: 11.5px; font-weight: 700; color: #888; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.anterieures-label i { color: #f0a500; }
+.anterieures-container { display: flex; flex-wrap: wrap; gap: 8px; }
+.ant-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #444; background: #fdf8f0; border: 1.5px solid #e8e0d0; border-radius: 20px; padding: 4px 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+.ant-label:hover { border-color: #f0a500; background: #fff3d0; }
+.ant-label input[type=checkbox] { width: 14px; height: 14px; accent-color: #f0a500; cursor: pointer; }
+.ant-label.checked { border-color: #f0a500; background: #fff3d0; font-weight: 600; }
+
+/* Bouton ajout */
+.btn-add-tache { display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-add-tache:hover { background: #2a2a4e; }
+
+/* Boutons submit */
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+.btn-submit { padding: 11px 28px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn-cancel:hover { background: #ead8c5; }
+
+/* Badge validé */
+.badge-valide { display: inline-flex; align-items: center; gap: 6px; background: #d1f7e0; color: #156b3c; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
+
+.section-divider { font-size: 11px; font-weight: 700; color: #f0a500; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1.5px solid #f0e8d8; padding-bottom: 6px; margin: 18px 0 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    Calendrier — {{ action.get_type_action_display }}
+  </div>
+
+  {% if calendrier and calendrier.statut_calendrier == 'valide' %}
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+    <span class="badge-valide"><i class="fas fa-lock"></i> Calendrier validé</span>
+    <span style="font-size:12.5px;color:#888;">Validé par <b>{{ calendrier.valide_par.get_full_name }}</b> le {{ calendrier.date_validation|date:"d/m/Y" }}</span>
+  </div>
+  {% endif %}
+
+  <form method="post" id="cal-form" novalidate>
+    {% csrf_token %}
+    {{ formset.management_form }}
+
+    <!-- ── En-tête du calendrier ── -->
+    <div class="form-card">
+      <h2><i class="fas fa-calendar-alt"></i>
+        {% if is_new %}Créer un calendrier d'intervention{% else %}Modifier le calendrier{% endif %}
+      </h2>
+      <div style="font-size:12.5px;color:#888;margin-bottom:16px;">
+        Action : <b>{{ action.get_type_action_display }}</b> — {{ action.commune.nom_fr }}
+        &nbsp;|&nbsp; Plan PMH <b>{{ plan.annee }}</b>
+      </div>
+
+      {% if cal_form.non_field_errors %}
+      <div class="non-field-error">
+        {% for e in cal_form.non_field_errors %}<div><i class="fas fa-exclamation-circle"></i> {{ e }}</div>{% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ cal_form.date_debut_prevue.id_for_label }}">{{ cal_form.date_debut_prevue.label }} *</label>
+          {{ cal_form.date_debut_prevue }}{{ cal_form.date_debut_prevue.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ cal_form.date_fin_prevue.id_for_label }}">{{ cal_form.date_fin_prevue.label }} *</label>
+          {{ cal_form.date_fin_prevue }}{{ cal_form.date_fin_prevue.errors }}
+        </div>
+      </div>
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ cal_form.mode_realisation.id_for_label }}">{{ cal_form.mode_realisation.label }} *</label>
+          {{ cal_form.mode_realisation }}{{ cal_form.mode_realisation.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ cal_form.chef_projet.id_for_label }}">{{ cal_form.chef_projet.label }} *</label>
+          {{ cal_form.chef_projet }}{{ cal_form.chef_projet.errors }}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tâches ── -->
+    <div class="form-card">
+      <div class="taches-section-header">
+        <h3><i class="fas fa-list-check"></i> Tâches d'intervention</h3>
+        <button type="button" class="btn-add-tache" onclick="addTacheForm()">
+          <i class="fas fa-plus"></i> Ajouter une tâche
+        </button>
+      </div>
+
+      <div id="taches-container">
+        {% for form in formset %}
+        <div class="tache-form{% if form.instance.pk %} existing{% endif %}" data-idx="{{ forloop.counter0 }}">
+          {{ form.id }}
+          <input type="hidden" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}" value="">
+
+          <div class="tache-header">
+            <span class="tache-num"><i class="fas fa-grip-lines"></i> Tâche {{ forloop.counter }}</span>
+            <button type="button" class="btn-del-tache" onclick="deleteTacheForm({{ forloop.counter0 }})">
+              <i class="fas fa-trash"></i> Supprimer
+            </button>
+          </div>
+
+          {% if form.errors %}
+          <div class="non-field-error" style="margin-bottom:10px;">
+            {% for field_errors in form.errors.values %}{% for e in field_errors %}{{ e }} {% endfor %}{% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="row3">
+            <div class="form-group">
+              <label>Code tâche *</label>
+              {{ form.code_tache }}{{ form.code_tache.errors }}
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+              <label>Nom de la tâche *</label>
+              {{ form.nom_tache }}{{ form.nom_tache.errors }}
+            </div>
+          </div>
+
+          <div class="row3">
+            <div class="form-group">
+              <label>Date début *</label>
+              {{ form.date_debut_prevue }}{{ form.date_debut_prevue.errors }}
+            </div>
+            <div class="form-group">
+              <label>Date fin *</label>
+              {{ form.date_fin_prevue }}{{ form.date_fin_prevue.errors }}
+            </div>
+            <div class="form-group">
+              <label>Durée (jours) *</label>
+              {{ form.duree_prevue }}{{ form.duree_prevue.errors }}
+            </div>
+          </div>
+
+          <div class="row3">
+            <div class="form-group">
+              <label>Responsable *</label>
+              {{ form.responsable }}{{ form.responsable.errors }}
+            </div>
+            <div class="form-group">
+              <label>Type de suivi</label>
+              {{ form.type_suivi }}{{ form.type_suivi.errors }}
+            </div>
+            <div class="form-group">
+              <label>Statut</label>
+              {{ form.statut_tache }}{{ form.statut_tache.errors }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            {{ form.description }}{{ form.description.errors }}
+          </div>
+
+          <!-- Antérieures -->
+          <div class="anterieures-section">
+            <div class="anterieures-label"><i class="fas fa-project-diagram"></i> Dépendances (tâches antérieures — Finish-to-Start)</div>
+            <div class="anterieures-container" id="anterieures-container-{{ forloop.counter0 }}">
+              <span style="color:#aaa;font-size:11.5px;font-style:italic;">Chargement…</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Template vide pour JS (cloné par addTacheForm) -->
+      <div id="empty-form-template" style="display:none;">
+        <div class="tache-form" data-idx="__prefix__">
+          {{ formset.empty_form.id }}
+          <input type="hidden" name="form-__prefix__-DELETE" id="id_form-__prefix__-DELETE" value="">
+
+          <div class="tache-header">
+            <span class="tache-num"><i class="fas fa-grip-lines"></i> Nouvelle tâche</span>
+            <button type="button" class="btn-del-tache" onclick="deleteTacheForm(__prefix__)">
+              <i class="fas fa-trash"></i> Supprimer
+            </button>
+          </div>
+
+          <div class="row3">
+            <div class="form-group">
+              <label>Code tâche *</label>
+              {{ formset.empty_form.code_tache }}{{ formset.empty_form.code_tache.errors }}
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+              <label>Nom de la tâche *</label>
+              {{ formset.empty_form.nom_tache }}{{ formset.empty_form.nom_tache.errors }}
+            </div>
+          </div>
+          <div class="row3">
+            <div class="form-group">
+              <label>Date début *</label>
+              {{ formset.empty_form.date_debut_prevue }}{{ formset.empty_form.date_debut_prevue.errors }}
+            </div>
+            <div class="form-group">
+              <label>Date fin *</label>
+              {{ formset.empty_form.date_fin_prevue }}{{ formset.empty_form.date_fin_prevue.errors }}
+            </div>
+            <div class="form-group">
+              <label>Durée (jours) *</label>
+              {{ formset.empty_form.duree_prevue }}{{ formset.empty_form.duree_prevue.errors }}
+            </div>
+          </div>
+          <div class="row3">
+            <div class="form-group">
+              <label>Responsable *</label>
+              {{ formset.empty_form.responsable }}{{ formset.empty_form.responsable.errors }}
+            </div>
+            <div class="form-group">
+              <label>Type de suivi</label>
+              {{ formset.empty_form.type_suivi }}{{ formset.empty_form.type_suivi.errors }}
+            </div>
+            <div class="form-group">
+              <label>Statut</label>
+              {{ formset.empty_form.statut_tache }}{{ formset.empty_form.statut_tache.errors }}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            {{ formset.empty_form.description }}{{ formset.empty_form.description.errors }}
+          </div>
+          <div class="anterieures-section">
+            <div class="anterieures-label"><i class="fas fa-project-diagram"></i> Dépendances (tâches antérieures)</div>
+            <div class="anterieures-container" id="anterieures-container-__prefix__"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <button type="button" class="btn-add-tache" onclick="addTacheForm()">
+          <i class="fas fa-plus"></i> Ajouter une tâche
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Boutons submit ── -->
+    <div class="form-actions">
+      {% if calendrier and user.is_superuser and calendrier.statut_calendrier != 'valide' %}
+      <button type="button" onclick="validerCalendrier()" style="padding:11px 20px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-check-double"></i> Valider le calendrier
+      </button>
+      {% endif %}
+      {% if calendrier %}
+      <a href="{% url 'plan_action:calendrier_gantt' action.pk %}" style="padding:11px 20px;background:#7b2fbe;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-chart-gantt"></i> Gantt
+      </a>
+      <a href="{% url 'plan_action:calendrier_pert' action.pk %}" style="padding:11px 20px;background:#1a5fa8;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-project-diagram"></i> PERT
+      </a>
+      {% endif %}
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-cancel">
+        <i class="fas fa-times"></i> Annuler
+      </a>
+      <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+    </div>
+  </form>
+
+  <!-- Formulaire de validation (POST séparé) -->
+  {% if calendrier and user.is_superuser and calendrier.statut_calendrier != 'valide' %}
+  <form id="valider-form" method="post" action="{% url 'plan_action:valider_calendrier' action.pk %}" style="display:none;">
+    {% csrf_token %}
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ANTERIEURES_INIT = {{ anterieures_init_json|safe }};
+let formCount = {{ formset.total_form_count }};
+
+// ── Récupérer les infos de toutes les tâches actives ──────────────────────────
+function getActiveForms() {
+  const result = [];
+  document.querySelectorAll('#taches-container .tache-form').forEach(el => {
+    const idx = parseInt(el.dataset.idx);
+    const delInput = document.getElementById(`id_form-${idx}-DELETE`);
+    if (delInput && delInput.value === 'on') return;
+    if (el.style.display === 'none') return;
+    const codeEl = document.querySelector(`[name="form-${idx}-code_tache"]`);
+    const nomEl  = document.querySelector(`[name="form-${idx}-nom_tache"]`);
+    result.push({
+      idx,
+      code: codeEl ? codeEl.value.trim() || `T${idx+1}` : `T${idx+1}`,
+      nom:  nomEl  ? nomEl.value.trim()  : '',
+    });
+  });
+  return result;
+}
+
+// ── Lire les antérieures actuellement cochées pour un indice ─────────────────
+function getCurrentAnterieures(idx) {
+  return Array.from(document.querySelectorAll(`input[name="anterieures-${idx}"]:checked`))
+    .map(cb => parseInt(cb.value));
+}
+
+// ── Reconstruire les checkboxes antérieures pour toutes les tâches ────────────
+function updateAllAnterieures() {
+  const active = getActiveForms();
+  active.forEach(({idx}) => {
+    const container = document.getElementById(`anterieures-container-${idx}`);
+    if (!container) return;
+    const checked = getCurrentAnterieures(idx);
+    const others = active.filter(f => f.idx !== idx);
+    if (others.length === 0) {
+      container.innerHTML = '<span style="color:#aaa;font-size:11.5px;font-style:italic;">Aucune autre tâche — ajoutez-en d\'autres d\'abord.</span>';
+      return;
+    }
+    container.innerHTML = others.map(f => {
+      const isChecked = checked.includes(f.idx);
+      return `<label class="ant-label${isChecked ? ' checked' : ''}">
+        <input type="checkbox" name="anterieures-${idx}" value="${f.idx}" ${isChecked ? 'checked' : ''} onchange="this.closest('.ant-label').classList.toggle('checked',this.checked)">
+        <b>${f.code}</b>${f.nom ? ' — ' + f.nom.substring(0, 35) : ''}
+      </label>`;
+    }).join('');
+  });
+}
+
+// ── Ajouter une tâche ─────────────────────────────────────────────────────────
+function addTacheForm() {
+  const template = document.getElementById('empty-form-template').innerHTML;
+  const newHtml  = template.replace(/__prefix__/g, formCount);
+  const wrapper  = document.createElement('div');
+  wrapper.innerHTML = newHtml;
+  document.getElementById('taches-container').appendChild(wrapper.firstElementChild);
+  document.getElementById('id_form-TOTAL_FORMS').value = ++formCount;
+  updateAllAnterieures();
+}
+
+// ── Supprimer une tâche ───────────────────────────────────────────────────────
+function deleteTacheForm(idx) {
+  const el = document.querySelector(`#taches-container .tache-form[data-idx="${idx}"]`);
+  if (!el) return;
+  const delInput = document.getElementById(`id_form-${idx}-DELETE`);
+  if (delInput) {
+    delInput.value = 'on';
+    el.classList.add('to-delete');
+    el.style.display = 'none';
+  } else {
+    el.remove();
+  }
+  updateAllAnterieures();
+}
+
+// ── Actualiser les labels quand on modifie code ou nom ───────────────────────
+document.addEventListener('input', e => {
+  const n = e.target.name || '';
+  if (n.endsWith('-code_tache') || n.endsWith('-nom_tache')) {
+    updateAllAnterieures();
+  }
+});
+
+// ── Validation admin ──────────────────────────────────────────────────────────
+function validerCalendrier() {
+  if (confirm('Valider définitivement ce calendrier ? Les opérateurs ne pourront plus le modifier.')) {
+    document.getElementById('valider-form').submit();
+  }
+}
+
+// ── Initialisation au chargement ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  updateAllAnterieures();
+  // Appliquer les antérieures existantes (mode édition)
+  Object.entries(ANTERIEURES_INIT).forEach(([idxStr, antIndices]) => {
+    const idx = parseInt(idxStr);
+    antIndices.forEach(antIdx => {
+      const cb = document.querySelector(`input[name="anterieures-${idx}"][value="${antIdx}"]`);
+      if (cb) {
+        cb.checked = true;
+        cb.closest('.ant-label')?.classList.add('checked');
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

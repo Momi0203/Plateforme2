@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmer la suppression{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 80px 32px; display: flex; justify-content: center; }
+.confirm-box { background: #fff; border-radius: 16px; border: 1.5px solid #f0e8d8; padding: 36px; max-width: 480px; width: 100%; text-align: center; }
+.confirm-box i.warn-icon { font-size: 48px; color: #e74c3c; display: block; margin-bottom: 16px; }
+.confirm-box h2 { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }
+.confirm-box p { font-size: 14px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+.confirm-box p strong { color: #1a1a2e; }
+.btn-row { display: flex; gap: 12px; justify-content: center; }
+.btn-del { padding: 11px 28px; background: #e74c3c; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-del:hover { background: #c0392b; }
+.btn-cancel { padding: 11px 24px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="confirm-box">
+    <i class="fas fa-exclamation-triangle warn-icon"></i>
+    <h2>Confirmer la suppression</h2>
+    <p>Vous êtes sur le point de supprimer :<br><strong>{{ objet }}</strong><br>
+    Cette action est <strong>irréversible</strong>.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="btn-row">
+        <a href="{% url retour %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Annuler</a>
+        <button type="submit" class="btn-del"><i class="fas fa-trash"></i> Supprimer définitivement</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

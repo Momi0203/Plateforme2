@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 680px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 24px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+.section-label { font-size: 11px; font-weight: 700; color: #f0a500; text-transform: uppercase; letter-spacing: .7px; margin: 16px 0 10px; }
+.coef-table { width: 100%; }
+.coef-table thead th { background: #1a1a2e; color: #fff; padding: 9px 12px; font-size: 12px; font-weight: 600; text-align: center; }
+.coef-table thead th:first-child { text-align: left; }
+.coef-table tbody td { padding: 8px 12px; border-bottom: 1px solid #f5ece0; text-align: center; }
+.coef-table tbody td:first-child { text-align: left; font-weight: 700; color: #1a1a2e; }
+.coef-table input { width: 100%; padding: 7px 10px; border: 1.5px solid #e0d0c0; border-radius: 6px; font-size: 13px; font-family: 'Inter', sans-serif; text-align: center; }
+.coef-table input:focus { outline: none; border-color: #f0a500; }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-submit { padding: 10px 26px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 10px 18px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_coefficients' %}">Coefficients Montana</a> › {{ titre }}
+  </div>
+
+  <form method="post" id="mt-form" novalidate>
+    {% csrf_token %}
+    <div class="form-card">
+      <h2><i class="fas fa-calculator"></i> {{ titre }}</h2>
+
+      <div class="form-group">
+        <label>{{ form.station.label }}</label>
+        {{ form.station }}{{ form.station.errors }}
+      </div>
+
+      <div class="section-label">Coefficients a et b par période de retour</div>
+      <div style="overflow-x:auto;">
+        <table class="coef-table">
+          <thead>
+            <tr>
+              <th>Coefficient</th>
+              <th>T = 10 ans</th>
+              <th>T = 20 ans</th>
+              <th>T = 50 ans</th>
+              <th>T = 100 ans</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>a</td>
+              <td>{{ form.a10 }}{{ form.a10.errors }}</td>
+              <td>{{ form.a20 }}{{ form.a20.errors }}</td>
+              <td>{{ form.a50 }}{{ form.a50.errors }}</td>
+              <td>{{ form.a100 }}{{ form.a100.errors }}</td>
+            </tr>
+            <tr>
+              <td>b</td>
+              <td>{{ form.b10 }}{{ form.b10.errors }}</td>
+              <td>{{ form.b20 }}{{ form.b20.errors }}</td>
+              <td>{{ form.b50 }}{{ form.b50.errors }}</td>
+              <td>{{ form.b100 }}{{ form.b100.errors }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div style="color:#c0392b;font-size:12px;margin-top:12px;">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-actions">
+        <a href="{% url 'liste_coefficients' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+        <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('#mt-form select').forEach(el => el.classList.add('form-control'));
+</script>
+{% endblock %}

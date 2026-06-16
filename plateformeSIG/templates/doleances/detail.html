@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}{{ requete.reference }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 900px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.info-card { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 14px; padding: 24px; margin-bottom: 18px; }
+.info-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.info-card h2 i { color: #f0a500; }
+
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.meta-item label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 3px; }
+.meta-item span  { font-size: 13px; color: #1a1a2e; font-weight: 600; }
+
+/* Badges statut */
+.badge-statut { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+.badge-soumise    { background: #e8f4fd; color: #1a6fa8; }
+.badge-en_cours   { background: #fff3cd; color: #856404; }
+.badge-en_attente { background: #fde8e8; color: #c0392b; }
+.badge-traitee    { background: #d1f7e0; color: #156b3c; }
+.badge-cloturee   { background: #f0f0f0; color: #555; }
+.badge-rejetee    { background: #fde8e8; color: #c0392b; }
+
+.ref-tag { font-size: 20px; font-weight: 800; color: #f0a500; }
+.description-block { background: #fdf8f0; border-radius: 8px; padding: 14px; font-size: 13px; color: #333; line-height: 1.7; white-space: pre-wrap; }
+
+/* Timeline historique */
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before { content: ''; position: absolute; left: 9px; top: 4px; bottom: 4px; width: 2px; background: #f0e8d8; }
+.tl-item { position: relative; margin-bottom: 18px; }
+.tl-item:last-child { margin-bottom: 0; }
+.tl-dot { position: absolute; left: -24px; top: 3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px #f0a500; background: #f0a500; }
+.tl-dot.dot-rejetee, .tl-dot.dot-cloturee { background: #e74c3c; box-shadow: 0 0 0 2px #e74c3c; }
+.tl-dot.dot-traitee { background: #27ae60; box-shadow: 0 0 0 2px #27ae60; }
+.tl-dot.dot-soumise { background: #3498db; box-shadow: 0 0 0 2px #3498db; }
+.tl-content { background: #fdf8f0; border-radius: 8px; padding: 10px 14px; }
+.tl-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.tl-arrow { font-size: 11px; font-weight: 700; color: #555; display: flex; align-items: center; gap: 5px; }
+.tl-date { font-size: 11px; color: #aaa; margin-left: auto; }
+.tl-auteur { font-size: 11.5px; color: #888; }
+.tl-commentaire { font-size: 12.5px; color: #555; margin-top: 4px; font-style: italic; }
+
+/* Commentaires */
+.comment-thread { display: flex; flex-direction: column; gap: 12px; }
+.comment-item { border-radius: 10px; padding: 12px 16px; }
+.comment-public   { background: #f7f7ff; border-left: 3px solid #3498db; }
+.comment-interne  { background: #fffbea; border-left: 3px solid #f0a500; }
+.comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.comment-auteur { font-size: 12.5px; font-weight: 700; color: #1a1a2e; }
+.comment-date   { font-size: 11px; color: #aaa; }
+.comment-badge-interne { font-size: 10px; font-weight: 700; padding: 2px 7px; background: #fff3cd; color: #856404; border-radius: 10px; }
+.comment-contenu { font-size: 13px; color: #333; line-height: 1.6; white-space: pre-wrap; }
+
+/* Formulaire commentaire */
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+
+.pj-zone-sm { border: 2px dashed #e0d0c0; border-radius: 8px; padding: 12px; background: #fdf8f0; }
+.pj-zone-sm label { cursor: pointer; color: #f0a500; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+.btn-submit { padding: 9px 22px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: #f5ece0; color: #1a1a2e; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; }
+.btn-back:hover { background: #ead8c5; }
+
+.alert-closed { background: #f0f0f0; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #666; display: flex; align-items: center; gap: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> ›
+    <a href="{% url 'doleances:liste' %}">Doléances & Demandes</a> ›
+    {{ requete.reference }}
+  </div>
+
+  {% if messages %}
+  <div style="margin-bottom:16px;">
+    {% for msg in messages %}
+    <div style="padding:10px 14px;border-radius:8px;margin-bottom:6px;font-size:13px;
+      background:{% if msg.tags == 'success' %}#d1f7e0{% elif msg.tags == 'warning' %}#fff3cd{% else %}#fde8e8{% endif %};
+      color:{% if msg.tags == 'success' %}#156b3c{% elif msg.tags == 'warning' %}#856404{% else %}#c0392b{% endif %};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Fiche principale ── -->
+  <div class="info-card">
+    <h2>
+      <i class="fas fa-flag"></i>
+      Requête &nbsp;<span class="ref-tag">{{ requete.reference }}</span>
+    </h2>
+
+    <div class="meta-grid">
+      <div class="meta-item">
+        <label>Statut</label>
+        {% include "doleances/_badge_statut.html" with statut=requete.statut %}
+      </div>
+      <div class="meta-item">
+        <label>Type</label>
+        <span>{{ requete.get_type_requete_display }}</span>
+      </div>
+      <div class="meta-item">
+        <label>Urgence</label>
+        <span>{{ requete.get_urgence_display }}</span>
+      </div>
+      <div class="meta-item">
+        <label>Soumis le</label>
+        <span>{{ requete.date_soumission|date:"d/m/Y à H:i" }}</span>
+      </div>
+      {% if requete.perimetre %}
+      <div class="meta-item">
+        <label>Périmètre</label>
+        <span>{{ requete.perimetre }}</span>
+      </div>
+      {% endif %}
+      {% if requete.sous_type %}
+      <div class="meta-item">
+        <label>Sous-type</label>
+        <span>{{ requete.get_sous_type_display }}</span>
+      </div>
+      {% endif %}
+      {% if requete.assignee %}
+      <div class="meta-item">
+        <label>Assignée à</label>
+        <span>{{ requete.assignee.get_full_name|default:requete.assignee.username }}</span>
+      </div>
+      {% endif %}
+      {% if requete.emetteur %}
+      <div class="meta-item">
+        <label>Émetteur</label>
+        <span>{{ requete.emetteur.get_full_name|default:requete.emetteur.username }}</span>
+      </div>
+      {% endif %}
+      {% if requete.type_emetteur %}
+      <div class="meta-item">
+        <label>Profil</label>
+        <span>{{ requete.get_type_emetteur_display }}</span>
+      </div>
+      {% endif %}
+      {% if requete.organisation %}
+      <div class="meta-item">
+        <label>Organisation</label>
+        <span>{{ requete.organisation }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:8px;">{{ requete.titre }}</div>
+    <div class="description-block">{{ requete.description }}</div>
+  </div>
+
+  <!-- ── Pièces jointes ── -->
+  {% if requete.pieces_jointes.exists %}
+  <div class="info-card">
+    <h2><i class="fas fa-paperclip"></i> Pièces jointes ({{ nb_pj }}/5)</h2>
+    <ul style="list-style:none;display:flex;flex-wrap:wrap;gap:10px;">
+      {% for pj in requete.pieces_jointes.all %}
+      <li>
+        <a href="{{ pj.fichier.url }}" target="_blank"
+           style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:#fdf8f0;border:1.5px solid #f0e8d8;border-radius:8px;font-size:12px;color:#1a1a2e;text-decoration:none;">
+          <i class="fas fa-file" style="color:#f0a500;"></i>
+          {{ pj.nom_original }}
+          <span style="color:#aaa;">({{ pj.taille_ko }} Ko)</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- ── Réponse officielle ── -->
+  {% if requete.reponse %}
+  <div class="info-card" style="border-color:#d1f7e0;">
+    <h2><i class="fas fa-reply" style="color:#27ae60;"></i> Réponse officielle</h2>
+    <div class="description-block" style="background:#f0faf5;border-left:3px solid #27ae60;">{{ requete.reponse }}</div>
+    {% if requete.date_traitement %}
+    <div style="font-size:11px;color:#aaa;margin-top:8px;">
+      Réponse apportée le {{ requete.date_traitement|date:"d/m/Y à H:i" }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ── Historique des statuts ── -->
+  <div class="info-card">
+    <h2><i class="fas fa-history"></i> Historique des statuts</h2>
+    {% if historique %}
+    <div class="timeline">
+      {% for evt in historique %}
+      <div class="tl-item">
+        <div class="tl-dot dot-{{ evt.statut_nouveau }}"></div>
+        <div class="tl-content">
+          <div class="tl-header">
+            <span class="tl-arrow">
+              {% include "doleances/_badge_statut.html" with statut=evt.statut_precedent %}
+              <i class="fas fa-arrow-right" style="color:#ccc;font-size:10px;"></i>
+              {% include "doleances/_badge_statut.html" with statut=evt.statut_nouveau %}
+            </span>
+            <span class="tl-date">{{ evt.date|date:"d/m/Y à H:i" }}</span>
+          </div>
+          <div class="tl-auteur">par {{ evt.auteur.get_full_name|default:evt.auteur.username }}</div>
+          {% if evt.commentaire %}
+          <div class="tl-commentaire">"{{ evt.commentaire }}"</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:#aaa;">Aucun changement de statut enregistré.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── Commentaires ── -->
+  <div class="info-card">
+    <h2><i class="fas fa-comments"></i> Commentaires</h2>
+
+    {% if commentaires %}
+    <div class="comment-thread" style="margin-bottom:20px;">
+      {% for c in commentaires %}
+      <div class="comment-item {% if c.interne %}comment-interne{% else %}comment-public{% endif %}">
+        <div class="comment-header">
+          <span class="comment-auteur">
+            <i class="fas fa-user-circle" style="color:#ccc;"></i>
+            {{ c.auteur.get_full_name|default:c.auteur.username }}
+          </span>
+          {% if c.interne %}
+          <span class="comment-badge-interne"><i class="fas fa-lock"></i> Interne</span>
+          {% endif %}
+          <span class="comment-date">{{ c.date_creation|date:"d/m/Y à H:i" }}</span>
+        </div>
+        <div class="comment-contenu">{{ c.contenu }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:#aaa;margin-bottom:18px;">Aucun commentaire pour l'instant.</p>
+    {% endif %}
+
+    <!-- Formulaire d'ajout de commentaire (F-DD-09) -->
+    {% if peut_commenter %}
+    <form method="post" enctype="multipart/form-data"
+          action="{% url 'doleances:commenter' requete.pk %}" novalidate>
+      {% csrf_token %}
+
+      <div style="margin-bottom:12px;">
+        <label for="{{ commentaire_form.contenu.id_for_label }}">Ajouter une précision</label>
+        {{ commentaire_form.contenu }}
+        {{ commentaire_form.contenu.errors }}
+      </div>
+
+      {% if est_staff %}
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        {{ commentaire_form.interne }}
+        <label for="{{ commentaire_form.interne.id_for_label }}" style="margin:0;font-size:12.5px;cursor:pointer;">
+          Commentaire interne (invisible pour l'émetteur)
+        </label>
+      </div>
+      {% endif %}
+
+      {% if peut_ajouter_pj %}
+      <div class="pj-zone-sm" style="margin-bottom:12px;">
+        <label for="pj_comp_input">
+          <i class="fas fa-paperclip"></i> Joindre un fichier (optionnel — {{ nb_pj }}/5)
+        </label>
+        <input type="file" id="pj_comp_input" name="pj_complementaire"
+               accept=".jpg,.jpeg,.png,.pdf,.docx"
+               style="display:block;margin-top:6px;font-size:12px;">
+        <div style="font-size:11px;color:#aaa;margin-top:4px;">jpg, png, pdf, docx · max 10 Mo</div>
+      </div>
+      {% endif %}
+
+      <div class="form-actions" style="justify-content:flex-start;">
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-paper-plane"></i> Envoyer
+        </button>
+      </div>
+    </form>
+
+    {% else %}
+    <div class="alert-closed">
+      <i class="fas fa-lock"></i>
+      Cette requête est {{ requete.get_statut_display|lower }} — les commentaires sont désactivés.
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    {% if est_staff %}
+    <a href="{% url 'doleances:tableau_de_bord' %}" class="btn-back">
+      <i class="fas fa-tachometer-alt"></i> Tableau de bord
+    </a>
+    {% if transitions %}
+    <a href="{% url 'doleances:changer_statut' requete.pk %}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:#fff3cd;color:#856404;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+      <i class="fas fa-exchange-alt"></i> Changer le statut
+    </a>
+    {% endif %}
+    {% endif %}
+    <a href="{% url 'doleances:liste' %}" class="btn-back">
+      <i class="fas fa-arrow-left"></i> Retour à mes requêtes
+    </a>
+  </div>
+</div>
+{% endblock %}

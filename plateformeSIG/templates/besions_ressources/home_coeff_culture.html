@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Coefficients culturaux — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 1100px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-add  { background: #f0a500; color: #1a1a2e; }
+.btn-add:hover  { background: #d4920a; }
+.btn-edit { background: #1a1a2e; color: #fff; font-size: 12px; padding: 5px 11px; }
+.btn-edit:hover { background: #2a2a4e; }
+.btn-del  { background: #fde8e8; color: #c0392b; font-size: 12px; padding: 5px 11px; }
+.btn-del:hover  { background: #f9cfcf; }
+
+.cultures-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.culture-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 18px; transition: border-color .2s; }
+.culture-card:hover { border-color: #f0a500; }
+.culture-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.culture-name { font-size: 14px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 7px; }
+.culture-name i { color: #f0a500; }
+.culture-info { font-size: 12px; color: #555; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.culture-info .info-label { color: #888; font-weight: 600; display: block; margin-bottom: 2px; text-transform: uppercase; font-size: 10.5px; letter-spacing: .4px; }
+.coef-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+.coef-chip { padding: 2px 6px; background: #f5ece0; border-radius: 4px; font-size: 10.5px; color: #1a1a2e; font-weight: 600; }
+.coef-chip.kr { background: #eaf3ec; }
+.culture-actions { display: flex; gap: 6px; }
+
+.empty-state { background: #fff; border-radius: 14px; border: 1.5px dashed #e0d0c0; padding: 48px; text-align: center; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    Coefficients culturaux
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-seedling"></i> Coefficients culturaux</h1>
+    <a href="{% url 'besions_ressources:culture_creer' %}" class="btn-sm btn-add">
+      <i class="fas fa-plus"></i> Ajouter
+    </a>
+  </div>
+
+  {% if cultures %}
+  <div class="cultures-grid">
+    {% for culture in cultures %}
+    <div class="culture-card">
+      <div class="culture-head">
+        <div style="flex:1;min-width:0;">
+          <div class="culture-name"><i class="fas fa-seedling"></i> {{ culture.get_nom_display }}</div>
+          <div class="culture-info">
+            <div>
+              <span class="info-label">Kc (Sep → Aoû)</span>
+              <div class="coef-chips">
+                {% for v in culture.kc %}
+                <span class="coef-chip">{{ v|floatformat:2 }}</span>
+                {% endfor %}
+              </div>
+            </div>
+            <div>
+              <span class="info-label">Kr (Sep → Aoû)</span>
+              <div class="coef-chips">
+                {% for v in culture.kr %}
+                <span class="coef-chip kr">{{ v|floatformat:2 }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="culture-actions">
+          <a href="{% url 'besions_ressources:culture_modifier' culture.pk %}" class="btn-sm btn-edit">
+            <i class="fas fa-edit"></i> Modifier
+          </a>
+          <a href="{% url 'besions_ressources:culture_supprimer' culture.pk %}" class="btn-sm btn-del">
+            <i class="fas fa-trash"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-seedling"></i>
+    Aucune culture définie.<br>
+    <a href="{% url 'besions_ressources:culture_creer' %}" style="color:#f0a500;font-weight:600;">Ajouter la première culture →</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

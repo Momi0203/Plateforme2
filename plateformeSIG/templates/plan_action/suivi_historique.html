@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Historique — {{ tache }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<!-- Lightbox2 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightbox2@2.11.4/dist/css/lightbox.min.css">
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.page-header h1 { font-size: 18px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.page-header h1 i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-outline { background: #fff; color: #1a1a2e; border: 1.5px solid #e0d0c0; }
+.btn-outline:hover { background: #fdf8f0; }
+
+/* Tâche info */
+.tache-info { background: #fdf8f0; border: 1.5px solid #f0e8d8; border-radius: 10px; padding: 14px 18px; margin-bottom: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.ti-item { font-size: 12px; color: #666; }
+.ti-item b { display: block; font-size: 13px; color: #1a1a2e; margin-bottom: 2px; }
+
+/* Galerie photos */
+.photos-section { margin-bottom: 26px; }
+.photos-section h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.photos-section h3 i { color: #f0a500; }
+.photo-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.photo-thumb { position: relative; width: 100px; height: 100px; border-radius: 8px; overflow: hidden; border: 2px solid #e0d0c0; transition: border-color .2s; }
+.photo-thumb:hover { border-color: #f0a500; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb .photo-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 9px; padding: 3px 5px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+
+/* Timeline */
+.timeline-section h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+.timeline-section h3 i { color: #f0a500; }
+
+.timeline { position: relative; padding-left: 26px; }
+.timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #f0e8d8; border-radius: 2px; }
+
+.timeline-item { position: relative; margin-bottom: 22px; }
+.timeline-item::before { content: ''; position: absolute; left: -22px; top: 16px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #f0a500; background: #fff; }
+
+.rapport-card { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 18px 20px; transition: border-color .2s; }
+.rapport-card:hover { border-color: #f0a500; }
+
+.rapport-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.rapport-meta { font-size: 12.5px; }
+.rapport-date { font-weight: 700; color: #1a1a2e; font-size: 14px; }
+.rapport-auteur { color: #888; font-size: 12px; margin-top: 2px; }
+.rapport-badges { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+/* Barre avancement dans rapport */
+.av-bar-wrap { margin-bottom: 12px; }
+.av-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 4px; }
+.av-bar-bg { background: #f0e8d8; border-radius: 8px; height: 10px; overflow: hidden; }
+.av-bar-fill { height: 100%; border-radius: 8px; }
+
+/* Badges état */
+.badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; }
+.badge-conforme { background: #d1f7e0; color: #156b3c; }
+.badge-retard    { background: #fff3cd; color: #856404; }
+.badge-bloque    { background: #fde8e8; color: #c0392b; }
+.badge-termine   { background: #d1f7e0; color: #0d4c26; }
+
+/* Commentaire */
+.rapport-commentaire { background: #fdf8f0; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #555; margin-bottom: 12px; border-left: 3px solid #f0a500; }
+
+/* Echéance suivante */
+.echeance-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #1a6fa8; background: #e8f4fd; padding: 4px 10px; border-radius: 10px; }
+
+/* Pièces jointes */
+.pieces-section { margin-top: 12px; }
+.pieces-title { font-size: 12px; font-weight: 700; color: #888; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.pieces-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.piece-item { display: inline-flex; align-items: center; gap: 7px; background: #f5f5f5; border: 1.5px solid #e0d0c0; border-radius: 8px; padding: 6px 11px; font-size: 12px; color: #444; transition: border-color .2s; }
+.piece-item:hover { border-color: #f0a500; }
+.piece-item a { color: inherit; text-decoration: none; flex: 1; display: flex; align-items: center; gap: 6px; }
+.piece-icon { font-size: 14px; }
+.piece-icon.pdf { color: #e74c3c; }
+.piece-icon.image { color: #27ae60; }
+.piece-icon.doc { color: #1a6fa8; }
+.piece-icon.other { color: #888; }
+.btn-del-piece { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 12px; padding: 0 2px; opacity: .6; }
+.btn-del-piece:hover { opacity: 1; }
+
+/* Empty state */
+.empty-timeline { text-align: center; padding: 50px; color: #aaa; }
+.empty-timeline i { font-size: 36px; color: #ddd; display: block; margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    <a href="{% url 'plan_action:suivi_dashboard' action.pk %}">Suivi</a> ›
+    {{ tache.code_tache }}
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-history"></i> Historique des rapports</h1>
+    <div class="hdr-actions">
+      {% if is_responsable %}
+      <a href="{% url 'plan_action:suivi_form' tache.pk %}" class="btn-sm btn-accent">
+        <i class="fas fa-plus"></i> Nouveau rapport
+      </a>
+      {% endif %}
+      <a href="{% url 'plan_action:suivi_dashboard' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-chart-line"></i> Dashboard
+      </a>
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Retour
+      </a>
+    </div>
+  </div>
+
+  <!-- Tâche info -->
+  <div class="tache-info">
+    <div class="ti-item"><b>{{ tache.code_tache }}</b>Code</div>
+    <div class="ti-item"><b>{{ tache.nom_tache }}</b>Nom de la tâche</div>
+    <div class="ti-item"><b>{{ tache.responsable.get_full_name|default:tache.responsable.username }}</b>Responsable</div>
+    <div class="ti-item"><b>{{ tache.date_debut_prevue|date:"d/m/Y" }} → {{ tache.date_fin_prevue|date:"d/m/Y" }}</b>Dates prévues</div>
+    <div class="ti-item"><b>{{ tache.duree_prevue }} jours</b>Durée</div>
+    <div class="ti-item"><b>{{ tache.get_statut_tache_display }}</b>Statut</div>
+    <div class="ti-item"><b>{{ suivis|length }} rapport(s)</b>Total rapports</div>
+  </div>
+
+  <!-- Galerie photos (Lightbox2) — F-A3-04 -->
+  {% if photos %}
+  <div class="photos-section">
+    <h3><i class="fas fa-images"></i> Galerie photos de chantier ({{ photos|length }})</h3>
+    <div class="photo-grid">
+      {% for photo in photos %}
+      <a href="{{ photo.fichier.url }}" data-lightbox="chantier-{{ tache.pk }}" data-title="{{ photo.libelle }} — {{ photo.suivi.date_rapport|date:'d/m/Y' }}" class="photo-thumb">
+        <img src="{{ photo.fichier.url }}" alt="{{ photo.libelle }}" loading="lazy">
+        <div class="photo-label">{{ photo.suivi.date_rapport|date:"d/m/Y" }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Timeline rapports — F-A3-06 -->
+  <div class="timeline-section">
+    <h3><i class="fas fa-timeline"></i> Chronologie des rapports</h3>
+
+    {% if suivis %}
+    <div class="timeline">
+      {% for suivi in suivis %}
+      <div class="timeline-item">
+        <div class="rapport-card">
+          <!-- En-tête rapport -->
+          <div class="rapport-header">
+            <div class="rapport-meta">
+              <div class="rapport-date">{{ suivi.date_rapport|date:"d MMMM Y" }}</div>
+              <div class="rapport-auteur">Par <b>{{ suivi.auteur.get_full_name|default:suivi.auteur.username }}</b></div>
+            </div>
+            <div class="rapport-badges">
+              <span class="badge badge-{{ suivi.etat_bloc }}">{{ suivi.get_etat_bloc_display }}</span>
+              <span style="font-size:13px;font-weight:800;color:{% if suivi.avancement_pct >= 80 %}#27ae60{% elif suivi.avancement_pct >= 40 %}#f0a500{% else %}#e74c3c{% endif %};">
+                {{ suivi.avancement_pct }}%
+              </span>
+            </div>
+          </div>
+
+          <!-- Barre avancement -->
+          <div class="av-bar-wrap">
+            <div class="av-bar-label">
+              <span>Avancement</span>
+              <span><b>{{ suivi.avancement_pct }}%</b></span>
+            </div>
+            <div class="av-bar-bg">
+              <div class="av-bar-fill" style="width:{{ suivi.avancement_pct }}%;background:{% if suivi.avancement_pct >= 80 %}#27ae60{% elif suivi.avancement_pct >= 40 %}#f0a500{% else %}#e74c3c{% endif %};"></div>
+            </div>
+          </div>
+
+          <!-- Commentaire -->
+          {% if suivi.commentaire %}
+          <div class="rapport-commentaire">{{ suivi.commentaire }}</div>
+          {% endif %}
+
+          <!-- Prochaine échéance -->
+          {% if suivi.date_prochaine_echeance %}
+          <div style="margin-bottom:10px;">
+            <span class="echeance-chip"><i class="fas fa-calendar-day"></i> Prochaine échéance : {{ suivi.date_prochaine_echeance|date:"d/m/Y" }}</span>
+          </div>
+          {% endif %}
+
+          <!-- Pièces jointes -->
+          {% if suivi.pieces.all %}
+          <div class="pieces-section">
+            <div class="pieces-title"><i class="fas fa-paperclip"></i> Pièces jointes ({{ suivi.pieces.count }})</div>
+            <div class="pieces-list">
+              {% for piece in suivi.pieces.all %}
+              <div class="piece-item">
+                {% if piece.type_piece == 'photo_chantier' %}
+                  <a href="{{ piece.fichier.url }}" data-lightbox="rapport-{{ suivi.pk }}" data-title="{{ piece.libelle }}">
+                    <span class="piece-icon image"><i class="fas fa-image"></i></span>
+                    {{ piece.libelle|truncatechars:30 }}
+                    <small style="color:#aaa;">({{ piece.get_type_piece_display }})</small>
+                  </a>
+                {% else %}
+                  <a href="{{ piece.fichier.url }}" target="_blank" rel="noopener">
+                    <span class="piece-icon
+                      {% if piece.fichier.name|lower|slice:'-4:' == '.pdf' %}pdf
+                      {% elif piece.fichier.name|lower|slice:'-5:' == '.docx' %}doc
+                      {% else %}other{% endif %}">
+                      <i class="fas fa-file"></i>
+                    </span>
+                    {{ piece.libelle|truncatechars:30 }}
+                    <small style="color:#aaa;">({{ piece.get_type_piece_display }})</small>
+                  </a>
+                {% endif %}
+                {% if is_responsable %}
+                <form method="post" action="{% url 'plan_action:piece_delete' piece.pk %}" style="display:inline;" onsubmit="return confirm('Supprimer cette pièce ?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-del-piece" title="Supprimer">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-timeline">
+      <i class="fas fa-history"></i>
+      Aucun rapport saisi pour cette tâche.
+      {% if is_responsable %}
+      <br><a href="{% url 'plan_action:suivi_form' tache.pk %}" style="color:#f0a500;font-weight:600;text-decoration:none;">
+        + Saisir le premier rapport
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightbox2@2.11.4/dist/js/lightbox.min.js"></script>
+<script>
+lightbox.option({
+  resizeDuration: 200,
+  wrapAround: true,
+  albumLabel: 'Photo %1 sur %2',
+  fadeDuration: 300,
+});
+</script>
+{% endblock %}

@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Gantt — {{ action }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<!-- Frappe Gantt CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+/* ── En-tête ── */
+.gantt-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.gantt-header-left h1 { font-size: 19px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.gantt-header-left h1 i { color: #f0a500; }
+.gantt-meta { font-size: 13px; color: #666; margin-top: 6px; }
+.gantt-meta b { color: #1a1a2e; }
+.hdr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-outline { background: #fff; color: #1a1a2e; border: 1.5px solid #e0d0c0; }
+.btn-outline:hover { background: #fdf8f0; }
+
+/* ── KPI strip ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 14px 16px; }
+.kpi-card .kpi-icon { font-size: 18px; color: #f0a500; margin-bottom: 6px; }
+.kpi-card .kpi-val { font-size: 20px; font-weight: 800; color: #1a1a2e; }
+.kpi-card .kpi-lbl { font-size: 11px; color: #999; margin-top: 2px; }
+
+/* ── Barre d'outils Gantt ── */
+.gantt-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: #fff; border: 1.5px solid #f0e8d8; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; }
+.view-mode-btns { display: flex; gap: 6px; }
+.vm-btn { padding: 7px 14px; border: 1.5px solid #e0d0c0; border-radius: 7px; font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; cursor: pointer; transition: all .2s; }
+.vm-btn:hover { border-color: #f0a500; color: #f0a500; }
+.vm-btn.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+.toolbar-right { display: flex; gap: 8px; align-items: center; }
+.btn-export-pdf { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif; background: #e74c3c; color: #fff; border: none; cursor: pointer; transition: background .2s; }
+.btn-export-pdf:hover { background: #c0392b; }
+
+/* ── Conteneur Gantt ── */
+.gantt-container-wrap { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 16px; margin-bottom: 20px; overflow-x: auto; }
+#gantt-chart { min-height: 200px; }
+
+/* ── Loader ── */
+#gantt-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 60px; color: #aaa; font-size: 14px; }
+#gantt-loading i { font-size: 22px; color: #f0a500; animation: spin .8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+#gantt-empty { display: none; text-align: center; padding: 60px; color: #aaa; }
+#gantt-empty i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+
+/* ── Légende ── */
+.legend-bar { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+.legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #444; }
+.legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.ld-non_demarree { background: #b0bec5; }
+.ld-en_cours      { background: #f0a500; }
+.ld-terminee      { background: #27ae60; }
+.ld-bloquee       { background: #e74c3c; }
+.ld-critical      { background: #fff; border: 2.5px solid #c0392b; }
+
+/* ── Frappe Gantt — Couleurs par statut ── */
+.gantt .bar-wrapper.gantt-statut-non_demarree .bar { fill: #b0bec5 !important; }
+.gantt .bar-wrapper.gantt-statut-en_cours .bar      { fill: #f0a500 !important; }
+.gantt .bar-wrapper.gantt-statut-terminee .bar      { fill: #27ae60 !important; }
+.gantt .bar-wrapper.gantt-statut-bloquee .bar       { fill: #e74c3c !important; }
+
+/* ── Chemin critique — bordure rouge ── */
+.gantt .bar-wrapper.gantt-critical .bar {
+    stroke: #c0392b !important;
+    stroke-width: 2.5px !important;
+}
+.gantt .bar-wrapper.gantt-critical .bar-progress { fill-opacity: .9 !important; }
+
+/* ── En retard — bordure rouge pointillée (SC-08) ── */
+.gantt .bar-wrapper.gantt-retard .bar {
+    stroke: #e74c3c !important;
+    stroke-width: 2.5px !important;
+    stroke-dasharray: 6,3 !important;
+}
+
+/* ── Ligne aujourd'hui ── */
+.gantt .today-highlight { fill: rgba(231, 76, 60, 0.08) !important; }
+.gantt .today-highlight + line,
+.gantt line.today-line { stroke: #e74c3c !important; stroke-width: 2px !important; }
+
+/* Frappe Gantt popup */
+.gantt-popup { background: #1a1a2e !important; border-radius: 10px !important; box-shadow: 0 8px 28px rgba(0,0,0,.22) !important; color: #fff !important; font-family: 'Inter', sans-serif !important; padding: 14px 16px !important; min-width: 220px !important; }
+.gantt-popup h5 { font-size: 13px !important; font-weight: 700 !important; color: #f0a500 !important; margin-bottom: 8px !important; }
+.gantt-popup p { font-size: 12px !important; color: #ccc !important; margin: 3px 0 !important; }
+.gantt-popup .critical-badge { display: inline-block; background: #e74c3c; color: #fff; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-top: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    Gantt — {{ action.get_type_action_display }}
+  </div>
+
+  <!-- En-tête -->
+  <div class="gantt-header">
+    <div class="gantt-header-left">
+      <h1>
+        <i class="fas fa-chart-gantt"></i>
+        Diagramme de Gantt
+      </h1>
+      <div class="gantt-meta">
+        Action : <b>{{ action.get_type_action_display }}</b> — {{ action.commune.nom_fr }}
+        &nbsp;·&nbsp; Plan PMH <b>{{ plan.annee }}</b>
+        &nbsp;·&nbsp; {{ calendrier.date_debut_prevue|date:"d/m/Y" }} → {{ calendrier.date_fin_prevue|date:"d/m/Y" }}
+        {% if calendrier.statut_calendrier == 'valide' %}
+        &nbsp;·&nbsp; <span style="background:#d1f7e0;color:#156b3c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">
+          <i class="fas fa-lock"></i> Validé
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <a href="{% url 'plan_action:calendrier_pert' action.pk %}" class="btn-sm btn-outline" style="color:#1a5fa8;border-color:#c8daf5;">
+        <i class="fas fa-project-diagram"></i> PERT
+      </a>
+      <a href="{% url 'plan_action:calendrier_form' action.pk %}" class="btn-sm btn-outline">
+        <i class="fas fa-calendar-alt"></i> Calendrier
+      </a>
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Retour au plan
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI strip (peuplé depuis JS) -->
+  <div class="kpi-strip" id="kpi-strip" style="display:none;">
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
+      <div class="kpi-val" id="kpi-nb-taches">—</div>
+      <div class="kpi-lbl">Tâches totales</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-fire" style="color:#e74c3c;"></i></div>
+      <div class="kpi-val" id="kpi-nb-critiques" style="color:#e74c3c;">—</div>
+      <div class="kpi-lbl">Tâches critiques</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-check-circle" style="color:#27ae60;"></i></div>
+      <div class="kpi-val" id="kpi-nb-terminees">—</div>
+      <div class="kpi-lbl">Terminées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+      <div class="kpi-val" id="kpi-avancement">—</div>
+      <div class="kpi-lbl">Avancement moyen</div>
+    </div>
+  </div>
+
+  <!-- Barre d'outils -->
+  <div class="gantt-toolbar">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div style="font-size:12.5px;font-weight:700;color:#1a1a2e;"><i class="fas fa-eye" style="color:#f0a500;margin-right:5px;"></i>Mode d'affichage</div>
+      <div class="view-mode-btns">
+        <button class="vm-btn" onclick="setViewMode('Day')">Jour</button>
+        <button class="vm-btn active" onclick="setViewMode('Week')" id="vm-Week">Semaine</button>
+        <button class="vm-btn" onclick="setViewMode('Month')">Mois</button>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <!-- Légende -->
+      <div class="legend-bar">
+        <span class="legend-item"><span class="legend-dot ld-non_demarree"></span>Non démarrée</span>
+        <span class="legend-item"><span class="legend-dot ld-en_cours"></span>En cours</span>
+        <span class="legend-item"><span class="legend-dot ld-terminee"></span>Terminée</span>
+        <span class="legend-item"><span class="legend-dot ld-bloquee"></span>Bloquée</span>
+        <span class="legend-item"><span class="legend-dot ld-critical"></span>Chemin critique</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#fff;border:2.5px dashed #e74c3c;"></span>En retard</span>
+      </div>
+      <button class="btn-export-pdf" onclick="exportGanttPDF()">
+        <i class="fas fa-file-pdf"></i> Export PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Zone Gantt -->
+  <div class="gantt-container-wrap" id="gantt-wrap">
+    <div id="gantt-loading"><i class="fas fa-spinner"></i> Chargement du Gantt…</div>
+    <div id="gantt-empty">
+      <i class="fas fa-chart-gantt"></i>
+      Aucune tâche dans ce calendrier.<br>
+      <small><a href="{% url 'plan_action:calendrier_form' action.pk %}" style="color:#f0a500;text-decoration:none;">Ajouter des tâches</a></small>
+    </div>
+    <div id="gantt-chart" style="display:none;"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Frappe Gantt JS -->
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<!-- html2canvas pour export PDF -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<script>
+const GANTT_DATA_URL = "{% url 'plan_action:gantt_data' action.pk %}";
+let gantt = null;
+let ganttTasks = [];
+
+// ── Peuplement KPI ─────────────────────────────────────────────────────────────
+function populateKPIs(tasks) {
+  const nbCritiques = tasks.filter(t => t._is_critical).length;
+  const nbTerminees = tasks.filter(t => t._statut === 'terminee').length;
+  const avgAv = tasks.length
+    ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length)
+    : 0;
+
+  document.getElementById('kpi-nb-taches').textContent    = tasks.length;
+  document.getElementById('kpi-nb-critiques').textContent = nbCritiques;
+  document.getElementById('kpi-nb-terminees').textContent  = nbTerminees;
+  document.getElementById('kpi-avancement').textContent    = avgAv + '%';
+  document.getElementById('kpi-strip').style.display = 'grid';
+}
+
+// ── Rendu Gantt ────────────────────────────────────────────────────────────────
+function renderGantt(tasks) {
+  if (!tasks.length) {
+    document.getElementById('gantt-loading').style.display = 'none';
+    document.getElementById('gantt-empty').style.display   = 'block';
+    return;
+  }
+
+  document.getElementById('gantt-loading').style.display = 'none';
+  document.getElementById('gantt-chart').style.display   = 'block';
+
+  gantt = new Gantt('#gantt-chart', tasks, {
+    header_height: 50,
+    column_width: 30,
+    step: 24,
+    view_modes: ['Day', 'Week', 'Month'],
+    bar_height: 24,
+    bar_corner_radius: 4,
+    arrow_curve: 5,
+    padding: 20,
+    view_mode: 'Week',
+    date_format: 'YYYY-MM-DD',
+    language: 'fr',
+    custom_popup_html: function(task) {
+      const fmtDate = (s) => {
+        if (!s) return '—';
+        const d = new Date(s);
+        return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+      };
+      const critBadge = task._is_critical
+        ? '<span class="critical-badge"><i class="fas fa-exclamation-triangle"></i> Chemin critique</span>'
+        : '';
+      const margeHtml = task._is_critical
+        ? ''
+        : `<p>📊 Marge totale : <b>${task._marge} j</b></p>`;
+      return `
+        <div class="gantt-popup">
+          <h5>${task.name}</h5>
+          <p>📅 ${fmtDate(task._start)} → ${fmtDate(task._end)}</p>
+          <p>⏱ Durée : <b>${task._duree} jours</b></p>
+          <p>👤 Responsable : <b>${task._responsable}</b></p>
+          <p>🔧 Type suivi : ${task._type_suivi}</p>
+          <p>⚡ Statut : <b>${task._statut_label}</b></p>
+          <p>📈 Avancement : <b>${task.progress}%</b></p>
+          ${margeHtml}
+          ${critBadge}
+        </div>`;
+    },
+  });
+
+  // Forcer la ligne aujourd'hui en rouge via injection CSS (version legacy)
+  setTimeout(() => {
+    const todayLines = document.querySelectorAll('.gantt .today-highlight');
+    todayLines.forEach(el => {
+      if (el.tagName === 'line') {
+        el.setAttribute('stroke', '#e74c3c');
+        el.setAttribute('stroke-width', '2');
+      }
+    });
+  }, 400);
+}
+
+// ── Changement de vue ─────────────────────────────────────────────────────────
+function setViewMode(mode) {
+  if (gantt) gantt.change_view_mode(mode);
+  document.querySelectorAll('.vm-btn').forEach(btn => btn.classList.remove('active'));
+  // On trouve le bouton correspondant par son texte
+  const labels = {'Day': 'Jour', 'Week': 'Semaine', 'Month': 'Mois'};
+  document.querySelectorAll('.vm-btn').forEach(btn => {
+    if (btn.textContent.trim() === labels[mode]) btn.classList.add('active');
+  });
+}
+
+// ── Export PDF ────────────────────────────────────────────────────────────────
+function exportGanttPDF() {
+  const wrap = document.getElementById('gantt-wrap');
+  const btn  = document.querySelector('.btn-export-pdf');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération…';
+  btn.disabled = true;
+
+  html2canvas(wrap, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+    const fname = `Gantt_{{ plan.annee }}_{{ action.pk }}.pdf`;
+    pdf.save(fname);
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }).catch(() => {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+    alert('Erreur lors de la génération du PDF.');
+  });
+}
+
+// ── Chargement initial ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  fetch(GANTT_DATA_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(data => {
+      ganttTasks = data.tasks;
+      populateKPIs(ganttTasks);
+      renderGantt(ganttTasks);
+    })
+    .catch(err => {
+      document.getElementById('gantt-loading').innerHTML =
+        '<i class="fas fa-exclamation-circle" style="color:#e74c3c;"></i> Erreur de chargement des données.';
+    });
+});
+</script>
+{% endblock %}

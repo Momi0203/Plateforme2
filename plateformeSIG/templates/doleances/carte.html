@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Carte des requêtes — Doléances & Demandes{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 24px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.hdr-actions { display: flex; gap: 8px; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-dark   { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+
+.map-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .map-layout { grid-template-columns: 1fr; } }
+
+#carte-requetes { height: 600px; border-radius: 12px; border: 1.5px solid #f0e8d8; }
+
+.panel { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 16px; }
+.panel-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid #f5ece0; }
+.panel-title i { color: #f0a500; }
+
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f5ece0; font-size: 13px; }
+.stat-row:last-child { border-bottom: none; }
+.stat-num { font-weight: 700; color: #1a1a2e; }
+
+/* Légende urgences */
+.legend-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; color: #444; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.dot-critique { background: #c0392b; }
+.dot-haute    { background: #e67e22; }
+.dot-normale  { background: #2980b9; }
+.dot-faible   { background: #27ae60; }
+
+.info-no-geom { background: #fff3cd; border: 1px solid #ffe0a0; border-radius: 8px; padding: 10px 13px; font-size: 12px; color: #856404; margin-top: 12px; display: flex; align-items: center; gap: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> ›
+    <a href="{% url 'doleances:liste' %}">Doléances & Demandes</a> ›
+    <a href="{% url 'doleances:tableau_de_bord' %}">Tableau de bord</a> ›
+    Carte
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-map-marked-alt"></i> Carte des requêtes ouvertes</h1>
+    <div class="hdr-actions">
+      <a href="{% url 'doleances:export_csv' %}" class="btn-sm btn-dark">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </a>
+      <a href="{% url 'doleances:tableau_de_bord' %}" class="btn-sm btn-accent">
+        <i class="fas fa-list"></i> Tableau de bord
+      </a>
+    </div>
+  </div>
+
+  <div class="map-layout">
+    <!-- Panneau latéral -->
+    <div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-title"><i class="fas fa-chart-bar"></i> Statistiques</div>
+        <div class="stat-row">
+          <span>Périmètres actifs</span>
+          <span class="stat-num">{{ nb_perimetres }}</span>
+        </div>
+        <div class="stat-row">
+          <span>Périmètres cartographiés</span>
+          <span class="stat-num">{{ nb_features }}</span>
+        </div>
+        {% if nb_sans_geometrie %}
+        <div class="info-no-geom">
+          <i class="fas fa-exclamation-triangle"></i>
+          {{ nb_sans_geometrie }} périmètre{{ nb_sans_geometrie|pluralize }} sans géométrie enregistrée — non affiché{{ nb_sans_geometrie|pluralize }}.
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-circle"></i> Légende — urgence</div>
+        <div class="legend-item"><span class="legend-dot dot-critique"></span> Critique</div>
+        <div class="legend-item"><span class="legend-dot dot-haute"></span> Haute</div>
+        <div class="legend-item"><span class="legend-dot dot-normale"></span> Normale</div>
+        <div class="legend-item"><span class="legend-dot dot-faible"></span> Faible</div>
+        <div style="margin-top:10px;font-size:11.5px;color:#aaa;line-height:1.5;">
+          La couleur indique le niveau d'urgence maximal parmi les requêtes ouvertes du périmètre.<br>
+          La taille du cercle est proportionnelle au nombre de requêtes.
+        </div>
+      </div>
+    </div>
+
+    <!-- Carte Leaflet -->
+    <div id="carte-requetes"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script>
+const geojsonData = {{ geojson|safe }};
+
+const URGENCE_COLOR = {
+  critique: '#c0392b',
+  haute:    '#e67e22',
+  normale:  '#2980b9',
+  faible:   '#27ae60',
+};
+
+const map = L.map('carte-requetes');
+
+const basemaps = {
+  'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+  'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+  'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+};
+basemaps['OpenStreetMap'].addTo(map);
+L.control.layers(basemaps, {}, { collapsed: true }).addTo(map);
+
+// Centrage par défaut sur le Tafilalet / Midelt (Maroc)
+map.setView([31.8, -4.5], 8);
+
+const markers = [];
+
+geojsonData.features.forEach(function(feat) {
+  const props = feat.properties;
+  const [lng, lat] = feat.geometry.coordinates;
+  const color = URGENCE_COLOR[props.urgence_max] || '#888';
+  const radius = Math.max(8, Math.min(24, 8 + props.nb_requetes * 3));
+
+  const marker = L.circleMarker([lat, lng], {
+    radius:      radius,
+    color:       color,
+    weight:      2,
+    fillColor:   color,
+    fillOpacity: 0.75,
+  });
+
+  const urgenceLabels = {
+    critique: 'Critique',
+    haute:    'Haute',
+    normale:  'Normale',
+    faible:   'Faible',
+  };
+  const urgLabel = urgenceLabels[props.urgence_max] || props.urgence_max;
+
+  marker.bindPopup(`
+    <div style="font-family:'Inter',sans-serif;min-width:180px;">
+      <div style="font-weight:700;font-size:14px;color:#1a1a2e;margin-bottom:6px;">
+        <i class="fas fa-map-marker-alt" style="color:${color};"></i>
+        ${props.nom}
+      </div>
+      <div style="font-size:12px;color:#555;margin-bottom:4px;">
+        <b>${props.nb_requetes}</b> requête${props.nb_requetes > 1 ? 's' : ''} ouverte${props.nb_requetes > 1 ? 's' : ''}
+      </div>
+      <div style="font-size:12px;margin-bottom:10px;">
+        Urgence max :
+        <span style="font-weight:700;color:${color};">${urgLabel}</span>
+      </div>
+      <a href="${props.url_tdb}" style="display:inline-block;padding:5px 12px;background:#1a1a2e;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;">
+        <i class="fas fa-list"></i> Voir les requêtes
+      </a>
+    </div>
+  `);
+
+  marker.addTo(map);
+  markers.push(marker);
+});
+
+// Auto-zoom sur les marqueurs si on en a
+if (markers.length > 0) {
+  const group = L.featureGroup(markers);
+  map.fitBounds(group.getBounds(), { padding: [40, 40] });
+}
+</script>
+{% endblock %}

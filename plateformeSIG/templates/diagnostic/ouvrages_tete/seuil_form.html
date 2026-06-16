@@ -1,0 +1,347 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.pg-hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:20px 32px;}
+.pg-hero h1{font-size:17px;font-weight:700;color:#fff;margin:0 0 3px;display:flex;align-items:center;gap:10px;}
+.pg-hero .sub{font-size:12px;color:rgba(255,255,255,.45);}
+.pg-body{display:grid;grid-template-columns:1fr 560px;gap:22px;padding:26px 32px;align-items:start;}
+@media(max-width:960px){.pg-body{grid-template-columns:1fr;}}
+.fc{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;margin-bottom:14px;overflow:hidden;}
+.fc-hd{padding:12px 18px;background:#fafaf8;border-bottom:1.5px solid #f0e8d8;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;}
+.fc-hd i{color:#f0a500;font-size:13px;}
+.fc-bd{padding:16px 18px;}
+.fg{margin-bottom:13px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:12.5px;font-weight:600;color:#555;margin-bottom:5px;}
+.form-control{width:100%;padding:8px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;color:#1a1a2e;box-sizing:border-box;}
+.form-control:focus{outline:none;border-color:#f0a500;box-shadow:0 0 0 3px rgba(240,165,0,.1);}
+select.form-control{cursor:pointer;}
+.help{font-size:11px;color:#aaa;margin-top:3px;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+ul.errorlist{color:#c0392b;font-size:11.5px;list-style:none;margin:3px 0 0;padding:0;}
+ul.errorlist li::before{content:'⚠ ';}
+
+/* Etat tags */
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border:1.5px solid #e0d0c0;border-radius:8px;min-height:42px;cursor:text;align-items:center;}
+.tag-input-wrap:focus-within{border-color:#f0a500;box-shadow:0 0 0 3px rgba(240,165,0,.1);}
+.tag{display:inline-flex;align-items:center;gap:5px;background:#f8f4ee;border:1px solid #e0d0c0;border-radius:20px;padding:3px 10px;font-size:12px;color:#444;}
+.tag button{background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;line-height:1;padding:0;}
+.tag-inp{border:none;outline:none;font-size:12.5px;font-family:'Inter',sans-serif;min-width:120px;flex:1;}
+
+/* SHP */
+.shp-zone{border:2px dashed #e0d0c0;border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;}
+.shp-zone:hover,.shp-zone.dragover{border-color:#f0a500;background:#fff8ee;}
+.shp-zone i{font-size:24px;color:#ddd;display:block;margin-bottom:6px;}
+.shp-zone:hover i,.shp-zone.dragover i{color:#f0a500;}
+.shp-zone p{font-size:12px;color:#aaa;margin:0;}
+.shp-zone p b{color:#444;}
+.shp-st{font-size:12px;font-weight:600;display:none;align-items:center;gap:6px;margin-top:8px;}
+.shp-st.ok{color:#1e8449;display:flex;}.shp-st.err{color:#c0392b;display:flex;}.shp-st.loading{color:#888;display:flex;}
+
+/* Map */
+.map-card{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;overflow:hidden;position:sticky;top:78px;}
+.map-hd{padding:12px 16px;background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.map-hd i{color:#f0a500;}
+#diag-map{height:380px;cursor:crosshair;}
+.map-empty{height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ccc;font-size:13px;gap:10px;text-align:center;}
+.map-empty i{font-size:32px;}
+
+/* Prises/Dégrevements: grouped table */
+.dim-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:0;}
+.dim-table th{background:#f8f4ee;padding:7px 10px;text-align:left;font-size:11.5px;font-weight:700;color:#777;border-bottom:1.5px solid #f0e8d8;}
+.dim-table td{padding:8px 10px;border-bottom:1px solid #f5f0e8;}
+.dim-table td .form-control{margin-bottom:0;}
+
+.form-actions{padding:14px 18px;background:#f9f3ea;display:flex;gap:10px;border-top:1.5px solid #f0e8d8;}
+.btn-save{background:#f0a500;color:#1a1a2e;border:none;border-radius:8px;padding:10px 24px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:7px;}
+.btn-save:hover{background:#d4920a;}
+.btn-cancel{background:#eee;color:#444;border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;display:inline-flex;align-items:center;gap:7px;}
+.btn-cancel:hover{background:#ddd;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg-hero">
+  <h1><i class="fas fa-water" style="color:#f0a500;"></i>{{ titre }}</h1>
+  <div class="sub">Périmètre : {{ perimetre }}</div>
+</div>
+
+<div class="pg-body">
+  <!-- LEFT -->
+  <div>
+    <form method="post" id="seuil-form" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="geometrie" id="id_geometrie"
+             value="{% if form.instance.pk and form.instance.geometrie %}{{ form.instance.geometrie.wkt }}{% endif %}">
+
+      <!-- 1. Identification -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-tag"></i> Identification</div>
+        <div class="fc-bd">
+          <div class="r2">
+            <div class="fg" style="grid-column:1/-1;">
+              <label>{{ form.nom_du_seuil.label }}</label>
+              {{ form.nom_du_seuil }}{{ form.nom_du_seuil.errors }}
+            </div>
+            <div class="fg" style="grid-column:1/-1;">
+              <label>{{ form.localisation_du_seuil.label }}</label>
+              {{ form.localisation_du_seuil }}
+            </div>
+            <div class="fg">
+              <label>Coordonnée X</label>
+              {{ form.coordonnes_x }}<div class="help">Nord Maroc (m)</div>
+            </div>
+            <div class="fg">
+              <label>Coordonnée Y</label>
+              {{ form.coordonnes_y }}<div class="help">Nord Maroc (m)</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.nature_du_seuil.label }}</label>
+              {{ form.nature_du_seuil }}
+            </div>
+            <div class="fg">
+              <label>{{ form.type_du_seuil.label }}</label>
+              {{ form.type_du_seuil }}
+            </div>
+            <div class="fg" style="grid-column:1/-1;">
+              <label>{{ form.materiaux_de_construction.label }}</label>
+              {{ form.materiaux_de_construction }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Dimensions principales -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-ruler-combined"></i> Dimensions principales</div>
+        <div class="fc-bd">
+          <div class="r3">
+            <div class="fg">
+              <label>{{ form.debit_mobilise.label }}</label>
+              {{ form.debit_mobilise }}<div class="help">l/s</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.longueur.label }}</label>
+              {{ form.longueur }}<div class="help">m</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.largeur_de_base.label }}</label>
+              {{ form.largeur_de_base }}<div class="help">m</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.hauteur.label }}</label>
+              {{ form.hauteur }}<div class="help">m</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.largeur_tapis_amortissement.label }}</label>
+              {{ form.largeur_tapis_amortissement }}<div class="help">m</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3a. Prises d'eau (carte séparée) -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-arrow-right"></i> Prises d'eau</div>
+        <div class="fc-bd">
+          <table class="dim-table">
+            <thead>
+              <tr>
+                <th>Élément</th>
+                <th>Longueur (m)</th>
+                <th>Largeur (m)</th>
+                <th>Nbr pertuis</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-size:12px;color:#666;">Prise rive droite</td>
+                <td>{{ form.longueur_prise_droit }}</td>
+                <td>{{ form.largeur_prise_droit }}</td>
+                <td>{{ form.nbr_pertuis_prise_droit }}</td>
+              </tr>
+              <tr style="border-bottom:none;">
+                <td style="font-size:12px;color:#666;">Prise rive gauche</td>
+                <td>{{ form.longueur_prise_gauche }}</td>
+                <td>{{ form.largeur_prise_gauche }}</td>
+                <td>{{ form.nbr_pertuis_prise_gauche }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3b. Passes de dégrèvement (carte séparée) -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-water"></i> Passes de dégrèvement</div>
+        <div class="fc-bd">
+          <table class="dim-table">
+            <thead>
+              <tr>
+                <th>Élément</th>
+                <th>Longueur (m)</th>
+                <th>Largeur (m)</th>
+                <th>Nbr pertuis</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-size:12px;color:#666;">Dégrèvement rive droite</td>
+                <td>{{ form.longueur_degrevement_droit }}</td>
+                <td>{{ form.largeur_degrevement_droit }}</td>
+                <td>{{ form.nbr_pertuis_degrevement_droit }}</td>
+              </tr>
+              <tr style="border-bottom:none;">
+                <td style="font-size:12px;color:#666;">Dégrèvement rive gauche</td>
+                <td>{{ form.longueur_degrevement_gauche }}</td>
+                <td>{{ form.largeur_degrevement_gauche }}</td>
+                <td>{{ form.nbr_pertuis_degrevement_gauche }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. État et réhabilitation : transféré dans la vue "Diagnostic" (DIV conservé masqué) -->
+      <div class="fc" style="display:none;">
+        <div class="fc-hd"><i class="fas fa-clipboard-check"></i> État et réhabilitation</div>
+        <div class="fc-bd">
+          <p style="font-size:12px;color:#888;">Section déplacée vers le diagnostic structuré du seuil.</p>
+        </div>
+      </div>
+
+      <div class="fc form-actions">
+        <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer</button>
+        <a href="{% url 'diagnostic:ouvrages_tete_detail' pk=perimetre.pk %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- RIGHT: SHP + MAP -->
+  <div>
+    <div class="fc" style="margin-bottom:14px;">
+      <div class="fc-hd"><i class="fas fa-map-pin"></i> Géométrie (point)</div>
+      <div class="fc-bd">
+        <div class="shp-zone" id="shp-drop" onclick="document.getElementById('shp-file').click()">
+          <i class="fas fa-file-upload"></i>
+          <p><b>Cliquer ou glisser-déposer</b><br>un fichier .zip<br>
+          <span style="font-size:11px;color:#bbb;">Point SHP recommandé</span></p>
+        </div>
+        <input type="file" id="shp-file" accept=".zip" style="display:none">
+        <div class="shp-st" id="shp-st"></div>
+        {% if form.instance.pk and form.instance.geometrie %}
+        <div style="font-size:11.5px;color:#27ae60;margin-top:6px;">
+          <i class="fas fa-check-circle"></i> Géométrie existante affichée
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="map-card">
+      <div class="map-hd"><i class="fas fa-map"></i> Géométrie</div>
+      <div style="padding:5px 12px;font-size:11px;color:#888;background:#fafaf8;border-bottom:1px solid #f0e8d8;">
+        <i class="fas fa-mouse-pointer" style="color:#f0a500;margin-right:4px;"></i>Cliquer sur la carte pour placer le point — ou importer un SHP
+      </div>
+      <div id="diag-map"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script>
+// ── Tag system ─────────────────────────────────────────────────────────
+function splitCSV(s){ return s ? s.split(',').map(v=>v.trim()).filter(v=>v) : []; }
+function joinTags(tagsSpan){ return [...tagsSpan.querySelectorAll('.tag')].map(t=>t.dataset.val).join(', '); }
+
+function renderTag(label, tagsSpanId, hiddenId){
+  const span = document.getElementById(tagsSpanId);
+  const tag = document.createElement('span'); tag.className='tag'; tag.dataset.val=label;
+  tag.innerHTML = `${label} <button type="button" onclick="removeTag(this,'${tagsSpanId}','${hiddenId}')" title="Supprimer">&times;</button>`;
+  span.appendChild(tag);
+  document.getElementById(hiddenId).value = joinTags(span);
+}
+function removeTag(btn, tagsSpanId, hiddenId){
+  btn.closest('.tag').remove();
+  document.getElementById(hiddenId).value = joinTags(document.getElementById(tagsSpanId));
+}
+function tagKeydown(e, inpId, tagsSpanId, hiddenId){
+  if(e.key==='Enter'||e.key===','){ e.preventDefault();
+    const inp=document.getElementById(inpId); const val=inp.value.trim().replace(/,$/,'');
+    if(val){ renderTag(val,tagsSpanId,hiddenId); inp.value=''; }
+  }
+}
+function focusTagInput(id){ document.getElementById(id).focus(); }
+
+// Seed tags from hidden field — guards si la section état est masquée (champs déplacés vers EtatSeuil)
+function seedTags(hiddenId, tagsSpanId){
+  const hidden = document.getElementById(hiddenId);
+  const span = document.getElementById(tagsSpanId);
+  if(!hidden || !span) return;
+  splitCSV(hidden.value).forEach(v=>renderTag(v,tagsSpanId,hiddenId));
+  hidden.value = joinTags(span);
+}
+seedTags('id_etat_construction_fonctionnement','tags-etat-const');
+seedTags('id_etat_materiel_hydromecanique','tags-etat-mat');
+
+// ── Map + SHP ──────────────────────────────────────────────────────────
+const UPLOAD_URL = "{% url 'upload_shp' %}";
+const CSRF = "{{ csrf_token }}";
+const BASEMAPS={
+  'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}),
+  'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+  'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+  'ESRI Rues':          L.esri.basemapLayer('Streets'),
+};
+let map=null,previewLayer=null,clickMarker=null;
+const geomInput=document.getElementById('id_geometrie');
+const existingGeom={{ form.instance.geometrie.geojson|default:"null"|safe }};
+function showGeom(geojson){
+  if(previewLayer)map.removeLayer(previewLayer);
+  previewLayer=L.geoJSON(geojson,{
+    style:{color:'#f0a500',weight:2.5,fillOpacity:.2,fillColor:'#f0a500'},
+    pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:9,color:'#f0a500',fillColor:'#f0a500',fillOpacity:.8})
+  }).addTo(map);
+  try{map.fitBounds(previewLayer.getBounds(),{padding:[30,30]});}catch(e){}
+}
+(function(){
+  map=L.map('diag-map').setView([31.5,-4.5],9);
+  BASEMAPS['OpenStreetMap'].addTo(map);
+  L.control.layers(BASEMAPS,{},{collapsed:true}).addTo(map);
+  if(existingGeom)showGeom(existingGeom);
+  map.on('click',function(e){
+    if(clickMarker)map.removeLayer(clickMarker);
+    clickMarker=L.marker(e.latlng,{icon:L.divIcon({className:'',html:'<div style="width:16px;height:16px;background:#f0a500;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:translate(-8px,-8px);"></div>',iconSize:[0,0]})}).addTo(map);
+    geomInput.value='POINT('+e.latlng.lng.toFixed(6)+' '+e.latlng.lat.toFixed(6)+')';
+  });
+})();
+
+function setStatus(msg,type){
+  const s=document.getElementById('shp-st'); s.className='shp-st '+type;
+  s.innerHTML=type==='loading'?`<i class="fas fa-spinner fa-spin"></i> ${msg}`:type==='ok'?`<i class="fas fa-check-circle"></i> ${msg}`:`<i class="fas fa-exclamation-circle"></i> ${msg}`;
+}
+function handleSHP(file){
+  if(!file.name.endsWith('.zip')){setStatus('Fichier .zip requis','err');return;}
+  setStatus('Lecture en cours…','loading');
+  const fd=new FormData(); fd.append('shp_file',file); fd.append('geom_type','any');
+  fetch(UPLOAD_URL,{method:'POST',headers:{'X-CSRFToken':CSRF},body:fd})
+    .then(r=>r.json()).then(data=>{
+      if(data.error){setStatus(data.error,'err');return;}
+      geomInput.value=data.wkt;
+      setStatus('Géométrie chargée','ok'); showGeom(data.geojson);
+    }).catch(()=>setStatus('Erreur réseau','err'));
+}
+document.getElementById('shp-file').addEventListener('change',e=>{if(e.target.files[0]) handleSHP(e.target.files[0]);});
+const dz=document.getElementById('shp-drop');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0]) handleSHP(e.dataTransfer.files[0]);});
+
+document.querySelectorAll('#seuil-form input:not([type=hidden]):not([type=file]):not(.tag-inp),#seuil-form select')
+  .forEach(el=>el.classList.add('form-control'));
+</script>
+{% endblock %}

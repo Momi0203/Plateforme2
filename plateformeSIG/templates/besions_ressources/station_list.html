@@ -1,0 +1,83 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Stations climatiques — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 1000px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-add  { background: #f0a500; color: #1a1a2e; }
+.btn-add:hover  { background: #d4920a; }
+.btn-edit { background: #1a1a2e; color: #fff; font-size: 12px; padding: 5px 11px; }
+.btn-edit:hover { background: #2a2a4e; }
+.btn-del  { background: #fde8e8; color: #c0392b; font-size: 12px; padding: 5px 11px; }
+.btn-del:hover  { background: #f9cfcf; }
+
+.stations-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.station-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 18px; transition: border-color .2s; }
+.station-card:hover { border-color: #f0a500; }
+.station-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.station-name { font-size: 14px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 7px; }
+.station-name i { color: #f0a500; }
+.station-info { font-size: 12px; color: #555; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.station-info b { color: #1a1a2e; }
+.info-label { color: #888; font-weight: 600; }
+.station-actions { display: flex; gap: 6px; }
+
+.empty-state { background: #fff; border-radius: 14px; border: 1.5px dashed #e0d0c0; padding: 48px; text-align: center; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'besions_ressources:home' %}">Bilan</a> › Stations climatiques
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-thermometer-half"></i> Stations climatiques</h1>
+    <a href="{% url 'besions_ressources:station_creer' %}" class="btn-sm btn-add">
+      <i class="fas fa-plus"></i> Nouvelle station
+    </a>
+  </div>
+
+  {% if stations %}
+  <div class="stations-grid">
+    {% for st in stations %}
+    <div class="station-card">
+      <div class="station-head">
+        <div>
+          <div class="station-name"><i class="fas fa-thermometer-half"></i> {{ st.nom }}</div>
+          <div class="station-info">
+            <div><span class="info-label">Degré d'altitude :</span> <b>{{ st.latitude }}°</b></div>
+            <div><span class="info-label">Coordonnées :</span> <b>X : {{ st.x }} m · Y : {{ st.y }} m</b></div>
+          </div>
+        </div>
+        <div class="station-actions">
+          <a href="{% url 'besions_ressources:station_modifier' st.pk %}" class="btn-sm btn-edit">
+            <i class="fas fa-edit"></i> Modifier
+          </a>
+          <a href="{% url 'besions_ressources:station_supprimer' st.pk %}" class="btn-sm btn-del">
+            <i class="fas fa-trash"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-thermometer-half"></i>
+    Aucune station climatique définie.<br>
+    <a href="{% url 'besions_ressources:station_creer' %}" style="color:#f0a500;font-weight:600;">Créer la première station →</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+

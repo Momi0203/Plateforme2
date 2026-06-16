@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Historique — Efficience des réseaux — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.ef-page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.ef-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.ef-header h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.ef-header h1 i { color: #f0a500; }
+
+.recent-table { background: #fff; border-radius: 12px; border: 1px solid #f0e8d8; overflow: hidden; margin-bottom: 18px; }
+.recent-table table { width: 100%; border-collapse: collapse; }
+.recent-table th { background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; padding: 11px 14px; text-align: left; }
+.recent-table td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid #f5ece0; vertical-align: middle; }
+.recent-table tr:last-child td { border-bottom: none; }
+.recent-table tr:hover td { background: #fffbf5; }
+
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-eff-haut { background: #d4edda; color: #1e8449; }
+.badge-eff-moy  { background: #fff3cd; color: #856404; }
+.badge-eff-bas  { background: #f8d7da; color: #c0392b; }
+.badge-type     { background: #e8eaf6; color: #283593; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-primary-sm { background: #f0a500; color: #1a1a2e; }
+.btn-primary-sm:hover { background: #d4920a; }
+.btn-ghost-sm { background: #fff8ee; color: #1a1a2e; border: 1px solid #f0e8d8; }
+.btn-ghost-sm:hover { background: #fff3cd; }
+
+.empty-state { text-align: center; padding: 40px; color: #aaa; font-size: 13px; }
+.empty-state i { font-size: 32px; margin-bottom: 10px; display: block; color: #ddd; }
+
+.count-label { font-size: 11.5px; color: #888; margin-top: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ef-page">
+  {% if perimetre %}
+  <div class="breadcrumb">
+    <a href="{% url 'efficiences:liste' %}">Efficience</a> ›
+    <a href="{% url 'efficiences:formulaire' perimetre.id %}">{{ perimetre.ksar_village|default:perimetre }}</a> ›
+    Historique
+  </div>
+  {% else %}
+  <div class="breadcrumb">
+    <a href="{% url 'efficiences:liste' %}">Efficience</a> › Historique global
+  </div>
+  {% endif %}
+
+  <div class="ef-header">
+    <h1>
+      <i class="fas fa-history"></i>
+      Historique
+      {% if perimetre %}— {{ perimetre.ksar_village }}{% else %}— tous les périmètres{% endif %}
+    </h1>
+    <a href="{% url 'efficiences:liste' %}" class="btn-sm btn-ghost-sm">
+      <i class="fas fa-arrow-left"></i> Retour à la liste
+    </a>
+  </div>
+
+  <div class="recent-table">
+    {% if historique %}
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Périmètre</th>
+          <th>Ouvrage de tête</th>
+          <th style="text-align:right;">E. principale</th>
+          <th style="text-align:right;">E. secondaire</th>
+          <th style="text-align:right;">E. tertiaire</th>
+          <th style="text-align:right;">E. globale</th>
+          <th>Tronçons (P / S / T)</th>
+          <th>Opérateur</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in historique %}
+        {% with eff=row.efficience %}
+        <tr>
+          <td><small>{{ eff.date_calcul|date:"d/m/Y H:i" }}</small></td>
+          <td><b>{{ eff.perimetre.ksar_village|default:eff.perimetre }}</b></td>
+          <td>
+            <span class="badge badge-type">{{ row.ouvrage_label }}</span>
+            {% if row.ouvrage %}{{ row.ouvrage }}{% else %}<em style="color:#aaa;">(supprimé)</em>{% endif %}
+          </td>
+          <td style="text-align:right;">{% if eff.efficience_principale is not None %}{{ eff.efficience_principale|floatformat:1 }} %{% else %}—{% endif %}</td>
+          <td style="text-align:right;">{% if eff.efficience_secondaire is not None %}{{ eff.efficience_secondaire|floatformat:1 }} %{% else %}—{% endif %}</td>
+          <td style="text-align:right;">{% if eff.efficience_tertiaire is not None %}{{ eff.efficience_tertiaire|floatformat:1 }} %{% else %}—{% endif %}</td>
+          <td style="text-align:right;">
+            <span class="badge {% if eff.efficience_globale > 80 %}badge-eff-haut{% elif eff.efficience_globale > 50 %}badge-eff-moy{% else %}badge-eff-bas{% endif %}">
+              {{ eff.efficience_globale|floatformat:1 }} %
+            </span>
+          </td>
+          <td><small>{{ eff.nb_troncons_principaux }} / {{ eff.nb_troncons_secondaires }} / {{ eff.nb_troncons_tertiaires }}</small></td>
+          <td><small style="color:#888;">{{ eff.operateur|default:"—" }}</small></td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <i class="fas fa-history"></i>
+      Aucun calcul enregistré{% if perimetre %} pour ce périmètre{% endif %}.<br>
+      {% if perimetre %}
+      <a href="{% url 'efficiences:formulaire' perimetre.id %}" style="color:#f0a500; font-weight:600;">Lancer un premier calcul →</a>
+      {% else %}
+      <a href="{% url 'efficiences:liste' %}" style="color:#f0a500; font-weight:600;">Choisir un périmètre →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if historique %}
+  <div class="count-label">
+    {{ historique|length }} entrée{{ historique|length|pluralize }} affichée{{ historique|length|pluralize }} (limite : 200).
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

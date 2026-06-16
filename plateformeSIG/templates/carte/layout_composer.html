@@ -1,0 +1,92 @@
+{% load static %}
+<div class="lc-container">
+
+  <!-- Colonne paramètres -->
+  <div class="lc-params">
+
+    <div class="lc-section-title"><i class="fas fa-file-alt"></i> Format &amp; Mise en page</div>
+
+    <label class="lc-label">Format &amp; Orientation</label>
+    <div class="lc-row" style="margin-top:4px">
+      <select id="lc-format" class="lc-select">
+        <option value="A4" selected>A4</option>
+        <option value="A3">A3</option>
+        <option value="A2">A2</option>
+        <option value="A1">A1</option>
+        <option value="A0">A0</option>
+        <option value="A5">A5</option>
+      </select>
+      <select id="lc-orientation" class="lc-select">
+        <option value="paysage" selected>Paysage</option>
+        <option value="portrait">Portrait</option>
+      </select>
+      <select id="lc-dpi" class="lc-select">
+        <option value="96">96 dpi</option>
+        <option value="150" selected>150 dpi</option>
+        <option value="300">300 dpi</option>
+      </select>
+    </div>
+
+    <div class="lc-section-title" style="margin-top:10px"><i class="fas fa-font"></i> Textes</div>
+
+    <label class="lc-label">Titre</label>
+    <input id="lc-titre" type="text" class="lc-input-full" placeholder="Titre de la carte…" maxlength="120" style="margin-top:4px">
+
+    <label class="lc-label" style="display:block;margin-top:6px">Sous-titre</label>
+    <input id="lc-sous-titre" type="text" class="lc-input-full" placeholder="Sous-titre ou description…" maxlength="200" style="margin-top:4px">
+
+    <label class="lc-label" style="display:block;margin-top:6px">Source</label>
+    <input id="lc-source" type="text" class="lc-input-full" placeholder="Source : ORMVA/TF, 2026…" maxlength="160" style="margin-top:4px">
+
+    <div class="lc-section-title" style="margin-top:10px"><i class="fas fa-images"></i> Logos</div>
+
+    <div class="lc-logo-row">
+      <input type="checkbox" id="lc-logo-hydroplan_icone">
+      <label class="lc-logo-label" for="lc-logo-hydroplan_icone">HydroPlan icône</label>
+      <input type="checkbox" id="lc-logo-hydroplan_texte">
+      <label class="lc-logo-label" for="lc-logo-hydroplan_texte">HydroPlan texte</label>
+    </div>
+    <div class="lc-logo-row">
+      <input type="checkbox" id="lc-logo-sgiat">
+      <label class="lc-logo-label" for="lc-logo-sgiat">SGIAT</label>
+      <input type="checkbox" id="lc-logo-iav">
+      <label class="lc-logo-label" for="lc-logo-iav">IAV Hassan II</label>
+    </div>
+
+    <div class="lc-section-title" style="margin-top:10px"><i class="fas fa-map"></i> Éléments cartographiques</div>
+
+    <div class="lc-check-row"><input type="checkbox" id="lc-elem-legende" checked> <label for="lc-elem-legende">Légende</label></div>
+    <div class="lc-check-row"><input type="checkbox" id="lc-elem-nord" checked> <label for="lc-elem-nord">Flèche Nord</label></div>
+    <div class="lc-check-row"><input type="checkbox" id="lc-elem-echelle" checked> <label for="lc-elem-echelle">Barre d'échelle</label></div>
+    <div class="lc-check-row"><input type="checkbox" id="lc-elem-cadre"> <label for="lc-elem-cadre">Cadre</label></div>
+
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">
+      <button id="lc-btn-capture" class="lc-btn lc-btn-capture" title="Capturer l'état actuel de la carte">
+        <i class="fas fa-camera"></i> Capturer la carte
+      </button>
+      <button id="lc-btn-pdf" class="lc-btn" title="Générer le PDF de mise en page">
+        <i class="fas fa-file-pdf"></i> Générer PDF
+      </button>
+    </div>
+
+    <div id="lc-status" class="lc-status" style="display:none"></div>
+  </div>
+
+  <!-- Zone de prévisualisation -->
+  <div class="lc-preview-zone">
+    <div style="width:100%;max-width:900px;flex:1;display:flex;flex-direction:column;align-items:center">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em">
+          <i class="fas fa-eye"></i> Prévisualisation
+        </span>
+        <span id="lc-preview-info" style="font-size:11px;color:#aaa"></span>
+      </div>
+      <canvas id="lc-preview-canvas" class="lc-preview-canvas" style="display:none"></canvas>
+      <div id="lc-preview-placeholder" class="lc-preview-placeholder">
+        <i class="fas fa-map"></i>
+        <br>Cliquez sur <strong>Capturer la carte</strong> pour générer un aperçu.
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Diagnostic — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.diag-hero { background: linear-gradient(135deg, #1a1a2e 20%, #232347 80%); padding: 32px 32px 28px;
+    color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.diag-hero-text h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.diag-hero-text p { font-size: 13px; color: rgba(255,255,255,.6); margin: 0; }
+.hero-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-import-shp { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+    background: rgba(255,255,255,.12); color: #fff; border: 1.5px solid rgba(255,255,255,.3);
+    border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none;
+    transition: background .15s, border-color .15s; white-space: nowrap; }
+.btn-import-shp:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.55); color: #fff; }
+.btn-import-shp i { font-size: 14px; color: #f0a500; }
+.btn-export-excel { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+    background: #1e7e34; color: #fff; border: 1.5px solid #28a745;
+    border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none;
+    transition: background .15s; white-space: nowrap; }
+.btn-export-excel:hover { background: #166526; color: #fff; }
+.btn-export-excel i { font-size: 14px; }
+.diag-body { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+.section-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 32px; }
+@media (max-width: 820px) { .section-cards { grid-template-columns: 1fr; } }
+.main-card {
+    background: #fff; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.08);
+    padding: 32px; text-decoration: none; color: inherit; display: flex; flex-direction: column;
+    gap: 16px; transition: transform .2s, box-shadow .2s; border: 2px solid transparent;
+}
+.main-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,.14); border-color: #f0a500; }
+.main-card-icon { width: 56px; height: 56px; background: #fff8ee; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; }
+.main-card-icon i { font-size: 26px; color: #f0a500; }
+.main-card h2 { font-size: 17px; font-weight: 700; color: #1a1a2e; margin: 0; }
+.main-card p { font-size: 13px; color: #666; margin: 0; line-height: 1.5; }
+.main-card .card-types { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.type-tag { background: #fff8ee; color: #c07800; border-radius: 20px; padding: 3px 10px;
+    font-size: 11.5px; font-weight: 500; }
+.main-card .card-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #f0ebe0;
+    display: flex; align-items: center; justify-content: space-between; }
+.main-card .card-footer span { font-size: 12px; color: #999; }
+.main-card .card-footer .btn-go { background: #f0a500; color: #1a1a2e; border-radius: 8px;
+    padding: 7px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+.stats-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; margin-bottom: 28px; }
+@media (max-width: 900px) { .stats-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stat-card { background: #fff; border-radius: 10px; padding: 16px; text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.stat-card .num { font-size: 28px; font-weight: 700; color: #f0a500; }
+.stat-card .lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="diag-hero">
+    <div class="diag-hero-text">
+        <h1><i class="fas fa-clipboard-check" style="color:#f0a500;margin-right:10px;"></i>Diagnostic des infrastructures hydrauliques</h1>
+        <p>Gérez, diagnostiquez et évaluez les ouvrages hydrauliques des périmètres agricoles</p>
+    </div>
+    <div class="hero-btns">
+        <a href="{% url 'diagnostic:shp_import_unified' %}" class="btn-import-shp">
+            <i class="fas fa-file-import"></i> Importer un shapefile
+        </a>
+        <a href="{% url 'diagnostic:export_enquete_global' %}" class="btn-export-excel">
+            <i class="fas fa-file-excel"></i> Module Enquête — Fiche terrain
+        </a>
+    </div>
+</div>
+
+<div class="diag-body">
+
+    <div class="stats-row">
+        <div class="stat-card"><div class="num">{{ stats.perimetres }}</div><div class="lbl">Périmètres</div></div>
+        <div class="stat-card"><div class="num">{{ stats.seuils }}</div><div class="lbl">Seuils</div></div>
+        <div class="stat-card"><div class="num">{{ stats.barrages }}</div><div class="lbl">Barrages</div></div>
+        <div class="stat-card"><div class="num">{{ stats.khettaras }}</div><div class="lbl">Khettaras</div></div>
+        <div class="stat-card"><div class="num">{{ stats.forages }}</div><div class="lbl">Forages/Puits</div></div>
+        <div class="stat-card"><div class="num">{{ stats.murs }}</div><div class="lbl">Murs protection</div></div>
+        <div class="stat-card"><div class="num">{{ stats.prises }}</div><div class="lbl">Prises locales</div></div>
+        <div class="stat-card"><div class="num">{{ stats.seguias }}</div><div class="lbl">Séguias</div></div>
+    </div>
+
+    <div class="section-cards">
+        <!-- Carte 1 : Création périmètre & ouvrages -->
+        <a href="{% url 'diagnostic:perimetre_list' %}?section=ouvrages_tete" class="main-card">
+            <div class="main-card-icon"><i class="fas fa-tools"></i></div>
+            <div>
+                <h2>Création du périmètre et des ouvrages</h2>
+                <p>Saisie des périmètres agricoles et de l'ensemble des ouvrages hydrauliques en tête et du réseau séguia.</p>
+            </div>
+            <div class="card-types">
+                <span class="type-tag"><i class="fas fa-draw-polygon" style="margin-right:4px;"></i>Périmètres</span>
+                <span class="type-tag"><i class="fas fa-water" style="margin-right:4px;"></i>Seuils</span>
+                <span class="type-tag"><i class="fas fa-mountain" style="margin-right:4px;"></i>Barrages</span>
+                <span class="type-tag"><i class="fas fa-project-diagram" style="margin-right:4px;"></i>Khettaras</span>
+                <span class="type-tag"><i class="fas fa-dot-circle" style="margin-right:4px;"></i>Forages/Puits</span>
+                <span class="type-tag"><i class="fas fa-tint" style="margin-right:4px;"></i>Prises locales</span>
+                <span class="type-tag"><i class="fas fa-stream" style="margin-right:4px;"></i>Séguias</span>
+            </div>
+            <div class="card-footer">
+                <span>{{ stats.perimetres }} périmètre(s) enregistré(s)</span>
+                <span class="btn-go"><i class="fas fa-arrow-right"></i> Accéder</span>
+            </div>
+        </a>
+
+        <!-- Carte 2 : Suivi et évaluation des ouvrages -->
+        <a href="{% url 'diagnostic:suivi_evaluation' %}" class="main-card">
+            <div class="main-card-icon"><i class="fas fa-chart-line"></i></div>
+            <div>
+                <h2>Suivi et évaluation des ouvrages</h2>
+                <p>Consultez l'état, le statut de validation et les défauts relevés sur l'ensemble des ouvrages hydrauliques diagnostiqués.</p>
+            </div>
+            <div class="card-types">
+                <span class="type-tag"><i class="fas fa-water" style="margin-right:4px;"></i>Seuils</span>
+                <span class="type-tag"><i class="fas fa-mountain" style="margin-right:4px;"></i>Barrages</span>
+                <span class="type-tag"><i class="fas fa-project-diagram" style="margin-right:4px;"></i>Khettaras</span>
+                <span class="type-tag"><i class="fas fa-dot-circle" style="margin-right:4px;"></i>Forages/Puits</span>
+                <span class="type-tag"><i class="fas fa-shield-alt" style="margin-right:4px;"></i>Murs</span>
+                <span class="type-tag"><i class="fas fa-tint" style="margin-right:4px;"></i>Prises locales</span>
+                <span class="type-tag"><i class="fas fa-stream" style="margin-right:4px;"></i>Séguias</span>
+            </div>
+            <div class="card-footer">
+                {% with total=stats.seuils|add:stats.barrages|add:stats.khettaras|add:stats.forages|add:stats.murs|add:stats.prises|add:stats.seguias %}
+                <span>{{ total }} ouvrage(s) diagnostiqué(s)</span>
+                {% endwith %}
+                <span class="btn-go"><i class="fas fa-arrow-right"></i> Accéder</span>
+            </div>
+        </a>
+
+    </div>
+
+
+</div>
+{% endblock %}

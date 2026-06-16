@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Stations hydrométriques — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 16px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #1e8449; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+.sh-card { background: #fff; border-radius: 12px; border: 1.5px solid #f0e8d8; padding: 18px; transition: border-color .2s, box-shadow .2s; }
+.sh-card:hover { border-color: #1e8449; box-shadow: 0 4px 14px rgba(30,132,73,.1); }
+.sh-card-title { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.sh-card-title i { color: #1e8449; }
+.sh-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.sh-meta-item { font-size: 12px; color: #666; }
+.sh-meta-item b { color: #1a1a2e; }
+.qj-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.qj-pill { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #d4edda; color: #1e8449; }
+.sh-actions { display: flex; gap: 6px; }
+.btn-xs { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-view { background: #1a1a2e; color: #fff; } .btn-view:hover { background: #2a2a4e; }
+.btn-edit { background: #e8f4fd; color: #1a6fa8; } .btn-edit:hover { background: #d1eaf9; }
+.btn-del  { background: #fde8e8; color: #c0392b; } .btn-del:hover { background: #f9cfcf; }
+.btn-add { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; background: #f0a500; color: #1a1a2e; transition: background .2s; }
+.btn-add:hover { background: #d4920a; }
+.empty-state { text-align: center; padding: 60px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> › Stations hydrométriques
+  </div>
+  <div class="page-header">
+    <h1><i class="fas fa-water"></i> Stations hydrométriques</h1>
+    <a href="{% url 'creer_station_hydro' %}" class="btn-add"><i class="fas fa-plus"></i> Nouvelle</a>
+  </div>
+
+  {% if stations %}
+  <div class="card-grid">
+    {% for s in stations %}
+    <div class="sh-card">
+      <div class="sh-card-title"><i class="fas fa-water"></i> {{ s.nom }}</div>
+      <div class="qj-row">
+        {% if s.qjmax_t10  %}<span class="qj-pill">T10: {{ s.qjmax_t10 }} m³/s</span>{% endif %}
+        {% if s.qjmax_t100 %}<span class="qj-pill">T100: {{ s.qjmax_t100 }} m³/s</span>{% endif %}
+      </div>
+      <div class="sh-meta">
+        <div class="sh-meta-item">X Nord Maroc (m)<br><b>{{ s.x }}</b></div>
+        <div class="sh-meta-item">Y Nord Maroc (m)<br><b>{{ s.y }}</b></div>
+        {% if s.superficie_bv_jaugee %}
+        <div class="sh-meta-item" style="grid-column:1/-1;">Superficie jaugée<br><b>{{ s.superficie_bv_jaugee }} km²</b></div>
+        {% endif %}
+      </div>
+      <div class="sh-actions">
+        <a href="{% url 'detail_station_hydro' s.pk %}" class="btn-xs btn-view"><i class="fas fa-eye"></i> Détail</a>
+        <a href="{% url 'modifier_station_hydro' s.pk %}" class="btn-xs btn-edit"><i class="fas fa-pencil-alt"></i></a>
+        <a href="{% url 'supprimer_station_hydro' s.pk %}" class="btn-xs btn-del"><i class="fas fa-trash"></i></a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-water"></i>
+    Aucune station enregistrée.<br>
+    <a href="{% url 'creer_station_hydro' %}" style="color:#f0a500;font-weight:600;text-decoration:none;">+ Créer la première</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

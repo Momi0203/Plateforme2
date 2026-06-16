@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ titre }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.form-layout { display: grid; grid-template-columns: 1fr 420px; gap: 24px; align-items: start; }
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 24px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-control[readonly] { background: #f8f4ee; color: #888; }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+/* SHP Upload zone */
+.shp-zone { border: 2px dashed #e0d0c0; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; margin-bottom: 16px; }
+.shp-zone:hover, .shp-zone.dragover { border-color: #f0a500; background: #fff8ee; }
+.shp-zone i { font-size: 28px; color: #e0d0c0; display: block; margin-bottom: 8px; transition: color .2s; }
+.shp-zone:hover i, .shp-zone.dragover i { color: #f0a500; }
+.shp-zone p { font-size: 12.5px; color: #aaa; margin: 0; }
+.shp-zone p b { color: #1a1a2e; }
+.shp-status { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.shp-status.ok    { color: #1e8449; }
+.shp-status.error { color: #c0392b; }
+.shp-status.loading { color: #888; }
+
+/* Map */
+.map-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; overflow: hidden; position: sticky; top: 80px; }
+.map-card-title { padding: 14px 18px; font-size: 13px; font-weight: 700; color: #1a1a2e; background: #1a1a2e; color: #fff; display: flex; align-items: center; gap: 7px; }
+.map-card-title i { color: #f0a500; }
+#map-preview { height: 380px; }
+.map-empty { height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; font-size: 13px; gap: 10px; }
+.map-empty i { font-size: 36px; }
+
+/* Submit bar */
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-submit { padding: 11px 28px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-secondary { padding: 10px 16px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-secondary:hover { background: #2a2a4e; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil_hydro' %}">Hydrologie</a> ›
+    <a href="{% url 'liste_bv' %}">Bassins versants</a> › {{ titre }}
+  </div>
+
+  <form method="post" id="bv-form" novalidate>
+    {% csrf_token %}
+    <!-- Hidden field for geometry WKT -->
+    <input type="hidden" name="geometrie" id="id_geometrie" value="{{ form.geometrie.value|default:'' }}">
+
+    <div class="form-layout">
+      <!-- LEFT: form fields -->
+      <div>
+        <div class="form-card">
+          <h2><i class="fas fa-mountain"></i> {{ titre }}</h2>
+
+          <!-- SHP upload -->
+          <div style="margin-bottom:18px;">
+            <label><i class="fas fa-file-archive" style="color:#f0a500;"></i> Importer la géométrie (.zip contenant .shp)</label>
+            <div class="shp-zone" id="shp-drop-zone" onclick="document.getElementById('shp-file-input').click()">
+              <i class="fas fa-file-upload" id="shp-icon"></i>
+              <p><b>Cliquer ou glisser-déposer</b> un fichier .zip<br>(.shp + .dbf + .shx requis)</p>
+            </div>
+            <input type="file" id="shp-file-input" accept=".zip" style="display:none">
+            <input type="file" id="shp-batch-input" accept=".zip" style="display:none">
+
+            <!-- Sélecteur de SRC source (override) -->
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <label style="margin:0;font-size:11.5px;color:#555;flex:0 0 auto;">SRC source :</label>
+              <select id="source-srid" class="form-control" style="flex:1;min-width:240px;padding:6px 9px;font-size:12px;">
+                <option value="">Auto (lire .prj du SHP)</option>
+                <option value="4326">WGS 84 — géographique (degrés)</option>
+                <option value="26191">Merchich / Nord Maroc — Lambert (m)</option>
+                <option value="26192">Merchich / Sud Maroc — Lambert (m)</option>
+                <option value="26194">Merchich / Nord Maroc dégrées (m)</option>
+                <option value="26195">Merchich / Sud Maroc dégrées (m)</option>
+                <option value="32629">UTM zone 29 N — WGS84 (m)</option>
+                <option value="32630">UTM zone 30 N — WGS84 (m)</option>
+                <option value="3857">Web Mercator (m)</option>
+              </select>
+            </div>
+            <div class="form-help" style="margin-top:4px;">
+              Si le .prj est absent ou incorrect, choisissez manuellement le SRC d'origine.
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;margin-bottom:10px;">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('shp-batch-input').click()">
+                <i class="fas fa-layer-group"></i> Importer plusieurs BV depuis un seul SHP
+              </button>
+            </div>
+            <div class="shp-status" id="shp-status" style="display:none;"></div>
+            <div id="crs-info" style="display:none;margin-top:6px;padding:8px 10px;border-radius:6px;font-size:11.5px;"></div>
+          </div>
+
+          <!-- Nom -->
+          <div class="form-group">
+            <label for="{{ form.nom.id_for_label }}">{{ form.nom.label }}</label>
+            {{ form.nom }}
+            {{ form.nom.errors }}
+          </div>
+
+          <div class="row2">
+            <!-- Surface et périmètre (auto depuis SHP) -->
+            <div class="form-group">
+              <label for="{{ form.surface.id_for_label }}">{{ form.surface.label }}</label>
+              {{ form.surface }}
+              <div class="form-help">Rempli automatiquement seulement si le SHP contient le schéma BV attendu</div>
+              {{ form.surface.errors }}
+            </div>
+            <div class="form-group">
+              <label for="{{ form.perimetre.id_for_label }}">{{ form.perimetre.label }}</label>
+              {{ form.perimetre }}
+              <div class="form-help">Rempli automatiquement seulement si le SHP contient le schéma BV attendu</div>
+              {{ form.perimetre.errors }}
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="form-group">
+              <label for="{{ form.thalweg.id_for_label }}">{{ form.thalweg.label }}</label>
+              {{ form.thalweg }}
+              {{ form.thalweg.errors }}
+            </div>
+            <div class="form-group">
+              <label for="{{ form.ouvrage_en_tete.id_for_label }}">{{ form.ouvrage_en_tete.label }}</label>
+              {{ form.ouvrage_en_tete }}
+              {{ form.ouvrage_en_tete.errors }}
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="form-group">
+              <label for="{{ form.x_exutoire.id_for_label }}">{{ form.x_exutoire.label }}</label>
+              {{ form.x_exutoire }}
+              <div class="form-help">Coordonnee X Nord Maroc (m)</div>
+              {{ form.x_exutoire.errors }}
+            </div>
+            <div class="form-group">
+              <label for="{{ form.y_exutoire.id_for_label }}">{{ form.y_exutoire.label }}</label>
+              {{ form.y_exutoire }}
+              <div class="form-help">Coordonnee Y Nord Maroc (m)</div>
+              {{ form.y_exutoire.errors }}
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="form-group">
+              <label for="{{ form.z_min.id_for_label }}">{{ form.z_min.label }}</label>
+              {{ form.z_min }}
+              {{ form.z_min.errors }}
+            </div>
+            <div class="form-group">
+              <label for="{{ form.z_max.id_for_label }}">{{ form.z_max.label }}</label>
+              {{ form.z_max }}
+              {{ form.z_max.errors }}
+            </div>
+          </div>
+
+          {% if form.non_field_errors %}
+          <div style="color:#c0392b;font-size:12px;margin-bottom:10px;">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <div class="form-actions">
+            <a href="{% url 'liste_bv' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+            <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: map preview -->
+      <div class="map-card">
+        <div class="map-card-title"><i class="fas fa-map"></i> Aperçu géométrie</div>
+        {% if form.instance.pk and form.instance.geometrie %}
+          <div id="map-preview"></div>
+        {% else %}
+          <div class="map-empty" id="map-empty">
+            <i class="fas fa-draw-polygon"></i>
+            <span>Importez un fichier .shp pour<br>afficher la géométrie ici</span>
+          </div>
+          <div id="map-preview" style="display:none; height:380px;"></div>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
+<script>
+const UPLOAD_URL = "{% url 'upload_shp' %}";
+const IMPORT_BV_MULTIPLE_URL = "{% url 'importer_bv_multiple' %}";
+const LISTE_BV_URL = "{% url 'liste_bv' %}";
+const CSRF = "{{ csrf_token }}";
+
+let map = null;
+let previewLayer = null;
+const existingGeom = {{ form.instance.geometrie.geojson|default:"null"|safe }};
+
+function initMap(geojson) {
+    const empty = document.getElementById('map-empty');
+    const mapDiv = document.getElementById('map-preview');
+    if (empty) empty.style.display = 'none';
+    mapDiv.style.display = 'block';
+
+    if (!map) {
+        map = L.map('map-preview');
+        const bm = {
+            'OpenStreetMap':      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }),
+            'ESRI Topographique': L.esri.basemapLayer('Topographic'),
+            'ESRI Satellite':     L.esri.basemapLayer('Imagery'),
+            'ESRI Streets':       L.esri.basemapLayer('Streets'),
+        };
+        bm['OpenStreetMap'].addTo(map);
+        L.control.layers(bm, {}, { collapsed: true }).addTo(map);
+    }
+    if (previewLayer) map.removeLayer(previewLayer);
+    previewLayer = L.geoJSON(geojson, {
+        style: { color: '#f0a500', weight: 2.5, fillOpacity: 0.15, fillColor: '#f0a500' }
+    }).addTo(map);
+    map.fitBounds(previewLayer.getBounds(), { padding: [20, 20] });
+}
+
+if (existingGeom) initMap(existingGeom);
+
+function setStatus(msg, type) {
+    const s = document.getElementById('shp-status');
+    s.style.display = 'flex';
+    s.className = 'shp-status ' + type;
+    s.innerHTML = type === 'loading'
+        ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
+        : type === 'ok'
+        ? `<i class="fas fa-check-circle"></i> ${msg}`
+        : `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+}
+
+// Map JSON attr keys → HTML input IDs
+const ATTR_TO_ID = {
+    nom:            'id_nom',
+    surface:        'id_surface',
+    perimetre:      'id_perimetre',
+    z_min:          'id_z_min',
+    z_max:          'id_z_max',
+    thalweg:        'id_thalweg',
+    x_exutoire:     'id_x_exutoire',
+    y_exutoire:     'id_y_exutoire',
+    ouvrage_en_tete:'id_ouvrage_en_tete',
+};
+
+function fillField(id, value) {
+    const el = document.getElementById(id);
+    if (el && (value !== null && value !== undefined && value !== '')) {
+        el.value = value;
+        el.style.borderColor = '#27ae60';
+        setTimeout(() => el.style.borderColor = '', 1500);
+    }
+}
+
+function handleSHP(file) {
+    if (!file.name.endsWith('.zip')) {
+        setStatus('Le fichier doit etre un .zip contenant .shp, .dbf, .shx', 'error');
+        return;
+    }
+    setStatus('Lecture en cours…', 'loading');
+    const fd = new FormData();
+    fd.append('shp_file', file);
+    fd.append('geom_type', 'polygon');
+    fd.append('import_mode', 'bv_strict');
+    const forcedSrid = document.getElementById('source-srid').value;
+    if (forcedSrid) fd.append('source_srid', forcedSrid);
+    fetch(UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: fd,
+    })
+    .then(r => {
+        if (!r.ok && r.status !== 400) {
+            return r.text().then(t => { throw new Error(`Erreur serveur ${r.status} — ${t.substring(0,200)}`); });
+        }
+        return r.json();
+    })
+    .then(data => {
+        if (data.error) { setStatus(data.error, 'error'); return; }
+
+        // Set geometry
+        document.getElementById('id_geometrie').value = data.wkt;
+
+        // Affichage CRS détecté
+        const crsBox = document.getElementById('crs-info');
+        const originLabels = {
+            shapefile: 'lu depuis .prj du SHP',
+            prj_keyword: 'déduit du .prj (mots-clés)',
+            coordinate_range: 'déduit par plage de coordonnées (peu fiable)',
+            user_override: 'forcé par l\'utilisateur',
+            auto_corrected: 'auto-corrigé (méthode 3 — alignement Maroc)',
+        };
+        const okBg = '#eaf6ec', warnBg = '#fff3cd', errBg = '#fde8e8';
+        let html = `<b>EPSG:${data.source_srid}</b> (${originLabels[data.source_srid_origin] || data.source_srid_origin})`;
+        if (data.auto_corrected_from !== undefined && data.auto_corrected_from !== null) {
+            html += `<br>⓵ Le SRC déclaré (EPSG:${data.auto_corrected_from}) plaçait la géométrie hors du Maroc — corrigé automatiquement vers EPSG:${data.source_srid}.`;
+            if (data.tried_candidates && data.tried_candidates.length) {
+                html += `<br><small>Candidats testés : ${data.tried_candidates.join(', ')}</small>`;
+            }
+        }
+        if (data.warning) {
+            crsBox.style.background = errBg;
+            crsBox.style.color = '#c0392b';
+            crsBox.innerHTML = html + `<br><b>⚠ ${data.warning}</b>`;
+        } else if (data.auto_corrected_from !== undefined && data.auto_corrected_from !== null) {
+            crsBox.style.background = warnBg;
+            crsBox.style.color = '#856404';
+            crsBox.innerHTML = html;
+        } else {
+            crsBox.style.background = okBg;
+            crsBox.style.color = '#1e6b32';
+            crsBox.innerHTML = html + ` — reprojeté vers EPSG:4326`;
+        }
+        crsBox.style.display = 'block';
+
+        let msg = 'Géométrie chargée. Veuillez compléter les champs manuellement.';
+        if (data.auto_populate_bv) {
+            const attrs = data.attrs || {};
+            let filled = 0;
+            for (const [key, id] of Object.entries(ATTR_TO_ID)) {
+                if (attrs[key] !== undefined) {
+                    fillField(id, attrs[key]);
+                    filled++;
+                }
+            }
+            msg = `Géométrie + ${filled} champ(s) rempli(s) automatiquement depuis le .shp`;
+        } else if (data.surface_km2 !== undefined && data.perimetre_km !== undefined) {
+            msg = `Géométrie chargée — schéma BV non reconnu (${data.surface_km2} km² · ${data.perimetre_km} km). Complétez le reste manuellement.`;
+        }
+        setStatus(msg, data.warning ? 'error' : 'ok');
+        initMap(data.geojson);
+    })
+    .catch(err => setStatus(err.message || 'Erreur réseau.', 'error'));
+}
+
+function handleBatchSHP(file) {
+    if (!file.name.endsWith('.zip')) {
+        setStatus('Le fichier doit etre un .zip contenant .shp, .dbf, .shx', 'error');
+        return;
+    }
+    setStatus('Import multiple en cours...', 'loading');
+    const fd = new FormData();
+    fd.append('shp_file', file);
+    const forcedSrid = document.getElementById('source-srid').value;
+    if (forcedSrid) fd.append('source_srid', forcedSrid);
+    fetch(IMPORT_BV_MULTIPLE_URL, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+        body: fd,
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+        if (!ok || data.error) {
+            const detail = data.details && data.details.length ? ` (${data.details[0]})` : '';
+            setStatus((data.error || "Erreur d'import") + detail, 'error');
+            return;
+        }
+        let msg = `${data.created_count} bassin(s) versant(s) importe(s).`;
+        if (data.auto_corrected_from !== undefined && data.auto_corrected_from !== null) {
+            msg += ` SRC auto-corrigé : EPSG:${data.auto_corrected_from} → EPSG:${data.source_srid}.`;
+        }
+        msg += ' Redirection...';
+        setStatus(msg, 'ok');
+        setTimeout(() => { window.location.href = LISTE_BV_URL; }, 1800);
+    })
+    .catch(err => setStatus(err.message || 'Erreur reseau.', 'error'));
+}
+
+document.getElementById('shp-file-input').addEventListener('change', e => {
+    if (e.target.files[0]) handleSHP(e.target.files[0]);
+});
+document.getElementById('shp-batch-input').addEventListener('change', e => {
+    if (e.target.files[0]) handleBatchSHP(e.target.files[0]);
+});
+
+const dropZone = document.getElementById('shp-drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleSHP(e.dataTransfer.files[0]);
+});
+
+// Apply form-control class to all inputs
+document.querySelectorAll('#bv-form input:not([type=hidden]):not([type=file]), #bv-form select, #bv-form textarea')
+    .forEach(el => el.classList.add('form-control'));
+</script>
+{% endblock %}

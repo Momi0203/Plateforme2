@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Mon Profil — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profil-page {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 24px;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #1a1a2e;
+        font-size: 13px;
+        font-weight: 500;
+        text-decoration: none;
+        margin-bottom: 20px;
+        opacity: .6;
+    }
+    .back-link:hover { opacity: 1; }
+
+    /* Header profil */
+    .profil-header {
+        background: #1a1a2e;
+        border-radius: 14px;
+        padding: 28px 32px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .profil-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #f0a500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 700;
+        color: #1a1a2e;
+        flex-shrink: 0;
+    }
+
+    .profil-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 4px;
+    }
+
+    .profil-email {
+        font-size: 12.5px;
+        color: rgba(255,255,255,.5);
+        margin-bottom: 8px;
+    }
+
+    .profil-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(240,165,0,.2);
+        color: #f0a500;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 3px 12px;
+        border-radius: 20px;
+    }
+
+    /* Cards */
+    .profil-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .profil-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #eddfc8;
+        overflow: hidden;
+    }
+
+    .profil-card-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid #f5e8d8;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    .profil-card-header i { color: #f0a500; }
+
+    .profil-card-body { padding: 20px; }
+
+    /* Info rows */
+    .info-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 0;
+        border-bottom: 1px solid #f5ece0;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+
+    .info-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #fff4d9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #f0a500;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    .info-label {
+        font-size: 11px;
+        color: #bbb;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        margin-bottom: 1px;
+    }
+
+    .info-value {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    .profil-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: #f0a500;
+        color: #1a1a2e;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 22px;
+        font-size: 13.5px;
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+        transition: background .2s;
+        margin-top: 6px;
+    }
+
+    .profil-submit:hover { background: #d4920a; }
+
+    @media (max-width: 680px) {
+        .profil-grid   { grid-template-columns: 1fr; }
+        .profil-header { flex-direction: column; text-align: center; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profil-page">
+
+    <a href="{% url 'accueil' %}" class="back-link">
+        <i class="fas fa-arrow-left"></i> Retour à l'accueil
+    </a>
+
+    <div class="profil-header">
+        <div class="profil-avatar">
+            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+        </div>
+        <div>
+            <div class="profil-name">{{ user.first_name }} {{ user.last_name }}</div>
+            <div class="profil-email"><i class="fas fa-envelope" style="margin-right:5px;"></i>{{ user.email }}</div>
+            <span class="profil-badge">
+                <i class="fas fa-id-badge"></i> {{ user.get_role_display }}
+            </span>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}error{% else %}success{% endif %}" style="margin-bottom:14px;">
+        <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"></i>
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="profil-grid">
+
+        <div class="profil-card">
+            <div class="profil-card-header">
+                <i class="fas fa-info-circle"></i> Informations du compte
+            </div>
+            <div class="profil-card-body">
+                <div class="info-row">
+                    <div class="info-icon"><i class="fas fa-user"></i></div>
+                    <div>
+                        <div class="info-label">Nom d'utilisateur</div>
+                        <div class="info-value">{{ user.username }}</div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-icon"><i class="fas fa-id-badge"></i></div>
+                    <div>
+                        <div class="info-label">Rôle</div>
+                        <div class="info-value">{{ user.get_role_display }}</div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-icon"><i class="fas fa-calendar-alt"></i></div>
+                    <div>
+                        <div class="info-label">Membre depuis</div>
+                        <div class="info-value">{{ user.date_joined|date:"d F Y" }}</div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-icon"><i class="fas fa-clock"></i></div>
+                    <div>
+                        <div class="info-label">Dernière connexion</div>
+                        <div class="info-value">
+                            {% if user.last_login %}{{ user.last_login|date:"d F Y à H:i" }}{% else %}—{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <div class="info-icon"><i class="fas fa-shield-alt"></i></div>
+                    <div>
+                        <div class="info-label">Statut</div>
+                        <div class="info-value" style="color:#1e8449;">
+                            <i class="fas fa-check-circle"></i> Compte actif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profil-card">
+            <div class="profil-card-header">
+                <i class="fas fa-edit"></i> Modifier mes informations
+            </div>
+            <div class="profil-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="form-group">
+                        <label>{{ field.label }}</label>
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="profil-submit">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

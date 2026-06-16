@@ -1,0 +1,781 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+/* ── Layout ───────────────────────────────────────────────────────── */
+.pg-hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:20px 32px;}
+.pg-hero h1{font-size:17px;font-weight:700;color:#fff;margin:0 0 3px;display:flex;align-items:center;gap:10px;}
+.pg-hero .sub{font-size:12px;color:rgba(255,255,255,.45);}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:700;}
+.badge-draft{background:#fff3cd;color:#856404;}
+.badge-ok{background:#d4edda;color:#155724;}
+
+.pg-body{display:grid;grid-template-columns:1fr 400px;gap:22px;padding:26px 32px;align-items:start;}
+@media(max-width:960px){.pg-body{grid-template-columns:1fr;}}
+
+/* ── Cards ────────────────────────────────────────────────────────── */
+.fc{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;margin-bottom:14px;overflow:hidden;}
+.fc-hd{padding:12px 18px;background:#fafaf8;border-bottom:1.5px solid #f0e8d8;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;}
+.fc-hd i{color:#f0a500;font-size:13px;}
+.fc-bd{padding:16px 18px;}
+
+/* ── Form controls ────────────────────────────────────────────────── */
+.fg{margin-bottom:13px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:12.5px;font-weight:600;color:#555;margin-bottom:5px;}
+.form-control{width:100%;padding:8px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;color:#1a1a2e;box-sizing:border-box;}
+.form-control:focus{outline:none;border-color:#f0a500;box-shadow:0 0 0 3px rgba(240,165,0,.1);}
+select.form-control{cursor:pointer;}
+.help{font-size:11px;color:#aaa;margin-top:3px;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+ul.errorlist{color:#c0392b;font-size:11.5px;list-style:none;margin:3px 0 0;padding:0;}
+ul.errorlist li::before{content:'⚠ ';}
+
+/* ── Dynamic tables ───────────────────────────────────────────────── */
+.dyn-wrap{margin-bottom:10px;}
+.dyn-table{width:100%;border-collapse:collapse;font-size:13px;}
+.dyn-table th{background:#f8f4ee;padding:7px 10px;text-align:left;font-size:11.5px;font-weight:700;color:#777;border-bottom:1.5px solid #f0e8d8;white-space:nowrap;}
+.dyn-table td{padding:3px 4px;border-bottom:1px solid #f5f0e8;vertical-align:middle;}
+.dyn-table td:last-child{width:30px;text-align:center;}
+.dyn-table input{width:100%;border:1.5px solid #e0d0c0;border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:'Inter',sans-serif;box-sizing:border-box;}
+.dyn-table input:focus{outline:none;border-color:#f0a500;}
+.del-row{background:none;border:none;color:#e74c3c;cursor:pointer;font-size:17px;line-height:1;padding:2px 5px;}
+.del-row:hover{color:#c0392b;}
+.add-row{background:#f8f4ee;border:1.5px dashed #d0c0a8;color:#888;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;transition:all .2s;}
+.add-row:hover{background:#fff3dd;border-color:#f0a500;color:#f0a500;}
+.sum-hint{font-size:12px;color:#888;margin:8px 0 4px;font-weight:600;}
+.sum-hint span{font-weight:700;color:#1a1a2e;}
+.sum-hint.ok{color:#155724;}
+.sum-hint.ok span{color:#155724;}
+.sum-hint.bad{color:#c0392b;}
+.sum-hint.bad span{color:#c0392b;}
+.dyn-table select{width:100%;border:1.5px solid #e0d0c0;border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:'Inter',sans-serif;box-sizing:border-box;background:#fff;}
+.dyn-table select:focus{outline:none;border-color:#f0a500;}
+
+/* ── SHP Upload ───────────────────────────────────────────────────── */
+.shp-zone{border:2px dashed #e0d0c0;border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;}
+.shp-zone:hover,.shp-zone.dragover{border-color:#f0a500;background:#fff8ee;}
+.shp-zone i{font-size:26px;color:#ddd;display:block;margin-bottom:7px;}
+.shp-zone:hover i,.shp-zone.dragover i{color:#f0a500;}
+.shp-zone p{font-size:12px;color:#aaa;margin:0;}
+.shp-zone p b{color:#444;}
+.shp-st{font-size:12px;font-weight:600;display:none;align-items:center;gap:6px;margin-top:8px;}
+.shp-st.ok{color:#1e8449;display:flex;}
+.shp-st.err{color:#c0392b;display:flex;}
+.shp-st.loading{color:#888;display:flex;}
+
+/* ── Map ──────────────────────────────────────────────────────────── */
+.map-card{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;overflow:hidden;position:sticky;top:78px;}
+.map-hd{padding:12px 16px;background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.map-hd i{color:#f0a500;}
+#diag-map{height:340px;}
+.map-empty{height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ccc;font-size:13px;gap:10px;text-align:center;}
+.map-empty i{font-size:34px;}
+
+/* ── Actions ──────────────────────────────────────────────────────── */
+.form-actions{padding:14px 18px;background:#f9f3ea;display:flex;gap:10px;border-top:1.5px solid #f0e8d8;}
+.btn-save{background:#f0a500;color:#1a1a2e;border:none;border-radius:8px;padding:10px 24px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:7px;}
+.btn-save:hover{background:#d4920a;}
+.btn-cancel{background:#eee;color:#444;border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;display:inline-flex;align-items:center;gap:7px;}
+.btn-cancel:hover{background:#ddd;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg-hero">
+  <h1>
+    <i class="fas fa-map-marked-alt" style="color:#f0a500;"></i>
+    {{ titre }}
+    {% if perimetre %}
+      {% if perimetre.statut == 'valide' %}
+        <span class="badge badge-ok"><i class="fas fa-check-circle"></i> Validé</span>
+      {% else %}
+        <span class="badge badge-draft"><i class="fas fa-times-circle"></i> Non valide</span>
+      {% endif %}
+    {% endif %}
+  </h1>
+  <div class="sub">Diagnostic des périmètres agricoles</div>
+</div>
+
+<div class="pg-body">
+  <!-- ══ LEFT: FORM ══════════════════════════════════════════════════ -->
+  <div>
+    <form method="post" id="perim-form" novalidate>
+      {% csrf_token %}
+
+      <!-- Geometry hidden input (filled by SHP upload or kept from instance) -->
+      <input type="hidden" name="geometrie" id="id_geometrie"
+             value="{% if form.instance.pk and form.instance.geometrie %}{{ form.instance.geometrie.wkt }}{% endif %}">
+
+      <!-- ── 1. Identification ──────────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-map-pin"></i> Identification</div>
+        <div class="fc-bd">
+          <div class="r3">
+            <div class="fg">
+              <label>{{ form.province.label }}</label>
+              {{ form.province }}
+              {{ form.province.errors }}
+            </div>
+            <div class="fg">
+              <label>{{ form.coordination.label }}</label>
+              {{ form.coordination }}
+            </div>
+            <div class="fg">
+              <label>{{ form.commune_territoriale.label }}</label>
+              {{ form.commune_territoriale }}
+            </div>
+            <div class="fg">
+              <label>{{ form.ksar_village.label }}</label>
+              {{ form.ksar_village }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 2. Données climatiques ──────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-cloud-sun"></i> Données climatiques</div>
+        <div class="fc-bd">
+          <div class="r3">
+            <div class="fg">
+              <label>{{ form.temperature_moyenne_annuelle.label }}</label>
+              {{ form.temperature_moyenne_annuelle }}
+              <div class="help">°C</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.precipitations_moyennes_annuelles.label }}</label>
+              {{ form.precipitations_moyennes_annuelles }}
+              <div class="help">mm/an</div>
+            </div>
+            <div class="fg">
+              <label>{{ form.vent.label }}</label>
+              {{ form.vent }}
+            </div>
+            <div class="fg">
+              <label>{{ form.humidite.label }}</label>
+              {{ form.humidite }}
+            </div>
+            <div class="fg">
+              <label>{{ form.et0_mm_jour.label }}</label>
+              {{ form.et0_mm_jour }}
+              <div class="help">mm/jour</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 3. Données socio-économiques ───────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-users"></i> Données socio-économiques</div>
+        <div class="fc-bd">
+          <div class="r2">
+            <div class="fg">
+              <label>{{ form.nombre_beneficiaires.label }}</label>
+              {{ form.nombre_beneficiaires }}
+            </div>
+            <div class="fg">
+              <label>{{ form.nombre_menages.label }}</label>
+              {{ form.nombre_menages }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 4. Superficies ─────────────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-expand-arrows-alt"></i> Superficies (ha)</div>
+        <div class="fc-bd">
+          <div class="r2">
+            <div class="fg">
+              <label>{{ form.superficie_totale.label }}</label>
+              {{ form.superficie_totale }}
+            </div>
+            <div class="fg">
+              <label>{{ form.superficie_agricole_utile.label }}</label>
+              {{ form.superficie_agricole_utile }}
+            </div>
+            <div class="fg">
+              <label>{{ form.superficie_irriguee.label }}</label>
+              {{ form.superficie_irriguee }}
+            </div>
+            <div class="fg">
+              <label>{{ form.superficie_en_bour.label }}</label>
+              {{ form.superficie_en_bour }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 5. Sol et fertilité ───────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-seedling"></i> Sol et fertilité</div>
+        <div class="fc-bd">
+          <div class="r2">
+            <div class="fg">
+              <label>{{ form.type_de_sol.label }}</label>
+              {{ form.type_de_sol }}
+            </div>
+            <div class="fg">
+              <label>{{ form.niveau_de_fertilite.label }}</label>
+              {{ form.niveau_de_fertilite }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 6. Répartition des parcelles ─────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-th-large"></i> Répartition des parcelles (%)</div>
+        <div class="fc-bd">
+          <div class="r3">
+            <div class="fg">
+              <label>{{ form.parcelles_moins_1ha.label }}</label>
+              {{ form.parcelles_moins_1ha }}
+            </div>
+            <div class="fg">
+              <label>{{ form.parcelles_1_a_3ha.label }}</label>
+              {{ form.parcelles_1_a_3ha }}
+            </div>
+            <div class="fg">
+              <label>{{ form.parcelles_plus_3ha.label }}</label>
+              {{ form.parcelles_plus_3ha }}
+            </div>
+          </div>
+          <div class="sum-hint" id="sum-parcelles">Total : <span>0</span> % / 100</div>
+        </div>
+      </div>
+
+      <!-- ── 7. Cultures ───────────────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-leaf"></i> Cultures</div>
+        <div class="fc-bd">
+          <!-- hidden fields (kept for form POST) -->
+          <textarea id="id_cultures" name="cultures" style="display:none">{{ form.cultures.value|default:'' }}</textarea>
+          <textarea id="id_pourcentage_cultures" name="pourcentage_cultures" style="display:none">{{ form.pourcentage_cultures.value|default:'' }}</textarea>
+          <textarea id="id_rendement_cultures" name="rendement_cultures" style="display:none">{{ form.rendement_cultures.value|default:'' }}</textarea>
+          <textarea id="id_unite_rendement_cultures" name="unite_rendement_cultures" style="display:none">{{ form.unite_rendement_cultures.value|default:'' }}</textarea>
+
+          <div class="dyn-wrap">
+            <table class="dyn-table" id="tbl-cultures">
+              <thead>
+                <tr>
+                  <th>Culture</th>
+                  <th>% Surface</th>
+                  <th>Rendement</th>
+                  <th>Unité</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-cultures"></tbody>
+            </table>
+          </div>
+          <div class="sum-hint" id="sum-cultures">Total surfaces : <span>0</span> % / 100</div>
+          <button type="button" class="add-row" onclick="addCultureRow()">
+            <i class="fas fa-plus"></i> Ajouter une culture
+          </button>
+
+          <!-- Référentiel des cultures (CULTURES_TAFILALET) injecté côté JS -->
+          <template id="culture-options-tpl">
+            <option value="">— Choisir —</option>
+            {% for v, l in form.cultures.field.choices %}
+            <option value="{{ v }}">{{ l }}</option>
+            {% endfor %}
+          </template>
+        </div>
+      </div>
+
+      <!-- ── 8. Statut juridique ───────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-balance-scale"></i> Statut juridique des terres (%)</div>
+        <div class="fc-bd">
+          <textarea id="id_statut_juridique" name="statut_juridique" style="display:none">{{ form.statut_juridique.value|default:'' }}</textarea>
+          <div class="r3">
+            <div class="fg">
+              <label>Melk</label>
+              <input type="number" step="0.01" min="0" max="100" class="form-control sj-input" id="sj_melk" placeholder="%">
+            </div>
+            <div class="fg">
+              <label>Collectif</label>
+              <input type="number" step="0.01" min="0" max="100" class="form-control sj-input" id="sj_collectif" placeholder="%">
+            </div>
+            <div class="fg">
+              <label>Location</label>
+              <input type="number" step="0.01" min="0" max="100" class="form-control sj-input" id="sj_location" placeholder="%">
+            </div>
+            <div class="fg">
+              <label>Guich</label>
+              <input type="number" step="0.01" min="0" max="100" class="form-control sj-input" id="sj_guiche" placeholder="%">
+            </div>
+            <div class="fg">
+              <label>Habous</label>
+              <input type="number" step="0.01" min="0" max="100" class="form-control sj-input" id="sj_habousse" placeholder="%">
+            </div>
+          </div>
+          <div class="sum-hint" id="sum-statut">Total : <span>0</span> % / 100</div>
+        </div>
+      </div>
+
+      <!-- ── 9. Élevage ────────────────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-horse"></i> Élevage (têtes/agriculteur)</div>
+        <div class="fc-bd">
+          <div class="r3">
+            <div class="fg">
+              <label>{{ form.moyenne_bovins.label }}</label>
+              {{ form.moyenne_bovins }}
+            </div>
+            <div class="fg">
+              <label>{{ form.moyenne_ovins.label }}</label>
+              {{ form.moyenne_ovins }}
+            </div>
+            <div class="fg">
+              <label>{{ form.moyenne_caprins.label }}</label>
+              {{ form.moyenne_caprins }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 10. Tour d'eau ────────────────────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-tint"></i> Tour d'eau</div>
+        <div class="fc-bd">
+          <textarea id="id_ayants_droit_eau" name="ayants_droit_eau" style="display:none">{{ form.ayants_droit_eau.value|default:'' }}</textarea>
+          <textarea id="id_cycle_tour_eau_jours" name="cycle_tour_eau_jours" style="display:none">{{ form.cycle_tour_eau_jours.value|default:'' }}</textarea>
+          <textarea id="id_duree_tour_eau_heures" name="duree_tour_eau_heures" style="display:none">{{ form.duree_tour_eau_heures.value|default:'' }}</textarea>
+
+          <div class="dyn-wrap">
+            <table class="dyn-table" id="tbl-tour">
+              <thead>
+                <tr>
+                  <th>Ayant droit / Famille</th>
+                  <th>Cycle (jours)</th>
+                  <th>Durée (heures)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-tour"></tbody>
+            </table>
+          </div>
+          <button type="button" class="add-row" onclick="addTourRow()">
+            <i class="fas fa-plus"></i> Ajouter un ayant droit
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 11. Organisations et ouvrages ─────────────────────────── -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-handshake"></i> Organisations et ouvrages associés</div>
+        <div class="fc-bd">
+          <textarea id="id_organisations_agriculteurs" name="organisations_agriculteurs" style="display:none">{{ form.organisations_agriculteurs.value|default:'' }}</textarea>
+          <textarea id="id_ouvrages_en_tete_associes" name="ouvrages_en_tete_associes" style="display:none">{{ form.ouvrages_en_tete_associes.value|default:'' }}</textarea>
+
+          <div class="r2">
+            <div>
+              <label style="margin-bottom:8px;">Organisations d'agriculteurs</label>
+              <div class="dyn-wrap">
+                <table class="dyn-table" id="tbl-orga">
+                  <thead><tr><th>Nom de l'organisation</th><th></th></tr></thead>
+                  <tbody id="tbody-orga"></tbody>
+                </table>
+              </div>
+              <button type="button" class="add-row" onclick="addOrgaRow()">
+                <i class="fas fa-plus"></i> Ajouter
+              </button>
+            </div>
+            <div style="display:none;">
+              <label style="margin-bottom:8px;">Ouvrages en tête associés</label>
+              <div class="dyn-wrap">
+                <table class="dyn-table" id="tbl-ouv">
+                  <thead><tr><th>Nom de l'ouvrage</th><th></th></tr></thead>
+                  <tbody id="tbody-ouv"></tbody>
+                </table>
+              </div>
+              <button type="button" class="add-row" onclick="addOuvRow()">
+                <i class="fas fa-plus"></i> Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 12. Efficience du réseau (DIV conservé, masqué) ───────── -->
+      <div class="fc" style="display:none;">
+        <div class="fc-hd"><i class="fas fa-percentage"></i> Efficience du réseau</div>
+        <div class="fc-bd">
+          <div class="fg" style="max-width:200px;">
+            <label>{{ form.efficiance_reseau.label }}</label>
+            {{ form.efficiance_reseau }}
+            <div class="help">Valeur entre 0 et 1 (défaut 0.9)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fc form-actions">
+        <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer</button>
+        <a href="{% url 'diagnostic:perimetre_list' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- ══ RIGHT: MAP + SHP UPLOAD ════════════════════════════════════ -->
+  <div>
+    <!-- SHP upload card -->
+    <div class="fc" style="margin-bottom:14px;">
+      <div class="fc-hd"><i class="fas fa-file-archive"></i> Géométrie du périmètre</div>
+      <div class="fc-bd">
+        <div class="shp-zone" id="shp-drop" onclick="document.getElementById('shp-file').click()">
+          <i class="fas fa-file-upload" id="shp-icon"></i>
+          <p><b>Cliquer ou glisser-déposer</b><br>un fichier .zip (.shp + .dbf + .shx)<br>
+          <span style="font-size:11px;color:#bbb;">Point · Polygone · Ligne</span></p>
+        </div>
+        <input type="file" id="shp-file" accept=".zip" style="display:none">
+        <div class="shp-st" id="shp-st"></div>
+        {% if form.instance.pk and form.instance.geometrie %}
+        <div style="font-size:11.5px;color:#27ae60;margin-top:6px;">
+          <i class="fas fa-check-circle"></i> Géométrie existante affichée sur la carte
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="map-card">
+      <div class="map-hd"><i class="fas fa-map"></i> Aperçu géométrie</div>
+      {% if form.instance.pk and form.instance.geometrie %}
+        <div id="diag-map"></div>
+      {% else %}
+        <div class="map-empty" id="map-empty">
+          <i class="fas fa-draw-polygon"></i>
+          <span>Importez un fichier .shp<br>pour afficher la géométrie</span>
+        </div>
+        <div id="diag-map" style="display:none;"></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Dynamic tables ─────────────────────────────────────────────────────
+function splitCSV(str){ return str ? str.split(',').map(s=>s.trim()).filter(s=>s) : []; }
+
+function syncSingleCol(tbodyId, hiddenId){
+  const rows = document.getElementById(tbodyId).querySelectorAll('tr');
+  document.getElementById(hiddenId).value =
+    [...rows].map(r => r.querySelector('input').value.trim()).filter(v=>v).join(', ');
+}
+function syncMultiCol(tbodyId, hiddenIds){
+  const rows = document.getElementById(tbodyId).querySelectorAll('tr');
+  hiddenIds.forEach((id,ci) => {
+    document.getElementById(id).value =
+      [...rows].map(r => r.querySelectorAll('input')[ci].value.trim()).filter(v=>v).join(', ');
+  });
+}
+
+function makeDelBtn(syncFn){
+  const b = document.createElement('button');
+  b.type='button'; b.className='del-row'; b.innerHTML='&times;';
+  b.onclick=()=>{ b.closest('tr').remove(); syncFn(); };
+  return b;
+}
+
+// Cultures (4 colonnes) — col 0 = <select> culture, col 1 = % surface,
+// col 2 = rendement, col 3 = <select> unité (qx/ha | kg/arbre).
+// Stratégie : on ne pousse que les lignes "complètes" (culture renseignée)
+// pour préserver l'alignement positionnel des 4 listes côté serveur.
+function syncCultures(){
+  const rows = document.getElementById('tbody-cultures').querySelectorAll('tr');
+  const cults = [], pcts = [], rdts = [], unites = [];
+  rows.forEach(r => {
+    const sels   = r.querySelectorAll('select');
+    const inputs = r.querySelectorAll('input');
+    const culture = sels[0] ? sels[0].value.trim() : '';
+    if(!culture) return;  // ligne sans culture → ignorée (alignement préservé)
+    cults.push(culture);
+    pcts.push(inputs[0] ? inputs[0].value.trim() : '');
+    rdts.push(inputs[1] ? inputs[1].value.trim() : '');
+    unites.push(sels[1] ? sels[1].value.trim() : 'qx_ha');
+  });
+  document.getElementById('id_cultures').value                 = cults.join(', ');
+  document.getElementById('id_pourcentage_cultures').value     = pcts.join(', ');
+  document.getElementById('id_rendement_cultures').value       = rdts.join(', ');
+  document.getElementById('id_unite_rendement_cultures').value = unites.join(', ');
+  updateSumCultures();
+}
+function _cultureOptionsHTML(){
+  const tpl = document.getElementById('culture-options-tpl');
+  return tpl ? tpl.innerHTML : '<option value="">— Choisir —</option>';
+}
+function _uniteOptionsHTML(){
+  return '<option value="qx_ha">qx/ha</option><option value="kg_arbre">kg/arbre</option>';
+}
+function addCultureRow(nom='', pct='', rdt='', unite='qx_ha'){
+  const tr = document.createElement('tr');
+  // Col 0 : select culture
+  const tdNom = document.createElement('td');
+  const selC = document.createElement('select');
+  selC.innerHTML = _cultureOptionsHTML();
+  selC.value = nom;
+  selC.onchange = syncCultures;
+  tdNom.appendChild(selC); tr.appendChild(tdNom);
+  // Col 1/2 : pct, rendement
+  [['pct','%'],['rdt','rendement']].forEach(([k,ph],i)=>{
+    const td = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.type='number'; inp.step='0.01'; inp.placeholder=ph;
+    inp.value = i===0 ? pct : rdt;
+    inp.oninput = syncCultures;
+    td.appendChild(inp); tr.appendChild(td);
+  });
+  // Col 3 : select unité
+  const tdU = document.createElement('td');
+  const selU = document.createElement('select');
+  selU.innerHTML = _uniteOptionsHTML();
+  selU.value = unite || 'qx_ha';
+  selU.onchange = syncCultures;
+  tdU.appendChild(selU); tr.appendChild(tdU);
+  // Col 4 : suppression
+  const tdDel = document.createElement('td');
+  tdDel.appendChild(makeDelBtn(syncCultures));
+  tr.appendChild(tdDel);
+  document.getElementById('tbody-cultures').appendChild(tr);
+  syncCultures();
+}
+
+// ── Totaux % = 100 (parcelles, statut juridique, surfaces cultures) ───
+function _toNum(v){ const x = parseFloat((v||'').toString().replace(',','.')); return isNaN(x) ? 0 : x; }
+function _renderSum(elId, total){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const span = el.querySelector('span');
+  const t = Math.round(total*100)/100;
+  span.textContent = t;
+  el.classList.toggle('ok',  Math.abs(t - 100) < 0.01);
+  el.classList.toggle('bad', Math.abs(t - 100) >= 0.01);
+}
+function sumParcelles(){
+  return _toNum(document.getElementById('id_parcelles_moins_1ha')?.value)
+       + _toNum(document.getElementById('id_parcelles_1_a_3ha')?.value)
+       + _toNum(document.getElementById('id_parcelles_plus_3ha')?.value);
+}
+function sumStatut(){
+  return SJ_KEYS.reduce((s,k)=> s + _toNum(document.getElementById('sj_'+k)?.value), 0);
+}
+function sumCultures(){
+  const rows = document.getElementById('tbody-cultures').querySelectorAll('tr');
+  let s = 0;
+  rows.forEach(r => { s += _toNum(r.querySelectorAll('input')[0]?.value); });
+  return s;
+}
+function updateSumParcelles(){ _renderSum('sum-parcelles', sumParcelles()); }
+function updateSumStatut(){    _renderSum('sum-statut',    sumStatut());    }
+function updateSumCultures(){  _renderSum('sum-cultures',  sumCultures());  }
+['id_parcelles_moins_1ha','id_parcelles_1_a_3ha','id_parcelles_plus_3ha'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', updateSumParcelles);
+});
+
+// Statut juridique — 5 champs fixes (ordre : melk, collectif, location, guiche, habousse)
+const SJ_KEYS = ['melk','collectif','location','guiche','habousse'];
+function syncStatut(){
+  const vals = SJ_KEYS.map(k => {
+    const el = document.getElementById('sj_' + k);
+    return el ? el.value.trim() : '';
+  });
+  document.getElementById('id_statut_juridique').value = vals.join(', ');
+}
+SJ_KEYS.forEach(k => {
+  const el = document.getElementById('sj_' + k);
+  if(el) el.addEventListener('input', () => { syncStatut(); updateSumStatut(); });
+});
+
+// Tour d'eau (3 columns)
+function syncTour(){ syncMultiCol('tbody-tour',['id_ayants_droit_eau','id_cycle_tour_eau_jours','id_duree_tour_eau_heures']); }
+function addTourRow(nom='', cyc='', dur=''){
+  const tr = document.createElement('tr');
+  [['text','Famille / ayant droit'],['number','Jours'],['number','Heures']].forEach(([type,ph],i)=>{
+    const td = document.createElement('td');
+    const inp = document.createElement('input'); inp.type=type; inp.step='0.1';
+    inp.placeholder=ph; inp.value=[nom,cyc,dur][i]; inp.oninput=syncTour;
+    td.appendChild(inp); tr.appendChild(td);
+  });
+  const tdDel = document.createElement('td');
+  tdDel.appendChild(makeDelBtn(syncTour));
+  tr.appendChild(tdDel);
+  document.getElementById('tbody-tour').appendChild(tr);
+  syncTour();
+}
+
+// Organisations (1 col)
+function syncOrga(){ syncSingleCol('tbody-orga','id_organisations_agriculteurs'); }
+function addOrgaRow(val=''){
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  const inp = document.createElement('input'); inp.type='text';
+  inp.placeholder='Ex: AUEA Midelt'; inp.value=val; inp.oninput=syncOrga;
+  td.appendChild(inp); tr.appendChild(td);
+  const tdDel = document.createElement('td');
+  tdDel.appendChild(makeDelBtn(syncOrga));
+  tr.appendChild(tdDel);
+  document.getElementById('tbody-orga').appendChild(tr);
+  syncOrga();
+}
+
+// Ouvrages associés (1 col)
+function syncOuv(){ syncSingleCol('tbody-ouv','id_ouvrages_en_tete_associes'); }
+function addOuvRow(val=''){
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  const inp = document.createElement('input'); inp.type='text';
+  inp.placeholder='Ex: Seuil A'; inp.value=val; inp.oninput=syncOuv;
+  td.appendChild(inp); tr.appendChild(td);
+  const tdDel = document.createElement('td');
+  tdDel.appendChild(makeDelBtn(syncOuv));
+  tr.appendChild(tdDel);
+  document.getElementById('tbody-ouv').appendChild(tr);
+  syncOuv();
+}
+
+// ── Seed tables from existing data ────────────────────────────────────
+(function seedTables(){
+  const cults  = splitCSV(document.getElementById('id_cultures').value);
+  const pcts   = splitCSV(document.getElementById('id_pourcentage_cultures').value);
+  const rdts   = splitCSV(document.getElementById('id_rendement_cultures').value);
+  const unites = splitCSV(document.getElementById('id_unite_rendement_cultures').value);
+  const maxC   = Math.max(cults.length, pcts.length, rdts.length);
+  for(let i=0;i<maxC;i++) addCultureRow(cults[i]||'', pcts[i]||'', rdts[i]||'', unites[i]||'qx_ha');
+
+  // Statut juridique : remplir les 5 champs dans l'ordre fixe
+  const sjVals = splitCSV(document.getElementById('id_statut_juridique').value);
+  SJ_KEYS.forEach((k, i) => {
+    const el = document.getElementById('sj_' + k);
+    if(el && sjVals[i] !== undefined) el.value = sjVals[i];
+  });
+  syncStatut();
+
+  const ayants = splitCSV(document.getElementById('id_ayants_droit_eau').value);
+  const cycs   = splitCSV(document.getElementById('id_cycle_tour_eau_jours').value);
+  const durs   = splitCSV(document.getElementById('id_duree_tour_eau_heures').value);
+  const maxT   = Math.max(ayants.length, cycs.length, durs.length);
+  for(let i=0;i<maxT;i++) addTourRow(ayants[i]||'', cycs[i]||'', durs[i]||'');
+
+  splitCSV(document.getElementById('id_organisations_agriculteurs').value).forEach(v=>addOrgaRow(v));
+  splitCSV(document.getElementById('id_ouvrages_en_tete_associes').value).forEach(v=>addOuvRow(v));
+})();
+
+// ── Recalcul initial des totaux après seed
+updateSumParcelles(); updateSumStatut(); updateSumCultures();
+
+// ── Sync + validation des sommes au submit ────────────────────────────
+document.getElementById('perim-form').addEventListener('submit',function(ev){
+  syncCultures(); syncStatut(); syncTour(); syncOrga(); syncOuv();
+  updateSumParcelles(); updateSumStatut(); updateSumCultures();
+
+  const errs = [];
+  const sP = sumParcelles(), sS = sumStatut(), sC = sumCultures();
+  if(Math.abs(sP - 100) >= 0.01) errs.push('Répartition des parcelles : '+sP+' % (doit être 100 %).');
+  if(Math.abs(sS - 100) >= 0.01) errs.push('Statut juridique : '+sS+' % (doit être 100 %).');
+  // % cultures : tolérer absence (formulaire vierge), exiger 100 dès qu'une ligne est saisie
+  const rowsCult = document.getElementById('tbody-cultures').querySelectorAll('tr').length;
+  if(rowsCult > 0 && Math.abs(sC - 100) >= 0.01) errs.push('% surfaces des cultures : '+sC+' % (doit être 100 %).');
+
+  if(errs.length){
+    ev.preventDefault();
+    alert('Validation impossible :\n\n• ' + errs.join('\n• '));
+  }
+});
+
+// ── Leaflet map ───────────────────────────────────────────────────────
+const UPLOAD_URL = "{% url 'upload_shp' %}";
+const CSRF = "{{ csrf_token }}";
+let map = null, previewLayer = null;
+
+const existingGeom = {{ form.instance.geometrie.geojson|default:"null"|safe }};
+
+function initMap(geojson){
+  const empty = document.getElementById('map-empty');
+  const mapDiv = document.getElementById('diag-map');
+  if(empty) empty.style.display='none';
+  mapDiv.style.display='block';
+  if(!map){
+    map = L.map('diag-map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  }
+  if(previewLayer) map.removeLayer(previewLayer);
+  previewLayer = L.geoJSON(geojson,{
+    style:{color:'#f0a500',weight:2.5,fillOpacity:.15,fillColor:'#f0a500'},
+    pointToLayer:(f,latlng)=>L.circleMarker(latlng,{radius:8,color:'#f0a500',fillColor:'#f0a500',fillOpacity:.7})
+  }).addTo(map);
+  try{ map.fitBounds(previewLayer.getBounds(),{padding:[20,20]}); } catch(e){}
+}
+if(existingGeom) initMap(existingGeom);
+
+function setStatus(msg, type){
+  const s = document.getElementById('shp-st');
+  s.className = 'shp-st ' + type;
+  s.innerHTML = type==='loading'
+    ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
+    : type==='ok'
+    ? `<i class="fas fa-check-circle"></i> ${msg}`
+    : `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+}
+
+function handleSHP(file){
+  if(!file.name.endsWith('.zip')){ setStatus('Le fichier doit être un .zip','err'); return; }
+  setStatus('Lecture en cours…','loading');
+  const fd = new FormData();
+  fd.append('shp_file', file);
+  fd.append('geom_type', 'any');
+  fetch(UPLOAD_URL,{method:'POST',headers:{'X-CSRFToken':CSRF},body:fd})
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.error){ setStatus(data.error,'err'); return; }
+      document.getElementById('id_geometrie').value = data.wkt;
+      setStatus('Géométrie chargée avec succès','ok');
+      initMap(data.geojson);
+    })
+    .catch(()=>setStatus('Erreur réseau','err'));
+}
+
+document.getElementById('shp-file').addEventListener('change',e=>{ if(e.target.files[0]) handleSHP(e.target.files[0]); });
+const dropZone = document.getElementById('shp-drop');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0]) handleSHP(e.dataTransfer.files[0]);});
+
+// Apply form-control class
+document.querySelectorAll('#perim-form input:not([type=hidden]):not([type=file]),#perim-form select,#perim-form textarea:not([style*="display:none"])')
+  .forEach(el=>el.classList.add('form-control'));
+
+// ── Province → Commune cascade ──────────────────────────────────────────────
+(function () {
+  const selProv = document.getElementById('id_province');
+  const selComm = document.getElementById('id_commune_territoriale');
+  if (!selProv || !selComm) return;
+
+  selProv.addEventListener('change', function () {
+    const province = this.value;
+    const current  = selComm.value;
+    selComm.innerHTML = '<option value="">— Sélectionner —</option>';
+    if (!province) return;
+    fetch('/diagnostic/api/communes/?province=' + encodeURIComponent(province))
+      .then(r => r.json())
+      .then(data => {
+        data.communes.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          if (c === current) opt.selected = true;
+          selComm.appendChild(opt);
+        });
+      });
+  });
+}());
+</script>
+{% endblock %}

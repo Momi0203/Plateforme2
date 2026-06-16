@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Connexion — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-page {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+
+    .auth-card {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #eddfc8;
+        box-shadow: 0 4px 20px rgba(0,0,0,.06);
+        padding: 40px 36px;
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .auth-logo {
+        text-align: center;
+        margin-bottom: 24px;
+    }
+
+    .auth-logo img {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        border-radius: 10px;
+    }
+
+    .auth-logo-sub {
+        display: block;
+        font-size: 11px;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-top: 6px;
+    }
+
+    .auth-title {
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .auth-title h2 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 4px;
+    }
+
+    .auth-title p {
+        font-size: 13px;
+        color: #999;
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+        color: #ccc;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #f0e4d0;
+    }
+
+    @media (max-width: 480px) {
+        .auth-card { padding: 32px 20px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card">
+
+        <div class="auth-logo">
+            <img src="{% static 'logo1.png' %}" alt="HydroPlan SIG">
+            <span class="auth-logo-sub">ORMVA Tafilalet</span>
+        </div>
+
+        <div class="auth-title">
+            <h2>Connexion</h2>
+            <p>Accédez à votre espace HydroPlan SIG</p>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-error" style="margin-bottom:14px;">
+            <i class="fas fa-exclamation-circle"></i> {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label>{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+
+            <div class="auth-divider">accès sécurisé</div>
+
+            <button type="submit" class="btn">
+                <i class="fas fa-sign-in-alt"></i> Se connecter
+            </button>
+        </form>
+
+        <p class="link-line">
+            Pas encore de compte ?
+            <a href="{% url 'inscription' %}">S'inscrire</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

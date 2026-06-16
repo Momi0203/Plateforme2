@@ -1,0 +1,10 @@
+{# Usage : {% include "doleances/_badge_statut.html" with statut=requete.statut %} #}
+<span class="badge-statut badge-{{ statut }}">
+  {% if statut == 'soumise' %}<i class="fas fa-paper-plane"></i> Soumise
+  {% elif statut == 'en_cours' %}<i class="fas fa-spinner"></i> En cours
+  {% elif statut == 'en_attente' %}<i class="fas fa-clock"></i> En attente
+  {% elif statut == 'traitee' %}<i class="fas fa-check"></i> Traitée
+  {% elif statut == 'cloturee' %}<i class="fas fa-lock"></i> Clôturée
+  {% elif statut == 'rejetee' %}<i class="fas fa-times-circle"></i> Rejetée
+  {% else %}{{ statut }}{% endif %}
+</span>

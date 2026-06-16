@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% load plan_tags %}
+
+{% block title %}Synthèse — Plan {{ plan.annee }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 9px; }
+.page-header h1 i { color: #f0a500; }
+
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-success { background: #27ae60; color: #fff; }
+.btn-success:hover { background: #1e8449; }
+.btn-dark { background: #1a1a2e; color: #fff; }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-info { background: #3498db; color: #fff; }
+.btn-info:hover { background: #2176ae; }
+
+/* ── Graphiques ── */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+.chart-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 20px; }
+.chart-card h3 { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; display: flex; align-items: center; gap: 7px; }
+.chart-card h3 i { color: #f0a500; }
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap-tall { position: relative; height: 340px; }
+
+/* ── Tableau croisé ── */
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+
+.table-wrap { overflow-x: auto; border-radius: 12px; border: 1.5px solid #f0e8d8; }
+table.pivot { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.pivot th { background: #1a1a2e; color: #fff; padding: 10px 12px; text-align: center; font-size: 11.5px; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+table.pivot th.col-commune { text-align: left; position: sticky; left: 0; z-index: 3; background: #1a1a2e; min-width: 140px; }
+table.pivot td { padding: 9px 12px; border-bottom: 1px solid #f0e8d8; text-align: right; }
+table.pivot td.td-commune { text-align: left; font-weight: 600; color: #1a1a2e; background: #fdf8f0; position: sticky; left: 0; z-index: 1; border-right: 2px solid #f0e8d8; }
+table.pivot tr:hover td { background: #fdf3e3; }
+table.pivot tr:hover td.td-commune { background: #fdf3e3; }
+table.pivot td.zero { color: #ddd; }
+table.pivot tr.total-row td { background: #fff3cd; font-weight: 700; color: #856404; border-top: 2px solid #f0a500; }
+table.pivot tr.total-row td.td-commune { background: #fff3cd; color: #856404; }
+table.pivot td.grand-total { background: #f0a500 !important; color: #1a1a2e !important; font-weight: 800; }
+
+.legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 18px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #555; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+@media (max-width: 768px) {
+  .charts-row { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    Synthèse budgétaire
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-chart-bar"></i> Synthèse budgétaire — Plan PMH {{ plan.annee }}</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="{% url 'plan_action:synthese_comparaison' %}?plans={{ plan.pk }}" class="btn-sm btn-info">
+        <i class="fas fa-balance-scale"></i> Comparer des plans
+      </a>
+      <a href="{% url 'plan_action:export_plan_excel' plan.pk %}" class="btn-sm btn-success">
+        <i class="fas fa-file-excel"></i> Exporter Excel
+      </a>
+      <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-sm btn-dark">
+        <i class="fas fa-arrow-left"></i> Retour au plan
+      </a>
+    </div>
+  </div>
+
+  {% if types_presents %}
+
+  <!-- Rangée 1 : camembert type + statut -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3><i class="fas fa-chart-pie"></i> Répartition du budget par type d'action</h3>
+      <div class="chart-wrap">
+        <canvas id="chartBudget"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fas fa-circle-half-stroke"></i> Répartition des actions par statut</h3>
+      <div class="chart-wrap">
+        <canvas id="chartStatut"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rangée 2 : G1 commune + G2 province -->
+  {% if g1_data %}
+  <div class="charts-row" style="margin-bottom:28px;">
+    <div class="chart-card">
+      <h3><i class="fas fa-city"></i> Budget prévu par commune (MAD)</h3>
+      <div class="chart-wrap-tall">
+        <canvas id="chartCommune"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3><i class="fas fa-map"></i> Budget prévu par province</h3>
+      <div class="chart-wrap">
+        <canvas id="chartProvince"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tableau croisé -->
+  <div class="section-title">
+    <i class="fas fa-table"></i> Tableau croisé : Communes × Types d'action (budget prévu en MAD)
+  </div>
+
+  <div class="table-wrap">
+    <table class="pivot">
+      <thead>
+        <tr>
+          <th class="col-commune">Commune</th>
+          {% for ta in types_presents %}
+          <th title="{{ type_labels|dict_get:ta }}">{{ ta }}</th>
+          {% endfor %}
+          <th style="background:#f0a500;color:#1a1a2e;">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for commune in communes %}
+        <tr>
+          <td class="td-commune">{{ commune.nom_fr }}</td>
+          {% for ta in types_presents %}
+            {% with val=matrice|dict_get:commune.pk %}
+              {% with budget=val|dict_get:ta %}
+              <td {% if not budget %}class="zero"{% endif %}>
+                {% if budget %}{{ budget|floatformat:0 }}{% else %}—{% endif %}
+              </td>
+              {% endwith %}
+            {% endwith %}
+          {% endfor %}
+          <td style="font-weight:700;color:#1a1a2e;">
+            {{ totaux_commune|dict_get:commune.pk|floatformat:0 }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td class="td-commune">TOTAL</td>
+          {% for ta in types_presents %}
+          <td>{{ totaux_type|dict_get:ta|floatformat:0 }}</td>
+          {% endfor %}
+          <td class="grand-total">{{ total_general|floatformat:0 }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Légende codes ACT -->
+  <div style="margin-top:18px;">
+    <div style="font-size:11.5px;font-weight:700;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px;">Légende des codes</div>
+    <div class="legend-grid">
+      {% for ta in types_presents %}
+      <div class="legend-item">
+        <span class="legend-dot" style="background:{{ chart_colors|list_index:forloop.counter0 }};"></span>
+        <span><b>{{ ta }}</b> — {{ type_labels|dict_get:ta }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% else %}
+  <div style="text-align:center;padding:60px;color:#aaa;">
+    <i class="fas fa-chart-bar" style="font-size:36px;color:#ddd;display:block;margin-bottom:12px;"></i>
+    Aucune action dans ce plan. Ajoutez des actions pour générer la synthèse.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if types_presents %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const LABELS  = {{ chart_labels|safe }};
+const DATA    = {{ chart_data|safe }};
+const COLORS  = {{ chart_colors|safe }};
+
+// Camembert budget par type d'action
+new Chart(document.getElementById('chartBudget'), {
+  type: 'doughnut',
+  data: {
+    labels: LABELS,
+    datasets: [{ data: DATA, backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 14, padding: 10 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString('fr-MA')} MAD`
+        }
+      }
+    }
+  }
+});
+
+// Camembert statuts
+const STATUT_LABELS = ['Programmé', 'En cours', 'Réalisé', 'Annulé'];
+const STATUT_DATA   = [
+  {{ statuts_data.programme }},
+  {{ statuts_data.en_cours }},
+  {{ statuts_data.realise }},
+  {{ statuts_data.annule }},
+];
+const STATUT_COLORS = ['#3498db', '#f0a500', '#27ae60', '#aaa'];
+
+new Chart(document.getElementById('chartStatut'), {
+  type: 'doughnut',
+  data: {
+    labels: STATUT_LABELS,
+    datasets: [{ data: STATUT_DATA, backgroundColor: STATUT_COLORS, borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, boxWidth: 14, padding: 10 } },
+      tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} action(s)` }
+      }
+    }
+  }
+});
+
+// G1 — Bar horizontale budget par commune
+{% if g1_data %}
+const G1_LABELS = {{ g1_labels|safe }};
+const G1_DATA   = {{ g1_data|safe }};
+const G1_COLORS = G1_LABELS.map((_, i) => {
+  const t = i / Math.max(G1_LABELS.length - 1, 1);
+  const r = Math.round(26  + t * (240 - 26));
+  const g = Math.round(26  + t * (165 - 26));
+  const b = Math.round(46  + t * (0   - 46));
+  return `rgb(${r},${g},${b})`;
+});
+
+new Chart(document.getElementById('chartCommune'), {
+  type: 'bar',
+  data: {
+    labels: G1_LABELS,
+    datasets: [{
+      label: 'Budget prévu (MAD)',
+      data: G1_DATA,
+      backgroundColor: G1_COLORS,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.parsed.x.toLocaleString('fr-MA')} MAD`
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { font: { size: 10, family: 'Inter' }, callback: v => (v/1000).toLocaleString('fr-MA') + ' k' },
+        grid: { color: '#f0e8d8' }
+      },
+      y: { ticks: { font: { size: 10, family: 'Inter' } }, grid: { display: false } }
+    }
+  }
+});
+
+// G2 — Donut budget par province
+const G2_LABELS = {{ g2_labels|safe }};
+const G2_DATA   = {{ g2_data|safe }};
+const G2_COLORS = {{ g2_colors|safe }};
+
+new Chart(document.getElementById('chartProvince'), {
+  type: 'doughnut',
+  data: {
+    labels: G2_LABELS,
+    datasets: [{ data: G2_DATA, backgroundColor: G2_COLORS, borderWidth: 3, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 12, family: 'Inter' }, boxWidth: 14, padding: 12 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.label} : ${ctx.parsed.toLocaleString('fr-MA')} MAD`
+        }
+      }
+    }
+  }
+});
+{% endif %}
+</script>
+{% endif %}
+{% endblock %}

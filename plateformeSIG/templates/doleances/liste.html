@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Mes doléances & demandes — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+.page-header h1 { font-size: 18px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.page-header h1 i { color: #f0a500; }
+
+.filter-bar { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 14px 18px; margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.filter-bar select { padding: 8px 11px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; }
+.filter-bar select:focus { outline: none; border-color: #f0a500; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11.5px; font-weight: 600; color: #888; }
+.btn-filter { padding: 8px 16px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 5px; align-self: flex-end; }
+.btn-filter:hover { background: #2a2a4e; }
+.btn-reset { padding: 8px 12px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: 'Inter', sans-serif; align-self: flex-end; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.btn-reset:hover { background: #ead8c5; }
+.btn-sm { display: inline-flex; align-items: center; gap: 5px; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .2s; }
+.btn-accent { background: #f0a500; color: #1a1a2e; }
+.btn-accent:hover { background: #d4920a; }
+
+.table-wrap { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 14px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { background: #fdf8f0; padding: 11px 14px; text-align: left; font-size: 11.5px; font-weight: 700; color: #888; border-bottom: 1.5px solid #f0e8d8; white-space: nowrap; }
+tbody tr { border-bottom: 1px solid #f5ede0; transition: background .15s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #fdf8f0; }
+td { padding: 11px 14px; color: #1a1a2e; vertical-align: middle; }
+td.ref { font-weight: 700; font-size: 12px; color: #f0a500; white-space: nowrap; }
+td.titre { max-width: 260px; }
+td.titre a { color: #1a1a2e; text-decoration: none; font-weight: 600; }
+td.titre a:hover { color: #f0a500; }
+
+/* Badges statut */
+.badge-statut { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.badge-soumise     { background: #e8f4fd; color: #1a6fa8; }
+.badge-en_cours    { background: #fff3cd; color: #856404; }
+.badge-en_attente  { background: #fde8e8; color: #c0392b; }
+.badge-traitee     { background: #d1f7e0; color: #156b3c; }
+.badge-cloturee    { background: #f0f0f0; color: #555; }
+.badge-rejetee     { background: #fde8e8; color: #c0392b; }
+
+/* Badges urgence */
+.badge-urgence { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+.urg-faible   { background: #e8f5e9; color: #2e7d32; }
+.urg-normale  { background: #e8f4fd; color: #1565c0; }
+.urg-haute    { background: #fff3e0; color: #e65100; }
+.urg-critique { background: #fde8e8; color: #c0392b; }
+
+/* Délai badge (F-DD-10) */
+.delai-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+.delai-vert   { background: #d1f7e0; color: #156b3c; }
+.delai-orange { background: #fff3cd; color: #856404; }
+.delai-rouge  { background: #fde8e8; color: #c0392b; }
+
+.empty-state { text-align: center; padding: 60px; color: #aaa; }
+.empty-state i { font-size: 40px; color: #ddd; display: block; margin-bottom: 12px; }
+
+.pagination { display: flex; gap: 6px; justify-content: center; margin-top: 28px; align-items: center; }
+.page-btn { padding: 7px 13px; border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; border: 1.5px solid #e0d0c0; color: #1a1a2e; background: #fff; }
+.page-btn:hover { background: #fdf8f0; border-color: #f0a500; }
+.page-btn.active { background: #f0a500; border-color: #f0a500; color: #1a1a2e; }
+.page-btn.disabled { opacity: .45; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> › Doléances & Demandes
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-flag"></i> Mes requêtes</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% if user.role == 'operateur' or user.role == 'administrateur' or user.is_superuser %}
+      <a href="{% url 'doleances:tableau_de_bord' %}" class="btn-sm" style="background:#1a1a2e;color:#fff;">
+        <i class="fas fa-tachometer-alt"></i> Tableau de bord
+      </a>
+      {% endif %}
+      <a href="{% url 'doleances:nouvelle' %}" class="btn-sm btn-accent">
+        <i class="fas fa-plus"></i> Nouvelle requête
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" class="filter-bar">
+    <div class="filter-group">
+      <label>Type</label>
+      <select name="type">
+        <option value="">Tous</option>
+        <option value="plateforme" {% if filtre_type == 'plateforme' %}selected{% endif %}>Signalement plateforme</option>
+        <option value="acces"      {% if filtre_type == 'acces' %}selected{% endif %}>Demande d'accès</option>
+        <option value="perimetre"  {% if filtre_type == 'perimetre' %}selected{% endif %}>Requête terrain</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Statut</label>
+      <select name="statut">
+        <option value="">Tous</option>
+        <option value="soumise"    {% if filtre_statut == 'soumise' %}selected{% endif %}>Soumise</option>
+        <option value="en_cours"   {% if filtre_statut == 'en_cours' %}selected{% endif %}>En cours</option>
+        <option value="en_attente" {% if filtre_statut == 'en_attente' %}selected{% endif %}>En attente</option>
+        <option value="traitee"    {% if filtre_statut == 'traitee' %}selected{% endif %}>Traitée</option>
+        <option value="cloturee"   {% if filtre_statut == 'cloturee' %}selected{% endif %}>Clôturée</option>
+        <option value="rejetee"    {% if filtre_statut == 'rejetee' %}selected{% endif %}>Rejetée</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Filtrer</button>
+    {% if filtre_type or filtre_statut %}
+    <a href="{% url 'doleances:liste' %}" class="btn-reset"><i class="fas fa-times"></i> Réinit.</a>
+    {% endif %}
+  </form>
+
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Référence</th>
+          <th>Titre</th>
+          <th>Type</th>
+          <th>Urgence</th>
+          <th>Statut</th>
+          <th>Périmètre</th>
+          <th>Délai</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for req in page_obj %}
+        {% with delta=maintenant|timeuntil:req.date_soumission heures=req.date_soumission|timesince:maintenant %}
+        <tr>
+          <td class="ref">{{ req.reference }}</td>
+          <td class="titre">
+            <a href="{% url 'doleances:detail' req.pk %}">{{ req.titre }}</a>
+          </td>
+          <td>{{ req.get_type_requete_display }}</td>
+          <td>
+            <span class="badge-urgence urg-{{ req.urgence }}">{{ req.get_urgence_display|truncatechars:12 }}</span>
+          </td>
+          <td>{% include "doleances/_badge_statut.html" with statut=req.statut %}</td>
+          <td>{{ req.perimetre|default:"—" }}</td>
+          <td>
+            {# Indicateur délai F-DD-10 : vert < 48h, orange < 5j, rouge > 5j #}
+            {% with age_h=req.date_soumission|timesince %}
+            {% if req.statut not in 'traitee,cloturee,rejetee' %}
+              {% comment %}
+              Calcul côté Python via annotation, ici estimation par affichage.
+              On affiche l'ancienneté brute — couleur gérée en JS ou via templatetag.
+              {% endcomment %}
+              <span class="delai-badge" data-soumission="{{ req.date_soumission|date:'c' }}">—</span>
+            {% else %}
+              <span style="color:#aaa;font-size:11px;">—</span>
+            {% endif %}
+            {% endwith %}
+          </td>
+          <td style="white-space:nowrap;font-size:12px;color:#888;">{{ req.date_soumission|date:"d/m/Y" }}</td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&type={{ filtre_type }}&statut={{ filtre_statut }}" class="page-btn"><i class="fas fa-chevron-left"></i></a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+        <span class="page-btn active">{{ num }}</span>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}&type={{ filtre_type }}&statut={{ filtre_statut }}" class="page-btn">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&type={{ filtre_type }}&statut={{ filtre_statut }}" class="page-btn"><i class="fas fa-chevron-right"></i></a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-flag"></i>
+    {% if filtre_type or filtre_statut %}
+      Aucune requête ne correspond aux filtres.
+    {% else %}
+      Vous n'avez pas encore soumis de requête.<br>
+      <a href="{% url 'doleances:nouvelle' %}" style="color:#f0a500;font-weight:600;text-decoration:none;margin-top:8px;display:inline-block;">+ Soumettre une première requête</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+/* Indicateur délai F-DD-10 : vert <48h, orange <5j, rouge >5j */
+document.querySelectorAll('.delai-badge[data-soumission]').forEach(function(el) {
+  var soumis  = new Date(el.dataset.soumission);
+  var maintenant = new Date();
+  var heures  = (maintenant - soumis) / 3600000;
+  var texte, cls;
+  if (heures < 48) {
+    texte = Math.round(heures) + ' h'; cls = 'delai-vert';
+  } else if (heures < 120) {
+    texte = Math.round(heures / 24) + ' j'; cls = 'delai-orange';
+  } else {
+    texte = Math.round(heures / 24) + ' j'; cls = 'delai-rouge';
+  }
+  el.textContent = texte;
+  el.classList.add(cls);
+});
+</script>
+{% endblock %}

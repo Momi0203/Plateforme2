@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<style>
+.pg-hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:20px 32px;}
+.pg-hero h1{font-size:17px;font-weight:700;color:#fff;margin:0 0 3px;display:flex;align-items:center;gap:10px;}
+.pg-hero .sub{font-size:12px;color:rgba(255,255,255,.45);}
+.pg-body{max-width:600px;margin:32px auto;padding:0 24px;}
+.fc{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;margin-bottom:14px;overflow:hidden;}
+.fc-hd{padding:12px 18px;background:#fafaf8;border-bottom:1.5px solid #f0e8d8;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;}
+.fc-hd i{color:#f0a500;}
+.fc-bd{padding:20px 18px;}
+.fg{margin-bottom:16px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:12.5px;font-weight:600;color:#555;margin-bottom:6px;}
+.form-control{width:100%;padding:9px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;color:#1a1a2e;box-sizing:border-box;}
+.form-control:focus{outline:none;border-color:#f0a500;box-shadow:0 0 0 3px rgba(240,165,0,.1);}
+select.form-control{cursor:pointer;}
+ul.errorlist{color:#c0392b;font-size:11.5px;list-style:none;margin:4px 0 0;padding:0;}
+.form-actions{padding:14px 18px;background:#f9f3ea;display:flex;gap:10px;border-top:1.5px solid #f0e8d8;}
+.btn-save{background:#f0a500;color:#1a1a2e;border:none;border-radius:8px;padding:10px 24px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:7px;}
+.btn-save:hover{background:#d4920a;}
+.btn-cancel{background:#eee;color:#444;border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;display:inline-flex;align-items:center;gap:7px;}
+.btn-cancel:hover{background:#ddd;}
+.info-box{background:#e8f4fd;border-radius:8px;padding:12px 16px;font-size:12.5px;color:#1a5276;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg-hero">
+  <h1><i class="fas fa-stream" style="color:#f0a500;"></i>{{ titre }}</h1>
+  <div class="sub">Périmètre : {{ perimetre }}</div>
+</div>
+
+<div class="pg-body">
+  <div class="info-box">
+    <i class="fas fa-info-circle"></i>
+    Saisissez ici le nom et le type de la séguia. Les tronçons (dimensions, efficiences, géométrie) s'ajoutent ensuite depuis la liste.
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="fc">
+      <div class="fc-hd"><i class="fas fa-tag"></i> Identification de la séguia</div>
+      <div class="fc-bd">
+        <div class="fg">
+          <label>{{ form.nom_de_la_seguia.label }}</label>
+          {{ form.nom_de_la_seguia }}
+          {{ form.nom_de_la_seguia.errors }}
+        </div>
+        <div class="fg">
+          <label>{{ form.type_deguia.label }}</label>
+          {{ form.type_deguia }}
+          {{ form.type_deguia.errors }}
+        </div>
+      </div>
+    </div>
+
+    <div class="fc form-actions">
+      <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer</button>
+      <a href="{% url 'diagnostic:reseaux_irrigation_detail' pk=perimetre.pk %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

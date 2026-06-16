@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titre }} — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-hero { background: linear-gradient(135deg,#1a1a2e 0%,#232347 100%); padding: 24px 32px; }
+.form-hero h1 { font-size: 17px; font-weight: 700; color: #fff; margin: 0; }
+.form-hero .sub { font-size: 12.5px; color: rgba(255,255,255,.6); margin-top: 4px; }
+.form-body { max-width: 660px; margin: 32px auto; padding: 0 24px; }
+
+/* Wizard steps */
+.wizard-steps { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+.wizard-step { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; }
+.wizard-step.active { background: #f0a500; color: #1a1a2e; }
+.wizard-step.done { background: #e0f5e9; color: #1e8449; }
+.wizard-step.pending { background: #f3f3f3; color: #bbb; }
+.wizard-sep { flex: 1; height: 2px; background: #e0e0e0; margin: 0 6px; }
+
+.shp-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.08); overflow: hidden; }
+.shp-card-body { padding: 28px; }
+.shp-info { background: #fff8ee; border-left: 4px solid #f0a500; border-radius: 0 8px 8px 0;
+    padding: 14px 16px; margin-bottom: 24px; font-size: 13px; color: #7a5500; }
+.shp-info strong { display: block; margin-bottom: 6px; }
+.shp-info ul { margin: 0; padding-left: 18px; }
+.shp-info li { margin-bottom: 3px; }
+.section-title { font-size: 12px; font-weight: 700; color: #1a1a2e; text-transform: uppercase;
+    letter-spacing: .8px; margin: 4px 0 10px; display: flex; align-items: center; gap: 8px; }
+.section-title i { color: #f0a500; }
+.form-group { margin-bottom: 18px; }
+label { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; display: block; }
+.help-text { font-size: 11.5px; color: #999; margin-top: 3px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px;
+    font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 12px; list-style: none; padding-left: 0; margin-top: 5px; }
+ul.errorlist li::before { content: '⚠ '; }
+.type-hint { background: #eef5ff; border: 1px solid #c8dafe; color: #1d4f9e; border-radius: 8px;
+    padding: 9px 12px; font-size: 12px; margin-top: 8px; display: none; }
+.type-hint.visible { display: block; }
+.form-actions { padding: 18px 28px; background: #f9f3ea; display: flex; gap: 10px; }
+.btn-submit { background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; padding: 11px 24px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { background: #eee; color: #444; border: none; border-radius: 8px; padding: 11px 18px;
+    font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 7px; }
+.btn-cancel:hover { background: #ddd; }
+.perimetre-block { transition: opacity .25s; }
+.perimetre-block.muted { opacity: .45; pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-hero">
+    <h1><i class="fas fa-file-import" style="color:#f0a500;margin-right:10px;"></i>Importer un shapefile</h1>
+    <div class="sub">Choisissez le type d'objet, le périmètre rattaché, puis le fichier .zip</div>
+</div>
+
+<div class="form-body">
+    <!-- Indicateur d'étapes -->
+    <div class="wizard-steps">
+        <div class="wizard-step active"><i class="fas fa-upload"></i> Étape 1 — Upload</div>
+        <div class="wizard-sep"></div>
+        <div class="wizard-step pending"><i class="fas fa-exchange-alt"></i> Étape 2 — Correspondance</div>
+    </div>
+
+    <div class="shp-card">
+        <div class="shp-card-body">
+            <div class="shp-info">
+                <strong><i class="fas fa-info-circle"></i> Comment préparer votre fichier ?</strong>
+                <ul>
+                    <li>Compressez <strong>.shp</strong>, <strong>.dbf</strong>, <strong>.shx</strong> (et optionnellement <strong>.prj</strong>) dans un fichier <strong>.zip</strong>.</li>
+                    <li>Un seul SHP peut contenir plusieurs entités (ex : plusieurs seuils du même périmètre).</li>
+                    <li>Les noms de colonnes seront affichés à l'étape suivante pour être associés aux champs du modèle.</li>
+                </ul>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="section-title"><i class="fas fa-layer-group"></i> Type d'objet importé</div>
+                <div class="form-group">
+                    <label for="id_type_donnee">{{ form.type_donnee.label }} <span style="color:#c0392b">*</span></label>
+                    {{ form.type_donnee }}
+                    {% if form.type_donnee.errors %}{{ form.type_donnee.errors }}{% endif %}
+                    <div id="type-hint" class="type-hint"><span id="type-hint-text"></span></div>
+                </div>
+
+                <div class="section-title"><i class="fas fa-map-marked-alt"></i> Périmètre de rattachement</div>
+                <div class="form-group perimetre-block" id="perimetre-block">
+                    <label for="id_perimetre">{{ form.perimetre.label }}</label>
+                    {{ form.perimetre }}
+                    <div class="help-text">{{ form.perimetre.help_text }}</div>
+                    {% if form.perimetre.errors %}{{ form.perimetre.errors }}{% endif %}
+                </div>
+
+                <div class="section-title"><i class="fas fa-file-archive"></i> Fichier shapefile (.zip)</div>
+                <div class="form-group">
+                    <label for="id_fichier_zip">{{ form.fichier_zip.label }} <span style="color:#c0392b">*</span></label>
+                    {{ form.fichier_zip }}
+                    <div class="help-text">{{ form.fichier_zip.help_text }}</div>
+                    {% if form.fichier_zip.errors %}{{ form.fichier_zip.errors }}{% endif %}
+                </div>
+        </div>
+        <div class="form-actions">
+                <button type="submit" class="btn-submit"><i class="fas fa-arrow-right"></i> Suivant — Correspondance</button>
+                <a href="{% url 'diagnostic:accueil_diagnostic' %}" class="btn-cancel"><i class="fas fa-times"></i> Annuler</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const TYPE_HINTS = {
+        'perimetre': "Import de <b>périmètres agricoles</b>. Le sélecteur de périmètre est ignoré.",
+        'seuil':     "Import de <b>seuils hydrauliques</b>. Sélectionnez le périmètre de rattachement.",
+        'barrage':   "Import de <b>barrages de retenue</b>.",
+        'khettara':  "Import de <b>khettaras</b>.",
+        'forage':    "Import de <b>forages / puits</b>.",
+        'mur':       "Import de <b>murs de protection</b>.",
+        'prise':     "Import de <b>prises locales</b>.",
+        'seguia':    "Import de <b>séguias</b>. Sélectionnez le périmètre de rattachement.",
+    };
+    const sel = document.getElementById('id_type_donnee');
+    const hint = document.getElementById('type-hint');
+    const hintText = document.getElementById('type-hint-text');
+    const perimBlock = document.getElementById('perimetre-block');
+    const perimSelect = document.getElementById('id_perimetre');
+    function refresh() {
+        const v = sel.value;
+        hintText.innerHTML = TYPE_HINTS[v] || '';
+        hint.style.display = TYPE_HINTS[v] ? 'block' : 'none';
+        const noPerim = (v === 'perimetre');
+        perimBlock.classList.toggle('muted', noPerim);
+        if (noPerim && perimSelect) perimSelect.value = '';
+    }
+    sel.addEventListener('change', refresh);
+    refresh();
+})();
+</script>
+{% endblock %}

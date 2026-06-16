@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Accès refusé — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.error-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; padding: 40px; }
+.error-code { font-size: 96px; font-weight: 900; color: #f0e8d8; line-height: 1; margin-bottom: 0; }
+.error-icon { font-size: 56px; color: #e74c3c; margin-bottom: 16px; }
+.error-title { font-size: 22px; font-weight: 800; color: #1a1a2e; margin-bottom: 10px; }
+.error-msg { font-size: 14px; color: #777; max-width: 440px; line-height: 1.6; margin-bottom: 28px; }
+.error-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; background: #1a1a2e; color: #fff; }
+.btn-back:hover { background: #2a2a4e; }
+.btn-home { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; background: #f0a500; color: #1a1a2e; }
+.btn-home:hover { background: #d4920a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-page">
+  <div class="error-code">403</div>
+  <div class="error-icon"><i class="fas fa-lock"></i></div>
+  <div class="error-title">Accès refusé</div>
+  <div class="error-msg">
+    {% if message %}
+      {{ message }}
+    {% else %}
+      Vous ne disposez pas des droits nécessaires pour accéder à cette page.
+      Contactez un administrateur si vous pensez qu'il s'agit d'une erreur.
+    {% endif %}
+  </div>
+  <div class="error-actions">
+    <a href="javascript:history.back()" class="btn-back"><i class="fas fa-arrow-left"></i> Retour</a>
+    <a href="{% url 'accueil' %}" class="btn-home"><i class="fas fa-home"></i> Accueil</a>
+  </div>
+</div>
+{% endblock %}

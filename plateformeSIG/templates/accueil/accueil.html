@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Accueil — HydroPlan SIG | ORMVA Tafilalet{% endblock %}
+
+{% block extra_css %}
+<style>
+    /*
+     * ── DONNÉES DÉVELOPPEUR ─────────────────────────────────────────
+     *
+     * Diaporama royal :
+     * images = [
+     *   { titre: "Mohammed VI", image: "/static/mohamed6.png",
+     *     discours: "لقد جعلنا من النهوض بالقطاع الفلاحي ركيزة أساسية في نموذجنا التنموي... مع ضرورة الابتكار لمواجهة شح المياه وتغير المناخ",
+     *     duree: 10 },
+     *   { titre: "Hassan II",   image: "/static/hassan2.png",
+     *     discours: "إننا نريد أن نجعل من المغرب بلداً أخضر... بعيداً عن التقلبات",
+     *     duree: 10 }
+     * ]
+     *
+     * Projets PMH (carrousel 3 par 3) :
+     * projets = [
+     *   { image: "/static/1.png", description: "Réhabilitation du réseau d'irrigation PMH — Erfoud" },
+     *   { image: "/static/2.png", description: "Aménagement des seguias traditionnelles — Rissani" },
+     *   { image: "/static/3.png", description: "Modernisation des ouvrages de prise — Tinjdad" },
+     *   { image: "/static/4.png", description: "Extension du périmètre irrigué PMH — Aoufous" },
+     *   { image: "/static/5.png", description: "Réhabilitation des khettaras — Fezna" },
+     *   { image: "/static/6.png", description: "Suivi et diagnostic des réseaux d'irrigation — Jorf" }
+     * ]
+     * ──────────────────────────────────────────────────────────────── */
+
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── DIAPORAMA ROYAL ── */
+    .royal-sw { border-radius: 16px; overflow: hidden; margin-bottom: 28px; position: relative; background: #0d0d1c; }
+    .royal-slide { display: none; }
+    .royal-slide.active { display: flex; animation: fadeIn .7s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Texte à gauche, image à droite */
+    .royal-content {
+        flex: 1; padding: 38px 44px;
+        background: linear-gradient(135deg, #1a1a2e 55%, #0f3460);
+        display: flex; flex-direction: column; justify-content: center;
+    }
+    .royal-slide-img { width: 320px; min-height: 320px; object-fit: cover; flex-shrink: 0; display: block; background: #1a1a2e; }
+
+    .royal-label { display: inline-flex; align-items: center; gap: 7px; background: rgba(240,165,0,.15); color: #f0a500; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; width: fit-content; }
+    .royal-name { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 18px; }
+    .royal-name span { color: #f0a500; }
+    .royal-quote { direction: ltr; font-size: 15px; line-height: 1.8; color: rgba(255,255,255,.9); font-style: italic; border-left: 3px solid #f0a500; padding-left: 16px; font-family: 'Segoe UI', Arial, sans-serif; }
+
+    .slide-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: #f0a500; width: 0; }
+    .slide-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; }
+    .slide-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.3); border: none; cursor: pointer; padding: 0; transition: background .2s, transform .2s; }
+    .slide-dot.active { background: #f0a500; transform: scale(1.3); }
+
+    /* ── CARROUSEL PMH 3-EN-3 (effet roue) ── */
+    .pmh-wrap {
+        position: relative; height: 400px; border-radius: 16px;
+        background: #0d0d1c; margin-bottom: 28px; overflow: hidden;
+        perspective: 1400px; /* donne le relief 3D */
+    }
+
+    .pmh-slot {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        border-radius: 14px; overflow: hidden;
+        transition: transform .75s cubic-bezier(.4,0,.2,1), opacity .75s ease, filter .75s ease;
+        cursor: pointer;
+    }
+    .pmh-slot img { width: 100%; height: 100%; object-fit: cover; display: block; background: #c8b49a; }
+
+    /* Trois positions de la roue */
+    .pos-left   { transform: translateX(-42%) rotateY(34deg) scale(.70); opacity: .35; filter: brightness(.45); z-index: 1; }
+    .pos-center { transform: translateX(0)   rotateY(0deg)  scale(1);   opacity: 1;   filter: brightness(1);   z-index: 3; }
+    .pos-right  { transform: translateX(42%) rotateY(-34deg) scale(.70); opacity: .35; filter: brightness(.45); z-index: 1; }
+    /* Sorties hors-écran */
+    .pos-exit-l { transform: translateX(-130%) rotateY(60deg) scale(.4); opacity: 0; z-index: 0; }
+    .pos-exit-r { transform: translateX(130%) rotateY(-60deg) scale(.4); opacity: 0; z-index: 0; }
+
+    /* Légende centrale */
+    .pmh-caption {
+        position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%);
+        text-align: center; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.8);
+        z-index: 10; pointer-events: none; white-space: nowrap;
+    }
+    .pmh-cap-num  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #f0a500; margin-bottom: 4px; }
+    .pmh-cap-text { font-size: 15px; font-weight: 600; }
+
+    /* Flèches navigation */
+    .pmh-arrow {
+        position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+        background: rgba(255,255,255,.12); border: none; color: #fff;
+        width: 38px; height: 38px; border-radius: 50%; font-size: 20px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        transition: background .2s;
+    }
+    .pmh-arrow:hover { background: rgba(240,165,0,.5); }
+    .pmh-arrow-l { left: 14px; }
+    .pmh-arrow-r { right: 14px; }
+
+    @media (max-width: 900px) { .royal-slide-img { width: 220px; } }
+    @media (max-width: 600px) {
+        .royal-slide.active { flex-direction: column; }
+        .royal-slide-img { width: 100%; min-height: unset; height: 200px; }
+        .royal-content { padding: 24px 20px; }
+        .pmh-wrap { height: 280px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+    <!-- ══ DIAPORAMA ROYAL — texte à gauche, photo à droite ══ -->
+    <div class="royal-sw">
+
+        <div class="royal-slide active">
+            <div class="royal-content">
+                <span class="royal-label"><i class="fas fa-star"></i> Discours Royal</span>
+                <div class="royal-name">Sa Majesté le Roi <span>Mohammed VI</span></div>
+                <p class="royal-quote">"Nous avons fait de la promotion du secteur agricole un pilier fondamental de notre modèle de développement. Aujourd'hui, à travers la stratégie 'Génération Green', nous aspirons à consolider les acquis et à réaliser un saut qualitatif plaçant l'élément humain au cœur des priorités, notamment par l'émergence d'une classe moyenne agricole..."</p>
+            </div>
+            <img class="royal-slide-img" src="{% static 'mohamed6.webp' %}" alt="Mohammed VI"
+                 onerror="this.onerror=null;this.style.minHeight='320px'">
+        </div>
+
+        <div class="royal-slide">
+            <div class="royal-content">
+                <span class="royal-label"><i class="fas fa-star"></i> Discours Royal</span>
+                <div class="royal-name">Sa Majesté le Roi <span>Hassan II</span></div>
+                <p class="royal-quote">"Nous voulons faire du Maroc un pays vert, et cela ne sera possible qu'en maîtrisant l'eau. La politique que nous avons adoptée, la politique des barrages, n'est pas un simple choix technique, mais un choix civilisationnel et fatidique. L'agriculture est la richesse permanente du Maroc qui ne s'épuise jamais..."</p>
+            </div>
+            <img class="royal-slide-img" src="{% static 'hassan2.webp' %}" alt="Hassan II"
+                 onerror="this.onerror=null;this.style.minHeight='320px'">
+        </div>
+
+        <div class="slide-progress" id="royalBar"></div>
+        <div class="slide-dots" id="royalDots">
+            <button class="slide-dot active" onclick="royalGo(0)"></button>
+            <button class="slide-dot"        onclick="royalGo(1)"></button>
+        </div>
+    </div>
+
+    <!-- ══ CARROUSEL PMH — 3 photos en roue ══ -->
+    <div class="pmh-wrap" id="pmhWrap">
+        <!-- 3 slots recyclables -->
+        <div class="pmh-slot pos-left"   id="pmhS0"><img id="pmhI0" onerror="this.onerror=null"></div>
+        <div class="pmh-slot pos-center" id="pmhS1"><img id="pmhI1" onerror="this.onerror=null"></div>
+        <div class="pmh-slot pos-right"  id="pmhS2"><img id="pmhI2" onerror="this.onerror=null"></div>
+
+        <!-- Légende du centre -->
+        <div class="pmh-caption">
+            <div class="pmh-cap-num"  id="pmhNum"></div>
+            <div class="pmh-cap-text" id="pmhDesc"></div>
+        </div>
+
+        <!-- Flèches -->
+        <button class="pmh-arrow pmh-arrow-l" onclick="pmhGo(-1)">&#8249;</button>
+        <button class="pmh-arrow pmh-arrow-r" onclick="pmhGo(1)">&#8250;</button>
+
+        <div class="slide-progress" id="pmhBar"></div>
+        <div class="slide-dots" id="pmhDots"></div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ─── DIAPORAMA ROYAL ─── */
+(function () {
+    const slides = document.querySelectorAll('.royal-slide');
+    const dots   = document.querySelectorAll('#royalDots .slide-dot');
+    const bar    = document.getElementById('royalBar');
+    const DUR = 10000;
+    let cur = 0, t;
+
+    window.royalGo = function (i) {
+        slides[cur].classList.remove('active');
+        dots[cur].classList.remove('active');
+        cur = i;
+        slides[cur].classList.add('active');
+        dots[cur].classList.add('active');
+        bar.style.transition = 'none'; bar.style.width = '0';
+        setTimeout(() => { bar.style.transition = `width ${DUR}ms linear`; bar.style.width = '100%'; }, 30);
+        clearTimeout(t);
+        t = setTimeout(() => royalGo((cur + 1) % slides.length), DUR);
+    };
+    royalGo(0);
+})();
+
+/* ─── CARROUSEL PMH 3-EN-3 (effet roue) ─── */
+(function () {
+    /* Données — modifier ici pour mettre à jour les projets */
+    const DATA = [
+        { src: "{% static '1.png' %}", num: 'Projet 01', desc: "Réhabilitation du réseau d'irrigation PMH — Erfoud" },
+        { src: "{% static '2.png' %}", num: 'Projet 02', desc: "Aménagement des seguias traditionnelles — Rissani" },
+        { src: "{% static '3.png' %}", num: 'Projet 03', desc: "Modernisation des ouvrages de prise — Tinjdad" },
+        { src: "{% static '4.png' %}", num: 'Projet 04', desc: "Extension du périmètre irrigué PMH — Aoufous" },
+        { src: "{% static '5.png' %}", num: 'Projet 05', desc: "Réhabilitation des khettaras — Fezna" },
+        { src: "{% static '6.png' %}", num: 'Projet 06', desc: "Suivi et diagnostic des réseaux d'irrigation — Jorf" }
+    ];
+    const N = DATA.length;
+    let cur = 0, busy = false, autoT;
+
+    /* Tableau des 3 slots — toujours [gauche, centre, droite] */
+    const slots = [
+        document.getElementById('pmhS0'),
+        document.getElementById('pmhS1'),
+        document.getElementById('pmhS2')
+    ];
+
+    /* Génère les points de navigation */
+    const dotsWrap = document.getElementById('pmhDots');
+    DATA.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'slide-dot' + (i === 0 ? ' active' : '');
+        d.addEventListener('click', () => pmhGoTo(i));
+        dotsWrap.appendChild(d);
+    });
+
+    function img(slot) { return slot.querySelector('img'); }
+
+    function setCaption() {
+        document.getElementById('pmhNum').textContent  = DATA[cur].num + ' — ORMVA Tafilalet';
+        document.getElementById('pmhDesc').textContent = DATA[cur].desc;
+    }
+
+    function setDots() {
+        dotsWrap.querySelectorAll('.slide-dot').forEach((d, i) => d.classList.toggle('active', i === cur));
+    }
+
+    function resetTimer() {
+        clearTimeout(autoT);
+        const bar = document.getElementById('pmhBar');
+        bar.style.transition = 'none'; bar.style.width = '0';
+        setTimeout(() => { bar.style.transition = 'width 10000ms linear'; bar.style.width = '100%'; }, 30);
+        autoT = setTimeout(() => pmhGo(1), 10000);
+    }
+
+    /* Initialisation */
+    function init() {
+        img(slots[0]).src = DATA[(cur - 1 + N) % N].src;
+        img(slots[1]).src = DATA[cur].src;
+        img(slots[2]).src = DATA[(cur + 1) % N].src;
+        slots[0].className = 'pmh-slot pos-left';
+        slots[1].className = 'pmh-slot pos-center';
+        slots[2].className = 'pmh-slot pos-right';
+        setCaption(); setDots(); resetTimer();
+    }
+
+    /* Clic sur les slots latéraux → navigation */
+    document.getElementById('pmhWrap').addEventListener('click', function (e) {
+        const s = e.target.closest('.pmh-slot');
+        if (!s || busy) return;
+        if (s.classList.contains('pos-left'))  pmhGo(-1);
+        if (s.classList.contains('pos-right')) pmhGo(1);
+    });
+
+    window.pmhGo = function (dir) {
+        if (busy) return;
+        busy = true;
+        clearTimeout(autoT);
+
+        if (dir > 0) {
+            /* → gauche sort, centre→gauche, droite→centre */
+            slots[0].className = 'pmh-slot pos-exit-l';
+            slots[1].className = 'pmh-slot pos-left';
+            slots[2].className = 'pmh-slot pos-center';
+
+            setTimeout(() => {
+                cur = (cur + 1) % N;
+                const recycled = slots.shift();           /* récupère l'ancien gauche */
+                recycled.style.transition = 'none';
+                recycled.className = 'pmh-slot pos-right';
+                img(recycled).src = DATA[(cur + 1) % N].src;
+                recycled.offsetHeight;                     /* force reflow */
+                recycled.style.transition = '';
+                slots.push(recycled);                      /* place-le à droite */
+                finalize();
+            }, 750);
+
+        } else {
+            /* ← droite sort, centre→droite, gauche→centre */
+            slots[2].className = 'pmh-slot pos-exit-r';
+            slots[1].className = 'pmh-slot pos-right';
+            slots[0].className = 'pmh-slot pos-center';
+
+            setTimeout(() => {
+                cur = (cur - 1 + N) % N;
+                const recycled = slots.pop();
+                recycled.style.transition = 'none';
+                recycled.className = 'pmh-slot pos-left';
+                img(recycled).src = DATA[(cur - 1 + N) % N].src;
+                recycled.offsetHeight;
+                recycled.style.transition = '';
+                slots.unshift(recycled);
+                finalize();
+            }, 750);
+        }
+    };
+
+    function pmhGoTo(i) {
+        if (i === cur) return;
+        pmhGo(i > cur ? 1 : -1);
+    }
+
+    function finalize() {
+        setCaption(); setDots(); resetTimer();
+        busy = false;
+    }
+
+    init();
+})();
+</script>
+{% endblock %}

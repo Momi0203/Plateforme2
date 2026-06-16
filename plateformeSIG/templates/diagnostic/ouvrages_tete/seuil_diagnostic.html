@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% block title %}Diagnostic — {{ seuil.nom_du_seuil }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.pg-hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:20px 32px;}
+.pg-hero h1{font-size:18px;font-weight:700;color:#fff;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+.pg-hero .sub{font-size:12.5px;color:rgba(255,255,255,.55);}
+.pg-body{display:grid;grid-template-columns:1fr 380px;gap:22px;padding:26px 32px;align-items:start;}
+@media(max-width:960px){.pg-body{grid-template-columns:1fr;}}
+
+.fc{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;margin-bottom:14px;overflow:hidden;}
+.fc-hd{padding:12px 18px;background:#fafaf8;border-bottom:1.5px solid #f0e8d8;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;}
+.fc-hd i{color:#f0a500;font-size:13px;}
+.fc-bd{padding:16px 18px;}
+
+/* Read-only KV grid */
+.kv{display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:12px 18px;}
+.kv .lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.kv .val{font-size:13.5px;font-weight:600;color:#1a1a2e;}
+.kv .val .none{color:#bbb;font-weight:400;font-style:italic;}
+
+/* Tables RO (prises/passes) */
+.dim-ro{width:100%;border-collapse:collapse;font-size:13px;}
+.dim-ro th{background:#f8f4ee;padding:7px 10px;text-align:left;font-size:11.5px;font-weight:700;color:#777;border-bottom:1.5px solid #f0e8d8;}
+.dim-ro td{padding:8px 10px;border-bottom:1px solid #f5f0e8;color:#444;}
+.dim-ro td.muted{color:#999;font-size:12px;}
+
+/* Form fields */
+.fg{margin-bottom:13px;}.fg:last-child{margin-bottom:0;}
+label{display:block;font-size:12.5px;font-weight:600;color:#555;margin-bottom:5px;}
+.form-control{width:100%;padding:8px 12px;border:1.5px solid #e0d0c0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;color:#1a1a2e;box-sizing:border-box;}
+.form-control:focus{outline:none;border-color:#f0a500;box-shadow:0 0 0 3px rgba(240,165,0,.1);}
+select.form-control{cursor:pointer;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+
+/* Critères grid */
+.crit-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:12px 18px;}
+@media(max-width:720px){.crit-grid{grid-template-columns:1fr;}}
+
+/* Map */
+.map-card{background:#fff;border-radius:14px;border:1.5px solid #f0e8d8;overflow:hidden;position:sticky;top:78px;}
+.map-hd{padding:12px 16px;background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.map-hd i{color:#f0a500;}
+#diag-map{height:300px;}
+.map-empty{height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#ccc;font-size:13px;gap:10px;text-align:center;}
+.map-empty i{font-size:32px;}
+
+.form-actions{padding:14px 18px;background:#f9f3ea;display:flex;gap:10px;border-top:1.5px solid #f0e8d8;}
+.btn-save{background:#f0a500;color:#1a1a2e;border:none;border-radius:8px;padding:10px 24px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:7px;}
+.btn-save:hover{background:#d4920a;}
+.btn-cancel{background:#eee;color:#444;border:none;border-radius:8px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;text-decoration:none;display:inline-flex;align-items:center;gap:7px;}
+.btn-cancel:hover{background:#ddd;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pg-hero">
+  <h1><i class="fas fa-clipboard-check" style="color:#f0a500;"></i> Diagnostic du seuil — {{ seuil.nom_du_seuil }}</h1>
+  <div class="sub">Périmètre : {{ seuil.perimetre }}</div>
+</div>
+
+<div class="pg-body">
+  <!-- LEFT : lecture seule + formulaire diagnostic -->
+  <div>
+    <!-- Identification (lecture seule) -->
+    <div class="fc">
+      <div class="fc-hd"><i class="fas fa-tag"></i> Identification</div>
+      <div class="fc-bd">
+        <div class="kv">
+          <div><div class="lbl">Nom du seuil</div><div class="val">{{ seuil.nom_du_seuil }}</div></div>
+          <div><div class="lbl">Périmètre</div><div class="val">{{ seuil.perimetre }}</div></div>
+          <div><div class="lbl">Localisation</div><div class="val">{% if seuil.localisation_du_seuil %}{{ seuil.localisation_du_seuil }}{% else %}<span class="none">—</span>{% endif %}</div></div>
+          <div><div class="lbl">Coord. X (m)</div><div class="val">{% if seuil.coordonnes_x %}{{ seuil.coordonnes_x }}{% else %}<span class="none">—</span>{% endif %}</div></div>
+          <div><div class="lbl">Coord. Y (m)</div><div class="val">{% if seuil.coordonnes_y %}{{ seuil.coordonnes_y }}{% else %}<span class="none">—</span>{% endif %}</div></div>
+          <div><div class="lbl">Nature</div><div class="val">{{ seuil.nature_du_seuil }}</div></div>
+          <div><div class="lbl">Type</div><div class="val">{{ seuil.type_du_seuil }}</div></div>
+          <div><div class="lbl">Matériaux</div><div class="val">{{ seuil.materiaux_de_construction }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dimensions principales (lecture seule) -->
+    <div class="fc">
+      <div class="fc-hd"><i class="fas fa-ruler-combined"></i> Dimensions principales</div>
+      <div class="fc-bd">
+        <div class="kv">
+          <div><div class="lbl">Débit mobilisé (l/s)</div><div class="val">{{ seuil.debit_mobilise }}</div></div>
+          <div><div class="lbl">Longueur (m)</div><div class="val">{{ seuil.longueur }}</div></div>
+          <div><div class="lbl">Largeur de base (m)</div><div class="val">{{ seuil.largeur_de_base }}</div></div>
+          <div><div class="lbl">Hauteur (m)</div><div class="val">{{ seuil.hauteur }}</div></div>
+          <div><div class="lbl">Largeur tapis (m)</div><div class="val">{{ seuil.largeur_tapis_amortissement }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prises d'eau + Passes de dégrèvement (lecture seule) -->
+    <div class="fc">
+      <div class="fc-hd"><i class="fas fa-arrows-alt-h"></i> Prises d'eau & passes de dégrèvement</div>
+      <div class="fc-bd">
+        <table class="dim-ro">
+          <thead><tr><th>Élément</th><th>Longueur (m)</th><th>Largeur (m)</th><th>Nbr pertuis</th></tr></thead>
+          <tbody>
+            <tr><td class="muted">Prise rive droite</td>
+              <td>{{ seuil.longueur_prise_droit|default:"—" }}</td>
+              <td>{{ seuil.largeur_prise_droit|default:"—" }}</td>
+              <td>{{ seuil.nbr_pertuis_prise_droit|default:"—" }}</td></tr>
+            <tr><td class="muted">Prise rive gauche</td>
+              <td>{{ seuil.longueur_prise_gauche|default:"—" }}</td>
+              <td>{{ seuil.largeur_prise_gauche|default:"—" }}</td>
+              <td>{{ seuil.nbr_pertuis_prise_gauche|default:"—" }}</td></tr>
+            <tr><td class="muted">Dégrèvement rive droite</td>
+              <td>{{ seuil.longueur_degrevement_droit|default:"—" }}</td>
+              <td>{{ seuil.largeur_degrevement_droit|default:"—" }}</td>
+              <td>{{ seuil.nbr_pertuis_degrevement_droit|default:"—" }}</td></tr>
+            <tr><td class="muted">Dégrèvement rive gauche</td>
+              <td>{{ seuil.longueur_degrevement_gauche|default:"—" }}</td>
+              <td>{{ seuil.largeur_degrevement_gauche|default:"—" }}</td>
+              <td>{{ seuil.nbr_pertuis_degrevement_gauche|default:"—" }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Formulaire diagnostic ───────────────────────────────────── -->
+    <form method="post" id="etat-form" novalidate>
+      {% csrf_token %}
+
+      <!-- État général -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-clipboard-check"></i> État général</div>
+        <div class="fc-bd">
+          <div class="r2">
+            <div class="fg">
+              <label>{{ form.date_diagnostic.label }}</label>
+              {{ form.date_diagnostic }}{{ form.date_diagnostic.errors }}
+            </div>
+            <div class="fg"></div>
+            <div class="fg">
+              <label>État construction / fonctionnement</label>
+              {{ form.etat_construction_fonctionnement }}
+              {{ form.etat_construction_fonctionnement.errors }}
+            </div>
+            <div class="fg">
+              <label>État matériel hydromécanique</label>
+              {{ form.etat_materiel_hydromecanique }}
+              {{ form.etat_materiel_hydromecanique.errors }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- État détaillé : 10 critères notés 0-5 -->
+      <div class="fc">
+        <div class="fc-hd"><i class="fas fa-list-ol"></i> État détaillé — 10 critères (note 0–5)</div>
+        <div class="fc-bd">
+          <div class="crit-grid">
+            <div class="fg"><label>{{ form.etat_structurel_digue.label }}</label>{{ form.etat_structurel_digue }}</div>
+            <div class="fg"><label>{{ form.affouillement_aval.label }}</label>{{ form.affouillement_aval }}</div>
+            <div class="fg"><label>{{ form.envasement_retenue.label }}</label>{{ form.envasement_retenue }}</div>
+            <div class="fg"><label>{{ form.murs_guideaux.label }}</label>{{ form.murs_guideaux }}</div>
+            <div class="fg"><label>{{ form.radier_aval.label }}</label>{{ form.radier_aval }}</div>
+            <div class="fg"><label>{{ form.etat_vannes.label }}</label>{{ form.etat_vannes }}</div>
+            <div class="fg"><label>{{ form.dessableur.label }}</label>{{ form.dessableur }}</div>
+            <div class="fg"><label>{{ form.degradation_beton.label }}</label>{{ form.degradation_beton }}</div>
+            <div class="fg"><label>{{ form.infiltration_fuite.label }}</label>{{ form.infiltration_fuite }}</div>
+            <div class="fg"><label>{{ form.limiteur_debit.label }}</label>{{ form.limiteur_debit }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fc form-actions">
+        <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer le diagnostic</button>
+        <a href="{% url 'diagnostic:suivi_seuils' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Retour</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- RIGHT : géométrie -->
+  <div>
+    <div class="map-card">
+      <div class="map-hd"><i class="fas fa-map"></i> Géométrie de l'ouvrage</div>
+      {% if seuil.geometrie %}
+        <div id="diag-map"></div>
+      {% else %}
+        <div class="map-empty">
+          <i class="fas fa-map-marker-alt"></i>
+          <span>Aucune géométrie enregistrée<br>pour ce seuil</span>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if etat.editeur or etat.updated_at %}
+    <div class="fc" style="margin-top:14px;">
+      <div class="fc-hd"><i class="fas fa-user-edit"></i> Dernière édition</div>
+      <div class="fc-bd" style="font-size:12.5px;color:#555;">
+        {% if etat.editeur %}<div><strong>Éditeur :</strong> {{ etat.editeur }}</div>{% endif %}
+        {% if etat.updated_at %}<div><strong>Mise à jour :</strong> {{ etat.updated_at|date:"d/m/Y H:i" }}</div>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+{% if seuil.geometrie %}
+const geom = {{ seuil.geometrie.geojson|safe }};
+const map = L.map('diag-map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(map);
+const layer = L.geoJSON(geom,{
+  pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:9,color:'#f0a500',fillColor:'#f0a500',fillOpacity:.8})
+}).addTo(map);
+try{ map.fitBounds(layer.getBounds(),{padding:[30,30]}); }catch(e){ map.setView([32,-5],6); }
+{% endif %}
+</script>
+{% endblock %}

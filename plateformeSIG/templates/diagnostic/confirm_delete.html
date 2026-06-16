@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmer la suppression — Diagnostic{% endblock %}
+
+{% block extra_css %}
+<style>
+.del-wrap { max-width: 480px; margin: 60px auto; padding: 0 24px; }
+.del-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,.1);
+    padding: 36px; text-align: center; }
+.del-icon { width: 64px; height: 64px; background: #fff0f0; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; margin: 0 auto 20px; }
+.del-icon i { font-size: 28px; color: #e74c3c; }
+.del-card h2 { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }
+.del-card p { font-size: 14px; color: #666; margin-bottom: 24px; }
+.del-actions { display: flex; gap: 12px; justify-content: center; }
+.btn-confirm { background: #e74c3c; color: #fff; border: none; border-radius: 8px; padding: 11px 24px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-confirm:hover { background: #c0392b; }
+.btn-back { background: #eee; color: #444; border-radius: 8px; padding: 11px 24px;
+    font-size: 14px; font-weight: 600; text-decoration: none; }
+.btn-back:hover { background: #ddd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="del-wrap">
+    <div class="del-card">
+        <div class="del-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <h2>Confirmer la suppression</h2>
+        <p>Vous allez supprimer <strong>{{ objet }}</strong>. Cette action est irréversible.</p>
+        <div class="del-actions">
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn-confirm"><i class="fas fa-trash"></i> Supprimer</button>
+            </form>
+            <a href="{{ cancel_url }}" class="btn-back"><i class="fas fa-arrow-left"></i> Annuler</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

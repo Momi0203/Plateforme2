@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titre }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 820px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 28px; }
+.form-card h2 { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 22px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+.form-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+.btn-submit { padding: 11px 28px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+.section-divider { font-size: 11px; font-weight: 700; color: #f0a500; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1.5px solid #f0e8d8; padding-bottom: 6px; margin: 20px 0 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    {{ titre }}
+  </div>
+
+  <div class="form-card">
+    <h2><i class="fas fa-tools"></i> {{ titre }}</h2>
+    <div style="font-size:12.5px;color:#888;margin-bottom:20px;">
+      Plan : <b>{{ plan.annee }} — {{ plan.titre }}</b>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="section-divider">Localisation</div>
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.commune.id_for_label }}">{{ form.commune.label }} *</label>
+          {{ form.commune }}
+          {{ form.commune.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.perimetre.id_for_label }}">{{ form.perimetre.label }}</label>
+          {{ form.perimetre }}
+          <div class="form-help">Optionnel — lier à un périmètre agricole existant</div>
+          {{ form.perimetre.errors }}
+        </div>
+      </div>
+
+      <div class="section-divider">Type et description</div>
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.type_action.id_for_label }}">{{ form.type_action.label }} *</label>
+          {{ form.type_action }}
+          {{ form.type_action.errors }}
+        </div>
+        <div class="row2" style="grid-column: span 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label for="{{ form.priorite.id_for_label }}">{{ form.priorite.label }}</label>
+            {{ form.priorite }}
+            {{ form.priorite.errors }}
+          </div>
+          <div class="form-group">
+            <label for="{{ form.statut.id_for_label }}">{{ form.statut.label }}</label>
+            {{ form.statut }}
+            {{ form.statut.errors }}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.description.id_for_label }}">{{ form.description.label }} *</label>
+        {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+
+      <div class="section-divider">Budget et quantités</div>
+      <div class="row3">
+        <div class="form-group">
+          <label for="{{ form.budget_prevu.id_for_label }}">{{ form.budget_prevu.label }} (MAD) *</label>
+          {{ form.budget_prevu }}
+          {{ form.budget_prevu.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.superficie_concernee.id_for_label }}">{{ form.superficie_concernee.label }}</label>
+          {{ form.superficie_concernee }}
+          <div class="form-help">Pour ACT-10, ACT-11</div>
+          {{ form.superficie_concernee.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.longueur_prevue.id_for_label }}">{{ form.longueur_prevue.label }}</label>
+          {{ form.longueur_prevue }}
+          <div class="form-help">Pour séguias, murs, canaux…</div>
+          {{ form.longueur_prevue.errors }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.observations.id_for_label }}">{{ form.observations.label }}</label>
+        {{ form.observations }}
+        {{ form.observations.errors }}
+      </div>
+
+      {% if form.non_field_errors %}
+      <div style="color:#c0392b;font-size:12px;margin-bottom:10px;">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="form-actions">
+        <a href="{% url 'plan_action:plan_detail' plan.pk %}" class="btn-cancel">
+          <i class="fas fa-times"></i> Annuler
+        </a>
+        <button type="submit" class="btn-submit"><i class="fas fa-save"></i> Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

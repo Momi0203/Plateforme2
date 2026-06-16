@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Rapport d'avancement — {{ tache }} — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<!-- Dropzone.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css">
+<style>
+.page { padding: 28px 32px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.page-header h1 { font-size: 18px; font-weight: 800; color: #1a1a2e; display: flex; align-items: center; gap: 10px; }
+.page-header h1 i { color: #f0a500; }
+
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 24px; margin-bottom: 20px; }
+.form-card h2 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; box-sizing: border-box; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin: 3px 0 0; padding: 0; }
+ul.errorlist li::before { content: '⚠ '; }
+
+/* Slider avancement */
+.av-group { display: flex; align-items: center; gap: 14px; }
+.av-slider { flex: 1; height: 6px; accent-color: #f0a500; cursor: pointer; }
+.av-badge { font-size: 18px; font-weight: 800; min-width: 52px; text-align: center; color: #1a1a2e; }
+
+/* Tâche info box */
+.tache-info { background: #fdf8f0; border: 1.5px solid #f0e8d8; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.ti-item { font-size: 12px; color: #666; }
+.ti-item b { display: block; font-size: 13px; color: #1a1a2e; margin-bottom: 2px; }
+
+/* Dropzone personnalisé */
+.dz-custom { border: 2.5px dashed #e0d0c0; border-radius: 12px; padding: 28px 20px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; background: #fdf8f0; position: relative; min-height: 140px; }
+.dz-custom:hover, .dz-custom.dz-drag-hover { border-color: #f0a500; background: #fff9ed; }
+.dz-custom .dz-message { margin: 0; }
+.dz-custom .dz-icon { font-size: 32px; color: #f0a500; margin-bottom: 10px; }
+.dz-custom .dz-main-text { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.dz-custom .dz-sub-text { font-size: 11.5px; color: #aaa; margin-top: 4px; }
+.dz-custom .dz-preview { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.dz-custom .dz-preview .dz-image img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1.5px solid #e0d0c0; }
+.dz-custom .dz-filename { font-size: 10px; color: #555; max-width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; }
+
+/* Avertissements upload */
+.upload-warn { background: #fff3cd; border-left: 3px solid #f0a500; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; color: #7d5700; margin-top: 8px; display: none; }
+
+/* Boutons submit */
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+.btn-submit { padding: 11px 28px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn-cancel:hover { background: #ead8c5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}">Accueil</a> ›
+    <a href="{% url 'plan_action:plan_list' %}">Plans PMH</a> ›
+    <a href="{% url 'plan_action:plan_detail' plan.pk %}">Plan {{ plan.annee }}</a> ›
+    <a href="{% url 'plan_action:suivi_dashboard' action.pk %}">Suivi</a> ›
+    Rapport — {{ tache.code_tache }}
+  </div>
+
+  <div class="page-header">
+    <h1><i class="fas fa-file-signature"></i> Saisir un rapport d'avancement</h1>
+  </div>
+
+  <!-- Tâche info -->
+  <div class="tache-info">
+    <div class="ti-item"><b>{{ tache.code_tache }}</b>Code</div>
+    <div class="ti-item"><b>{{ tache.nom_tache }}</b>Nom de la tâche</div>
+    <div class="ti-item"><b>{{ tache.responsable.get_full_name|default:tache.responsable.username }}</b>Responsable</div>
+    <div class="ti-item"><b>{{ tache.date_debut_prevue|date:"d/m/Y" }} → {{ tache.date_fin_prevue|date:"d/m/Y" }}</b>Dates prévues</div>
+    <div class="ti-item"><b>{{ tache.duree_prevue }} jours</b>Durée prévue</div>
+    <div class="ti-item"><b>{{ tache.get_statut_tache_display }}</b>Statut actuel</div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="suivi-form" novalidate>
+    {% csrf_token %}
+    <!-- Fichiers collectés par Dropzone (peuplés en JS) -->
+    <input type="file" id="files-hidden" name="fichiers" multiple style="display:none;">
+
+    <!-- Section rapport -->
+    <div class="form-card">
+      <h2><i class="fas fa-edit"></i> Données du rapport</h2>
+
+      {% if form.non_field_errors %}
+      <div style="background:#fde8e8;border-left:3px solid #c0392b;border-radius:6px;padding:10px 14px;font-size:13px;color:#c0392b;margin-bottom:14px;">
+        {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.date_rapport.id_for_label }}">{{ form.date_rapport.label }} *</label>
+          {{ form.date_rapport }}{{ form.date_rapport.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.etat_bloc.id_for_label }}">{{ form.etat_bloc.label }} *</label>
+          {{ form.etat_bloc }}{{ form.etat_bloc.errors }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>{{ form.avancement_pct.label }} * &nbsp;<span style="font-size:11px;color:#aaa;">(glissez ou saisissez un chiffre)</span></label>
+        <div class="av-group">
+          <input type="range" id="av-slider" min="0" max="100" value="{{ form.avancement_pct.value|default:'0' }}" class="av-slider" oninput="syncAv(this.value)">
+          {{ form.avancement_pct }}
+          <span class="av-badge" id="av-display">{{ form.avancement_pct.value|default:'0' }}%</span>
+        </div>
+        {{ form.avancement_pct.errors }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.commentaire.id_for_label }}">{{ form.commentaire.label }}</label>
+        {{ form.commentaire }}{{ form.commentaire.errors }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.date_prochaine_echeance.id_for_label }}">{{ form.date_prochaine_echeance.label }}</label>
+        {{ form.date_prochaine_echeance }}{{ form.date_prochaine_echeance.errors }}
+      </div>
+    </div>
+
+    <!-- Section pièces justificatives -->
+    <div class="form-card">
+      <h2><i class="fas fa-paperclip"></i> Pièces justificatives <span style="font-size:12px;font-weight:400;color:#aaa;">(optionnel)</span></h2>
+
+      <div class="row2" style="margin-bottom:14px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Type de pièce (s'applique à tous les fichiers)</label>
+          <select name="type_piece_global" class="form-control">
+            <option value="pv_attachement">PV d'attachement</option>
+            <option value="pv_reception">PV de réception</option>
+            <option value="photo_chantier" selected>Photo de chantier</option>
+            <option value="rapport_etude">Rapport d'étude</option>
+            <option value="note_administrative">Note administrative</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Zone Dropzone.js -->
+      <div id="dz-upload-area" class="dz-custom">
+        <div class="dz-message">
+          <div class="dz-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+          <div class="dz-main-text">Déposez vos fichiers ici ou cliquez pour parcourir</div>
+          <div class="dz-sub-text">PDF, JPG, PNG, DOCX — max 10 Mo par fichier</div>
+        </div>
+      </div>
+      <div class="upload-warn" id="upload-warn"></div>
+
+      <!-- Compteur fichiers -->
+      <div id="files-count" style="margin-top:10px;font-size:12.5px;color:#888;display:none;">
+        <i class="fas fa-paperclip" style="color:#f0a500;"></i>
+        <span id="files-count-n">0</span> fichier(s) prêt(s) à l'envoi
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="{% url 'plan_action:suivi_dashboard' action.pk %}" class="btn-cancel">
+        <i class="fas fa-times"></i> Annuler
+      </a>
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-save"></i> Enregistrer le rapport
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"></script>
+<script>
+Dropzone.autoDiscover = false;
+
+const ALLOWED_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+const MAX_SIZE = 10 * 1024 * 1024;
+const fileStore = [];
+
+const dz = new Dropzone('#dz-upload-area', {
+  url: '/',
+  autoProcessQueue: false,
+  clickable: true,
+  maxFiles: 20,
+  createImageThumbnails: true,
+  thumbnailWidth: 60,
+  thumbnailHeight: 60,
+  addRemoveLinks: true,
+  dictRemoveFile: '✕',
+  dictCancelUpload: '',
+  previewTemplate: `
+    <div class="dz-preview dz-file-preview" style="display:inline-block;margin:6px;vertical-align:top;text-align:center;">
+      <div class="dz-image">
+        <img data-dz-thumbnail style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1.5px solid #e0d0c0;">
+      </div>
+      <div class="dz-filename" style="font-size:10px;color:#555;max-width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+        <span data-dz-name></span>
+      </div>
+      <a class="dz-remove" href="javascript:undefined;" data-dz-remove style="font-size:11px;color:#e74c3c;display:block;">✕</a>
+    </div>
+  `,
+  init: function () {
+    const self = this;
+    this.on('addedfile', function (file) {
+      // Contrôle MIME client-side (F-A3-03)
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        self.removeFile(file);
+        showWarn(`Type non autorisé : ${file.name}. Formats acceptés : PDF, JPG, PNG, DOCX.`);
+        return;
+      }
+      // Contrôle taille client-side (F-A3-03)
+      if (file.size > MAX_SIZE) {
+        self.removeFile(file);
+        showWarn(`Fichier trop volumineux (>10 Mo) : ${file.name}.`);
+        return;
+      }
+      fileStore.push(file);
+      syncHiddenInput();
+    });
+    this.on('removedfile', function (file) {
+      const idx = fileStore.indexOf(file);
+      if (idx > -1) fileStore.splice(idx, 1);
+      syncHiddenInput();
+    });
+  },
+});
+
+function syncHiddenInput() {
+  const dt = new DataTransfer();
+  fileStore.forEach(f => dt.items.add(f));
+  document.getElementById('files-hidden').files = dt.files;
+
+  const counter = document.getElementById('files-count');
+  const n = document.getElementById('files-count-n');
+  n.textContent = fileStore.length;
+  counter.style.display = fileStore.length > 0 ? 'block' : 'none';
+}
+
+function showWarn(msg) {
+  const el = document.getElementById('upload-warn');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+// ── Slider avancement ─────────────────────────────────────────────────────────
+const slider = document.getElementById('av-slider');
+const numInput = document.querySelector('[name="avancement_pct"]');
+const display = document.getElementById('av-display');
+
+function syncAv(val) {
+  val = Math.max(0, Math.min(100, parseInt(val) || 0));
+  slider.value = val;
+  numInput.value = val;
+  display.textContent = val + '%';
+  display.style.color = val >= 80 ? '#27ae60' : val >= 40 ? '#f0a500' : '#e74c3c';
+}
+
+slider.addEventListener('input', () => syncAv(slider.value));
+numInput.addEventListener('input', () => syncAv(numInput.value));
+syncAv(numInput.value || 0);
+</script>
+{% endblock %}

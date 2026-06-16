@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Nouvelle requête — HydroPlan SIG{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 860px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.form-card { background: #fff; border-radius: 14px; border: 1.5px solid #f0e8d8; padding: 28px; margin-bottom: 18px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.section-title { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #f0a500; margin: 20px 0 12px; padding-bottom: 5px; border-bottom: 1px solid #f0e8d8; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+label .req { color: #e74c3c; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+/* Zone upload PJ */
+.pj-zone { border: 2px dashed #e0d0c0; border-radius: 10px; padding: 20px; text-align: center; background: #fdf8f0; transition: border-color .2s; }
+.pj-zone:hover { border-color: #f0a500; }
+.pj-zone input[type=file] { display: none; }
+.pj-label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f0a500; }
+.pj-hint { font-size: 11.5px; color: #aaa; margin-top: 6px; }
+.pj-list { list-style: none; margin-top: 10px; text-align: left; }
+.pj-list li { font-size: 12px; color: #555; padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+.pj-list li i { color: #f0a500; }
+
+/* Urgence visuelle */
+.urgence-help { font-size: 11px; color: #aaa; margin-top: 3px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.btn-submit { padding: 11px 28px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+
+/* Masque/affiche sections conditionnelles selon type_requete (JS) */
+.section-perimetre, .section-sous-type { display: none; }
+.section-perimetre.visible, .section-sous-type.visible { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> ›
+    <a href="{% url 'doleances:liste' %}">Doléances & Demandes</a> ›
+    Nouvelle requête
+  </div>
+
+  {% if messages %}
+  <div style="margin-bottom:16px;">
+    {% for msg in messages %}
+    <div style="padding:10px 14px;border-radius:8px;margin-bottom:6px;font-size:13px;
+      background:{% if msg.tags == 'success' %}#d1f7e0{% elif msg.tags == 'warning' %}#fff3cd{% else %}#fde8e8{% endif %};
+      color:{% if msg.tags == 'success' %}#156b3c{% elif msg.tags == 'warning' %}#856404{% else %}#c0392b{% endif %};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <!-- Section 1 : Type & titre -->
+    <div class="form-card">
+      <h2><i class="fas fa-flag"></i> Identification de la requête</h2>
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.type_requete.id_for_label }}">Type de requête <span class="req">*</span></label>
+          {{ form.type_requete }}
+          {{ form.type_requete.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.urgence.id_for_label }}">Urgence <span class="req">*</span></label>
+          {{ form.urgence }}
+          {{ form.urgence.errors }}
+          <div class="urgence-help">Critique = intervention immédiate requise</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.titre.id_for_label }}">Titre <span class="req">*</span></label>
+        {{ form.titre }}
+        {{ form.titre.errors }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.description.id_for_label }}">Description détaillée <span class="req">*</span></label>
+        {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+
+      <!-- Sous-type (TYPE_PERIMETRE uniquement) -->
+      <div class="section-sous-type form-group">
+        <label for="{{ form.sous_type.id_for_label }}">Sous-type de problème</label>
+        {{ form.sous_type }}
+        {{ form.sous_type.errors }}
+      </div>
+    </div>
+
+    <!-- Section 2 : Périmètre & ouvrage (TYPE_PERIMETRE uniquement) -->
+    <div class="section-perimetre form-card">
+      <h2><i class="fas fa-map-marker-alt"></i> Localisation terrain</h2>
+
+      <div class="form-group">
+        <label for="{{ form.perimetre.id_for_label }}">Périmètre concerné <span class="req">*</span></label>
+        {{ form.perimetre }}
+        {{ form.perimetre.errors }}
+      </div>
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.ouvrage_type.id_for_label }}">Type d'ouvrage (optionnel)</label>
+          {{ form.ouvrage_type }}
+          {{ form.ouvrage_type.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.ouvrage_id.id_for_label }}">ID de l'ouvrage (optionnel)</label>
+          {{ form.ouvrage_id }}
+          {{ form.ouvrage_id.errors }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3 : Émetteur -->
+    <div class="form-card">
+      <h2><i class="fas fa-user"></i> Profil de l'émetteur</h2>
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.type_emetteur.id_for_label }}">Profil institutionnel <span class="req">*</span></label>
+          {{ form.type_emetteur }}
+          {{ form.type_emetteur.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.organisation.id_for_label }}">Organisation / communauté</label>
+          {{ form.organisation }}
+          {{ form.organisation.errors }}
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="form-group">
+          <label for="{{ form.nom_emetteur.id_for_label }}">Nom (si différent du compte)</label>
+          {{ form.nom_emetteur }}
+          {{ form.nom_emetteur.errors }}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.contact_emetteur.id_for_label }}">Contact (email ou tél.)</label>
+          {{ form.contact_emetteur }}
+          {{ form.contact_emetteur.errors }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4 : Pièces jointes -->
+    <div class="form-card">
+      <h2><i class="fas fa-paperclip"></i> Pièces jointes</h2>
+
+      <div class="pj-zone" id="pjZone">
+        <input type="file" name="fichiers" id="pjInput" multiple
+               accept=".jpg,.jpeg,.png,.pdf,.docx">
+        <label class="pj-label" for="pjInput">
+          <i class="fas fa-cloud-upload-alt"></i> Sélectionner des fichiers
+        </label>
+        <div class="pj-hint">Max 5 fichiers · jpg, png, pdf, docx · 10 Mo chacun</div>
+        <ul class="pj-list" id="pjList"></ul>
+      </div>
+    </div>
+
+    {% if form.non_field_errors %}
+    <div style="color:#c0392b;font-size:12.5px;margin-bottom:12px;padding:10px 14px;background:#fde8e8;border-radius:8px;">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+      <a href="{% url 'doleances:liste' %}" class="btn-cancel">
+        <i class="fas fa-times"></i> Annuler
+      </a>
+      <button type="submit" class="btn-submit">
+        <i class="fas fa-paper-plane"></i> Soumettre la requête
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var typeSelect    = document.getElementById('{{ form.type_requete.id_for_label }}');
+  var secPerimetre  = document.querySelectorAll('.section-perimetre');
+  var secSousType   = document.querySelectorAll('.section-sous-type');
+
+  var hasPerimetreError = {{ form.perimetre.errors|yesno:"true,false" }};
+
+  function toggle() {
+    var v = typeSelect ? typeSelect.value : '';
+    var show = v === 'perimetre' || hasPerimetreError;
+    secPerimetre.forEach(function(el) { el.classList.toggle('visible', show); });
+    secSousType.forEach(function(el)  { el.classList.toggle('visible', v === 'perimetre'); });
+  }
+
+  if (typeSelect) {
+    typeSelect.addEventListener('change', toggle);
+    toggle(); // initialise selon valeur courante (re-rendu après erreur)
+  }
+
+  /* Aperçu des fichiers sélectionnés */
+  var pjInput = document.getElementById('pjInput');
+  var pjList  = document.getElementById('pjList');
+  if (pjInput && pjList) {
+    pjInput.addEventListener('change', function () {
+      pjList.innerHTML = '';
+      var files = Array.from(this.files).slice(0, 5);
+      files.forEach(function(f) {
+        var li = document.createElement('li');
+        li.innerHTML = '<i class="fas fa-file"></i> ' + f.name
+          + ' <span style="color:#aaa;">(' + (f.size > 1048576
+            ? (f.size / 1048576).toFixed(1) + ' Mo'
+            : Math.round(f.size / 1024) + ' Ko') + ')</span>';
+        pjList.appendChild(li);
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

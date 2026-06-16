@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Changer le statut — {{ requete.reference }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.page { padding: 28px 32px; max-width: 700px; }
+.breadcrumb { font-size: 12px; color: #aaa; margin-bottom: 18px; }
+.breadcrumb a { color: #f0a500; text-decoration: none; }
+
+.ctx-card { background: #fdf8f0; border: 1.5px solid #f0e8d8; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.ctx-ref  { font-size: 20px; font-weight: 800; color: #f0a500; white-space: nowrap; }
+.ctx-titre { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+.ctx-meta { font-size: 12px; color: #888; margin-top: 3px; }
+
+.form-card { background: #fff; border: 1.5px solid #f0e8d8; border-radius: 14px; padding: 26px; }
+.form-card h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 22px; display: flex; align-items: center; gap: 8px; }
+.form-card h2 i { color: #f0a500; }
+.form-group { margin-bottom: 18px; }
+label { display: block; font-size: 12.5px; font-weight: 600; color: #555; margin-bottom: 5px; }
+label .req { color: #e74c3c; }
+label .hint { font-weight: 400; color: #aaa; font-size: 11.5px; margin-left: 4px; }
+.form-control { width: 100%; padding: 9px 12px; border: 1.5px solid #e0d0c0; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; background: #fff; color: #1a1a2e; transition: border-color .2s; }
+.form-control:focus { outline: none; border-color: #f0a500; box-shadow: 0 0 0 3px rgba(240,165,0,.1); }
+ul.errorlist { color: #c0392b; font-size: 11.5px; list-style: none; margin-top: 3px; }
+ul.errorlist li::before { content: '⚠ '; }
+
+.transition-hint { margin-top: 8px; padding: 8px 12px; border-radius: 7px; font-size: 12px; display: none; }
+.hint-required  { background: #fff3cd; color: #856404; }
+.hint-optional  { background: #e8f4fd; color: #1565c0; }
+
+.section-reponse { display: none; margin-bottom: 18px; }
+.section-reponse.visible { display: block; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+.btn-submit { padding: 11px 26px; background: #f0a500; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; transition: background .2s; }
+.btn-submit:hover { background: #d4920a; }
+.btn-cancel { padding: 11px 20px; background: #f5ece0; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: background .2s; }
+.btn-cancel:hover { background: #ead8c5; }
+
+.badge-statut { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+.badge-soumise    { background: #e8f4fd; color: #1a6fa8; }
+.badge-en_cours   { background: #fff3cd; color: #856404; }
+.badge-en_attente { background: #fde8e8; color: #c0392b; }
+.badge-traitee    { background: #d1f7e0; color: #156b3c; }
+.badge-cloturee   { background: #f0f0f0; color: #555; }
+.badge-rejetee    { background: #fde8e8; color: #c0392b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="breadcrumb">
+    <a href="{% url 'accueil' %}"><i class="fas fa-home"></i> Accueil</a> ›
+    <a href="{% url 'doleances:tableau_de_bord' %}">Tableau de bord</a> ›
+    <a href="{% url 'doleances:detail' requete.pk %}">{{ requete.reference }}</a> ›
+    Changer le statut
+  </div>
+
+  <!-- Contexte requête -->
+  <div class="ctx-card">
+    <div>
+      <div class="ctx-ref">{{ requete.reference }}</div>
+      <div class="ctx-meta">Statut actuel : {% include "doleances/_badge_statut.html" with statut=requete.statut %}</div>
+    </div>
+    <div style="flex:1;">
+      <div class="ctx-titre">{{ requete.titre }}</div>
+      <div class="ctx-meta">
+        {{ requete.get_type_requete_display }}
+        {% if requete.perimetre %} · {{ requete.perimetre }}{% endif %}
+        · Urgence : {{ requete.get_urgence_display }}
+      </div>
+    </div>
+  </div>
+
+  {% if messages %}
+  <div style="margin-bottom:16px;">
+    {% for msg in messages %}
+    <div style="padding:10px 14px;border-radius:8px;margin-bottom:6px;font-size:13px;
+      background:{% if msg.tags == 'success' %}#d1f7e0{% elif msg.tags == 'warning' %}#fff3cd{% else %}#fde8e8{% endif %};
+      color:{% if msg.tags == 'success' %}#156b3c{% elif msg.tags == 'warning' %}#856404{% else %}#c0392b{% endif %};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="form-card">
+    <h2><i class="fas fa-exchange-alt"></i> Transition de statut</h2>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Nouveau statut -->
+      <div class="form-group">
+        <label for="{{ form.nouveau_statut.id_for_label }}">
+          Nouveau statut <span class="req">*</span>
+        </label>
+        {{ form.nouveau_statut }}
+        {{ form.nouveau_statut.errors }}
+        <div id="transitionHint" class="transition-hint"></div>
+      </div>
+
+      <!-- Commentaire -->
+      <div class="form-group">
+        <label for="{{ form.commentaire.id_for_label }}">
+          Commentaire <span id="commentaireReq" style="color:#e74c3c;display:none;">*</span>
+          <span class="hint" id="commentaireOptHint">(optionnel)</span>
+        </label>
+        {{ form.commentaire }}
+        {{ form.commentaire.errors }}
+      </div>
+
+      <!-- Réponse officielle (affichée si → traitee) -->
+      <div class="section-reponse" id="sectionReponse">
+        <label for="{{ form.reponse_officielle.id_for_label }}">
+          Réponse officielle
+          <span class="hint">(visible par l'émetteur)</span>
+        </label>
+        {{ form.reponse_officielle }}
+        {{ form.reponse_officielle.errors }}
+      </div>
+
+      <!-- Assignation (admin uniquement) -->
+      {% if est_admin %}
+      <div class="form-group">
+        <label for="{{ form.assignee.id_for_label }}">Assignée à</label>
+        {{ form.assignee }}
+        {{ form.assignee.errors }}
+      </div>
+      {% endif %}
+
+      {% if form.non_field_errors %}
+      <div style="color:#c0392b;font-size:12.5px;padding:10px 14px;background:#fde8e8;border-radius:8px;margin-bottom:14px;">
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <a href="{% url 'doleances:detail' requete.pk %}" class="btn-cancel">
+          <i class="fas fa-times"></i> Annuler
+        </a>
+        <button type="submit" class="btn-submit">
+          <i class="fas fa-check"></i> Confirmer la transition
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* Données de transition injectées depuis Django */
+var commentaireRequisMap = {
+  {% for statut, cr in commentaire_requis_map.items %}
+  "{{ statut }}": {{ cr|yesno:"true,false" }},
+  {% endfor %}
+};
+
+var statutSelect     = document.getElementById('{{ form.nouveau_statut.id_for_label }}');
+var hintBox          = document.getElementById('transitionHint');
+var reqStar          = document.getElementById('commentaireReq');
+var optHint          = document.getElementById('commentaireOptHint');
+var sectionReponse   = document.getElementById('sectionReponse');
+
+function updateUI() {
+  var v = statutSelect ? statutSelect.value : '';
+  if (!v) {
+    hintBox.style.display = 'none';
+    reqStar.style.display = 'none';
+    optHint.style.display = 'inline';
+    sectionReponse.classList.remove('visible');
+    return;
+  }
+  var cr = commentaireRequisMap[v];
+  hintBox.textContent = cr
+    ? '⚠ Un commentaire est obligatoire pour cette transition.'
+    : 'ℹ Le commentaire est facultatif pour cette transition.';
+  hintBox.className = 'transition-hint ' + (cr ? 'hint-required' : 'hint-optional');
+  hintBox.style.display = 'block';
+  reqStar.style.display = cr ? 'inline' : 'none';
+  optHint.style.display = cr ? 'none'   : 'inline';
+  sectionReponse.classList.toggle('visible', v === 'traitee');
+}
+
+if (statutSelect) {
+  statutSelect.addEventListener('change', updateUI);
+  updateUI();
+}
+</script>
+{% endblock %}

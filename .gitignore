@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────
+# Environnements virtuels Python
+# ─────────────────────────────────────────────────────────────
+# venv externe (le dépôt est créé à la racine du venv)
+/Include/
+/Lib/
+/Scripts/
+/share/
+/pyvenv.cfg
+# venv interne
+plateformeSIG/venv/
+.venv/
+env/
+
+# ─────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ─────────────────────────────────────────────────────────────
+# Django
+# ─────────────────────────────────────────────────────────────
+# Base de données locale SQLite
+*.sqlite3
+db.sqlite3
+# Fichiers uploadés (media)
+plateformeSIG/media/
+# Sortie de collectstatic (STATIC_ROOT) — régénérable
+/plateformeSIG/static/
+# Logs
+*.log
+local_settings.py
+
+# ─────────────────────────────────────────────────────────────
+# Secrets / configuration locale
+# ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─────────────────────────────────────────────────────────────
+# Éditeurs / OS / outils
+# ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────────────────────────
+# Brouillons / scratch
+# ─────────────────────────────────────────────────────────────
+_geomchk.py
+_ser.py
+mohel.txt
